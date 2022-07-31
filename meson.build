@@ -5,7 +5,7 @@ project('vulkan', 'cpp',
 
 glfw_dep   = dependency('glfw3')
 vulkan_dep = dependency('vulkan')
-exe = executable('vulkan', 'vulkan.cpp', dependencies : [glfw_dep, vulkan_dep],
+exe = executable('vulkan', ['vulkan.cpp', 'main.cpp'], dependencies : [glfw_dep, vulkan_dep],
   install : true)
 
 test('basic', exe)
