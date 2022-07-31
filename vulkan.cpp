@@ -2,8 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-
-#define VK_CHECK(expr) do { if(expr != VK_SUCCESS) { fprintf(stderr, "Vulkan pooped itself:%s\n", #expr); } } while(0)
+#include <vulkan/vulkan_core.h>
 
 namespace vulkan
 {
@@ -209,4 +208,127 @@ namespace vulkan
   {
     vkDestroyImageView(device, image_view, nullptr);
   }
+
+  VkShaderModule create_shader_module(VkDevice device, const std::vector<char>& code)
+  {
+    VkShaderModuleCreateInfo create_info = {};
+    create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    create_info.codeSize = code.size();
+    create_info.pCode    = reinterpret_cast<const uint32_t*>(code.data());
+
+    VkShaderModule shader_module = VK_NULL_HANDLE;
+    VK_CHECK(vkCreateShaderModule(device, &create_info, nullptr, &shader_module));
+    return shader_module;
+  }
+
+  void destroy_shader_module(VkDevice device, VkShaderModule shader_module)
+  {
+    vkDestroyShaderModule(device, shader_module, nullptr);
+  }
+
+  VkPipelineLayout create_empty_pipeline_layout(VkDevice device)
+  {
+    VkPipelineLayoutCreateInfo create_info = {};
+    create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    create_info.setLayoutCount         = 0; // Optional
+    create_info.pSetLayouts            = nullptr; // Optional
+    create_info.pushConstantRangeCount = 0; // Optional
+    create_info.pPushConstantRanges    = nullptr; // Optional
+
+    VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
+    VK_CHECK(vkCreatePipelineLayout(device, &create_info, nullptr, &pipeline_layout));
+    return pipeline_layout;
+  }
+
+  void destroy_pipeline_layout(VkDevice device, VkPipelineLayout pipeline_layout)
+  {
+    vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
+  }
+
+  VkFramebuffer create_framebuffer(VkDevice device, VkRenderPass render_pass, VkImageView attachment, VkExtent2D extent)
+  {
+    VkFramebufferCreateInfo create_info = {};
+    create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    create_info.renderPass = render_pass;
+    create_info.attachmentCount = 1;
+    create_info.pAttachments    = &attachment;
+    create_info.width           = extent.width;
+    create_info.height          = extent.height;
+    create_info.layers          = 1;
+
+    VkFramebuffer framebuffer = VK_NULL_HANDLE;
+    VK_CHECK(vkCreateFramebuffer(device, &create_info, nullptr, &framebuffer));
+    return framebuffer;
+  }
+
+  void destroy_framebuffer(VkDevice device, VkFramebuffer framebuffer)
+  {
+    vkDestroyFramebuffer(device, framebuffer, nullptr);
+  }
+
+  VkCommandPool create_command_pool(VkDevice device, uint32_t queue_family_index)
+  {
+    VkCommandPoolCreateInfo create_info = {};
+    create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    create_info.queueFamilyIndex = queue_family_index;
+
+    VkCommandPool command_pool = VK_NULL_HANDLE;
+    VK_CHECK(vkCreateCommandPool(device, &create_info, nullptr, &command_pool));
+    return command_pool;
+  }
+
+  void destroy_command_pool(VkDevice device, VkCommandPool command_pool)
+  {
+    vkDestroyCommandPool(device, command_pool, nullptr);
+  }
+
+  VkCommandBuffer create_command_buffer(VkDevice device, VkCommandPool command_pool)
+  {
+    VkCommandBufferAllocateInfo allocate_info = {};
+    allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocate_info.commandPool        = command_pool;
+    allocate_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocate_info.commandBufferCount = 1;
+
+    VkCommandBuffer command_buffer = VK_NULL_HANDLE;
+    VK_CHECK(vkAllocateCommandBuffers(device, &allocate_info, &command_buffer));
+    return command_buffer;
+  }
+
+  void destroy_command_buffer(VkDevice device, VkCommandPool command_pool, VkCommandBuffer command_buffer)
+  {
+    vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
+  }
+
+  VkSemaphore create_semaphore(VkDevice device)
+  {
+    VkSemaphoreCreateInfo create_info = {};
+    create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    VkSemaphore semaphore = VK_NULL_HANDLE;
+    VK_CHECK(vkCreateSemaphore(device, &create_info, nullptr, &semaphore));
+    return semaphore;
+  }
+
+  void destroy_semaphore(VkDevice device, VkSemaphore semaphore)
+  {
+    vkDestroySemaphore(device, semaphore, nullptr);
+  }
+
+  VkFence create_fence(VkDevice device, bool signaled)
+  {
+    VkFenceCreateInfo create_info = {};
+    create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    if(signaled) create_info.flags |= VK_FENCE_CREATE_SIGNALED_BIT;
+
+    VkFence fence = VK_NULL_HANDLE;
+    VK_CHECK(vkCreateFence(device, &create_info, nullptr, &fence));
+    return fence;
+  }
+
+  void destroy_fence(VkDevice device, VkFence fence)
+  {
+    vkDestroyFence(device, fence, nullptr);
+  }
+
 }

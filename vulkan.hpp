@@ -6,6 +6,8 @@
 
 #include <vector>
 
+#define VK_CHECK(expr) do { if(expr != VK_SUCCESS) { fprintf(stderr, "Vulkan pooped itself:%s\n", #expr); } } while(0)
+
 namespace vulkan
 {
   VkInstance create_instance(
@@ -47,4 +49,25 @@ namespace vulkan
   std::vector<VkImage> swapchain_get_images(VkDevice device, VkSwapchainKHR swapchain);
   VkImageView create_image_view(VkDevice device, VkImage image, VkFormat format);
   void destroy_image_view(VkDevice device, VkImageView image_view);
+
+  VkShaderModule create_shader_module(VkDevice device, const std::vector<char>& code);
+  void destroy_shader_module(VkDevice device, VkShaderModule shader_module);
+
+  VkPipelineLayout create_empty_pipeline_layout(VkDevice device);
+  void destroy_pipeline_layout(VkDevice device, VkPipelineLayout pipeline_layout);
+
+  VkFramebuffer create_framebuffer(VkDevice device, VkRenderPass render_pass, VkImageView attachment, VkExtent2D extent);
+  void destroy_framebuffer(VkDevice device, VkFramebuffer framebuffer);
+
+  VkCommandPool create_command_pool(VkDevice device, uint32_t queue_family_index);
+  void destroy_command_pool(VkDevice device, VkCommandPool command_pool);
+
+  VkCommandBuffer create_command_buffer(VkDevice device, VkCommandPool command_pool);
+  void destroy_command_buffer(VkDevice device, VkCommandPool command_pool, VkCommandBuffer command_buffer);
+
+  VkSemaphore create_semaphore(VkDevice device);
+  void destroy_semaphore(VkDevice device, VkSemaphore semaphore);
+
+  VkFence create_fence(VkDevice device, bool signaled);
+  void destroy_fence(VkDevice device, VkFence fence);
 }
