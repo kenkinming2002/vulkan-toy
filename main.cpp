@@ -361,104 +361,120 @@ int main()
   auto command_pool = vulkan::create_command_pool(device, 0);
   DEFER(vulkan::destroy_command_pool(device, command_pool));
 
-  auto command_buffer = vulkan::create_command_buffer(device, command_pool);
-  DEFER(vulkan::destroy_command_buffer(device, command_pool, command_buffer));
+  static constexpr size_t MAX_FRAME_IN_FLIGHT = 4;
 
-  auto image_avail_semaphore = vulkan::create_semaphore(device);
-  DEFER(vulkan::destroy_semaphore(device, image_avail_semaphore));
+  VkCommandBuffer command_buffers[MAX_FRAME_IN_FLIGHT]        = {};
+  VkSemaphore image_avail_semaphores[MAX_FRAME_IN_FLIGHT]     = {};
+  VkSemaphore render_finished_semaphores[MAX_FRAME_IN_FLIGHT] = {};
+  VkFence in_flight_fences[MAX_FRAME_IN_FLIGHT]               = {};
 
-  auto render_finished_semaphore = vulkan::create_semaphore(device);
-  DEFER(vulkan::destroy_semaphore(device, render_finished_semaphore));
+  for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
+  {
+    command_buffers[i]            = vulkan::create_command_buffer(device, command_pool);
+    image_avail_semaphores[i]     = vulkan::create_semaphore(device);
+    render_finished_semaphores[i] = vulkan::create_semaphore(device);
+    in_flight_fences[i]           = vulkan::create_fence(device, true);
+  }
 
-  auto in_flight_fence = vulkan::create_fence(device, true);
-  DEFER(vulkan::destroy_fence(device, in_flight_fence));
+  DEFER(
+    for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
+    {
+      vulkan::destroy_command_buffer(device, command_pool, command_buffers[i]);
+      vulkan::destroy_semaphore(device, image_avail_semaphores[i]);
+      vulkan::destroy_semaphore(device, render_finished_semaphores[i]);
+      vulkan::destroy_fence(device, in_flight_fences[i]);
+    }
+  );
+
+
 
   while(!glfwWindowShouldClose(window))
-  {
-    glfwPollEvents();
+    for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
+    {
+      glfwPollEvents();
 
-    vkWaitForFences(device, 1, &in_flight_fence, VK_TRUE, UINT64_MAX);
-    vkResetFences(device, 1, &in_flight_fence);
+      vkWaitForFences(device, 1, &in_flight_fences[i], VK_TRUE, UINT64_MAX);
+      vkResetFences(device, 1, &in_flight_fences[i]);
 
-    uint32_t image_index;
-    vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, image_avail_semaphore, VK_NULL_HANDLE, &image_index);
+      uint32_t image_index;
+      vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, image_avail_semaphores[i], VK_NULL_HANDLE, &image_index);
 
-    // Record the command buffer
-    VK_CHECK(vkResetCommandBuffer(command_buffer, 0));
+      // Record the command buffer
+      VK_CHECK(vkResetCommandBuffer(command_buffers[i], 0));
 
-    VkCommandBufferBeginInfo begin_info = {};
-    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    VK_CHECK(vkBeginCommandBuffer(command_buffer, &begin_info));
+      VkCommandBufferBeginInfo begin_info = {};
+      begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+      VK_CHECK(vkBeginCommandBuffer(command_buffers[i], &begin_info));
 
-    VkRenderPassBeginInfo render_pass_begin_info = {};
-    render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    render_pass_begin_info.renderPass = render_pass;
-    render_pass_begin_info.framebuffer = framebuffers[image_index];
-    render_pass_begin_info.renderArea.offset = {0, 0};
-    render_pass_begin_info.renderArea.extent = extent;
+      VkRenderPassBeginInfo render_pass_begin_info = {};
+      render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+      render_pass_begin_info.renderPass = render_pass;
+      render_pass_begin_info.framebuffer = framebuffers[image_index];
+      render_pass_begin_info.renderArea.offset = {0, 0};
+      render_pass_begin_info.renderArea.extent = extent;
 
-    VkClearValue clear_color = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
-    render_pass_begin_info.clearValueCount = 1;
-    render_pass_begin_info.pClearValues = &clear_color;
+      VkClearValue clear_color = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
+      render_pass_begin_info.clearValueCount = 1;
+      render_pass_begin_info.pClearValues = &clear_color;
 
-    vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+      vkCmdBeginRenderPass(command_buffers[i], &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+      vkCmdBindPipeline(command_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
-    VkViewport viewport = {};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width  = extent.width;
-    viewport.height = extent.height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(command_buffer, 0, 1, &viewport);
+      VkViewport viewport = {};
+      viewport.x = 0.0f;
+      viewport.y = 0.0f;
+      viewport.width  = extent.width;
+      viewport.height = extent.height;
+      viewport.minDepth = 0.0f;
+      viewport.maxDepth = 1.0f;
+      vkCmdSetViewport(command_buffers[i], 0, 1, &viewport);
 
-    VkRect2D scissor = {};
-    scissor.offset = {0, 0};
-    scissor.extent = extent;
-    vkCmdSetScissor(command_buffer, 0, 1, &scissor);
+      VkRect2D scissor = {};
+      scissor.offset = {0, 0};
+      scissor.extent = extent;
+      vkCmdSetScissor(command_buffers[i], 0, 1, &scissor);
 
-    vkCmdDraw(command_buffer, 3, 1, 0, 0);
+      vkCmdDraw(command_buffers[i], 3, 1, 0, 0);
 
-    vkCmdEndRenderPass(command_buffer);
+      vkCmdEndRenderPass(command_buffers[i]);
 
-    VK_CHECK(vkEndCommandBuffer(command_buffer));
+      VK_CHECK(vkEndCommandBuffer(command_buffers[i]));
 
-    // Submit the command buffer
-    VkSemaphore wait_semaphores[] = { image_avail_semaphore };
-    VkSemaphore signal_semaphores[] = { render_finished_semaphore };
+      // Submit the command buffer
+      VkSemaphore wait_semaphores[]   = { image_avail_semaphores[i] };
+      VkSemaphore signal_semaphores[] = { render_finished_semaphores[i] };
 
-    VkPipelineStageFlags wait_stages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+      VkPipelineStageFlags wait_stages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 
-    VkSubmitInfo submit_info = {};
-    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+      VkSubmitInfo submit_info = {};
+      submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-    submit_info.waitSemaphoreCount = 1;
-    submit_info.pWaitSemaphores    = wait_semaphores;
+      submit_info.waitSemaphoreCount = 1;
+      submit_info.pWaitSemaphores    = wait_semaphores;
 
-    submit_info.pWaitDstStageMask  = wait_stages;
+      submit_info.pWaitDstStageMask  = wait_stages;
 
-    submit_info.signalSemaphoreCount = 1;
-    submit_info.pSignalSemaphores    = signal_semaphores;
+      submit_info.signalSemaphoreCount = 1;
+      submit_info.pSignalSemaphores    = signal_semaphores;
 
-    submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers    = &command_buffer;
+      submit_info.commandBufferCount = 1;
+      submit_info.pCommandBuffers    = &command_buffers[i];
 
-    VK_CHECK(vkQueueSubmit(queue, 1, &submit_info, in_flight_fence));
+      VK_CHECK(vkQueueSubmit(queue, 1, &submit_info, in_flight_fences[i]));
 
-    VkPresentInfoKHR present_info = {};
-    present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    present_info.waitSemaphoreCount = 1;
-    present_info.pWaitSemaphores = signal_semaphores;
+      VkPresentInfoKHR present_info = {};
+      present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+      present_info.waitSemaphoreCount = 1;
+      present_info.pWaitSemaphores = signal_semaphores;
 
-    VkSwapchainKHR swapchains[] = { swapchain };
-    present_info.swapchainCount = 1;
-    present_info.pSwapchains    = swapchains;
-    present_info.pImageIndices  = &image_index;
-    present_info.pResults       = nullptr;
+      VkSwapchainKHR swapchains[] = { swapchain };
+      present_info.swapchainCount = 1;
+      present_info.pSwapchains    = swapchains;
+      present_info.pImageIndices  = &image_index;
+      present_info.pResults       = nullptr;
 
-    vkQueuePresentKHR(queue, &present_info);
-  }
+      vkQueuePresentKHR(queue, &present_info);
+    }
 
   vkDeviceWaitIdle(device);
 
