@@ -14,7 +14,19 @@
 #include <assert.h>
 #include <stdlib.h>
 
+template<typename T>
+struct Defer
+{
+  Defer(T func) : func(func) {}
+  ~Defer() { func(); }
+  T func;
+};
+
 #define VK_CHECK(expr) do { if(expr != VK_SUCCESS) { fprintf(stderr, "Vulkan pooped itself:%s\n", #expr); } } while(0)
+
+#define DEFER__(expr, counter) Defer _defer##counter([&](){ expr; })
+#define DEFER_(expr, counter) DEFER__(expr, counter)
+#define DEFER(expr) DEFER_(expr, __COUNTER__)
 
 namespace glfw
 {
@@ -29,251 +41,208 @@ namespace glfw
 
 namespace vulkan
 {
-  class Instance
-  {
-  public:
-    Instance(const char* application_name, uint32_t application_version, const char* engine_name, uint32_t engine_version,
+  VkInstance create_instance(
+      const char* application_name, uint32_t application_version,
+      const char* engine_name, uint32_t engine_version,
       const std::vector<const char*>& extensions,
       const std::vector<const char*>& layers)
-    {
-      VkApplicationInfo application_info = {};
-      application_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-      application_info.pApplicationName   = application_name;
-      application_info.applicationVersion = application_version;
-      application_info.pEngineName        = engine_name;
-      application_info.engineVersion      = engine_version;
-      application_info.apiVersion         = VK_API_VERSION_1_0;
+  {
+    VkApplicationInfo application_info = {};
+    application_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+    application_info.pApplicationName   = application_name;
+    application_info.applicationVersion = application_version;
+    application_info.pEngineName        = engine_name;
+    application_info.engineVersion      = engine_version;
+    application_info.apiVersion         = VK_API_VERSION_1_0;
 
-      VkInstanceCreateInfo instance_create_info = {};
-      instance_create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-      instance_create_info.pApplicationInfo        = &application_info;
-      instance_create_info.enabledExtensionCount   = extensions.size();
-      instance_create_info.ppEnabledExtensionNames = extensions.data();
-      instance_create_info.enabledLayerCount       = layers.size();
-      instance_create_info.ppEnabledLayerNames     = layers.data();
+    VkInstanceCreateInfo instance_create_info = {};
+    instance_create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    instance_create_info.pApplicationInfo        = &application_info;
+    instance_create_info.enabledExtensionCount   = extensions.size();
+    instance_create_info.ppEnabledExtensionNames = extensions.data();
+    instance_create_info.enabledLayerCount       = layers.size();
+    instance_create_info.ppEnabledLayerNames     = layers.data();
 
-      VK_CHECK(vkCreateInstance(&instance_create_info, nullptr, &handle));
-    }
+    VkInstance instance = VK_NULL_HANDLE;
+    VK_CHECK(vkCreateInstance(&instance_create_info, nullptr, &instance));
+    return instance;
+  }
 
-    ~Instance()
-    {
-      vkDestroyInstance(handle, nullptr);
-    }
+  void destroy_instance(VkInstance instance)
+  {
+    vkDestroyInstance(instance, nullptr);
+  }
 
-  public:
-    VkInstance handle;
-  };
-
-  std::vector<VkPhysicalDevice> enumerate_physical_devices(const Instance& instance)
+  std::vector<VkPhysicalDevice> enumerate_physical_devices(VkInstance instance)
   {
     std::vector<VkPhysicalDevice> result;
     {
       uint32_t count;
-      vkEnumeratePhysicalDevices(instance.handle, &count, nullptr);
+      vkEnumeratePhysicalDevices(instance, &count, nullptr);
       result.resize(count);
-      vkEnumeratePhysicalDevices(instance.handle, &count, result.data());
+      vkEnumeratePhysicalDevices(instance, &count, result.data());
     }
     return result;
   }
 
-  struct Device
-  {
-  public:
-    Device(VkPhysicalDevice physical_device, const std::vector<uint32_t>& queue_family_indices, VkPhysicalDeviceFeatures physical_device_features,
+  VkDevice create_device(
+      VkPhysicalDevice physical_device,
+      const std::vector<uint32_t>& queue_family_indices,
+      VkPhysicalDeviceFeatures physical_device_features,
       const std::vector<const char*>& extensions,
       const std::vector<const char*>& layers)
-    {
-      std::vector<VkDeviceQueueCreateInfo> device_queue_create_infos;
-
-      const float queue_priority = 1.0f;
-      for(uint32_t queue_family_index : queue_family_indices)
-      {
-        VkDeviceQueueCreateInfo device_queue_create_info = {};
-        device_queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        device_queue_create_info.queueFamilyIndex = queue_family_index;
-        device_queue_create_info.queueCount = 1;
-        device_queue_create_info.pQueuePriorities = &queue_priority;
-        device_queue_create_infos.push_back(device_queue_create_info);
-      }
-
-      VkDeviceCreateInfo device_create_info = {};
-      device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-      device_create_info.queueCreateInfoCount = device_queue_create_infos.size();
-      device_create_info.pQueueCreateInfos    = device_queue_create_infos.data();
-      device_create_info.pEnabledFeatures     = &physical_device_features;
-      device_create_info.enabledExtensionCount   = extensions.size();
-      device_create_info.ppEnabledExtensionNames = extensions.data();
-      device_create_info.enabledLayerCount       = layers.size();
-      device_create_info.ppEnabledLayerNames     = layers.data();
-
-      VK_CHECK(vkCreateDevice(physical_device, &device_create_info, nullptr, &handle));
-    }
-
-    VkQueue get_queue(uint32_t queue_family_index, uint32_t queue_index)
-    {
-      VkQueue queue = VK_NULL_HANDLE;
-      vkGetDeviceQueue(handle, queue_family_index, queue_index, &queue);
-      return queue;
-    }
-
-    ~Device()
-    {
-      vkDestroyDevice(handle, nullptr);
-    }
-
-  public:
-    VkDevice handle;
-  };
-
-  struct Surface
   {
-  public:
-    Surface(const Instance& instance, GLFWwindow *window)
-      : instance(instance)
+    std::vector<VkDeviceQueueCreateInfo> device_queue_create_infos;
+
+    const float queue_priority = 1.0f;
+    for(uint32_t queue_family_index : queue_family_indices)
     {
-      VK_CHECK(glfwCreateWindowSurface(instance.handle, window, nullptr, &handle));
+      VkDeviceQueueCreateInfo device_queue_create_info = {};
+      device_queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+      device_queue_create_info.queueFamilyIndex = queue_family_index;
+      device_queue_create_info.queueCount = 1;
+      device_queue_create_info.pQueuePriorities = &queue_priority;
+      device_queue_create_infos.push_back(device_queue_create_info);
     }
 
-    ~Surface()
-    {
-      vkDestroySurfaceKHR(instance.handle, handle, nullptr);
-    }
+    VkDeviceCreateInfo device_create_info = {};
+    device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    device_create_info.queueCreateInfoCount = device_queue_create_infos.size();
+    device_create_info.pQueueCreateInfos    = device_queue_create_infos.data();
+    device_create_info.pEnabledFeatures     = &physical_device_features;
+    device_create_info.enabledExtensionCount   = extensions.size();
+    device_create_info.ppEnabledExtensionNames = extensions.data();
+    device_create_info.enabledLayerCount       = layers.size();
+    device_create_info.ppEnabledLayerNames     = layers.data();
 
-  public:
-    const Instance& instance;
-    VkSurfaceKHR handle;
-  };
+    VkDevice device = VK_NULL_HANDLE;
+    VK_CHECK(vkCreateDevice(physical_device, &device_create_info, nullptr, &device));
+    return device;
+  }
 
-  VkSurfaceCapabilitiesKHR get_physical_device_surface_capabilities_khr(VkPhysicalDevice physical_device, const Surface& surface)
+  void destroy_device(VkDevice device)
+  {
+    vkDestroyDevice(device, nullptr);
+  }
+
+  VkQueue device_get_queue(VkDevice device, uint32_t queue_family_index, uint32_t queue_index)
+  {
+    VkQueue queue = VK_NULL_HANDLE;
+    vkGetDeviceQueue(device, queue_family_index, queue_index, &queue);
+    return queue;
+  }
+
+  VkSurfaceKHR create_surface(VkInstance instance, GLFWwindow *window)
+  {
+    VkSurfaceKHR surface;
+    VK_CHECK(glfwCreateWindowSurface(instance, window, nullptr, &surface));
+    return surface;
+  }
+
+  void destroy_surface(VkInstance instance, VkSurfaceKHR surface)
+  {
+    vkDestroySurfaceKHR(instance, surface, nullptr);
+  }
+
+  VkSurfaceCapabilitiesKHR get_physical_device_surface_capabilities_khr(VkPhysicalDevice physical_device, VkSurfaceKHR surface)
   {
     VkSurfaceCapabilitiesKHR result = {};
-    VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface.handle, &result));
+    VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &result));
     return result;
   }
 
-  std::vector<VkSurfaceFormatKHR> get_physical_device_surface_formats_khr(VkPhysicalDevice physical_device, const Surface& surface)
+  std::vector<VkSurfaceFormatKHR> get_physical_device_surface_formats_khr(VkPhysicalDevice physical_device, VkSurfaceKHR surface)
   {
     std::vector<VkSurfaceFormatKHR> result;
     {
       uint32_t count;
-      vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface.handle, &count, nullptr);
+      vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &count, nullptr);
       result.resize(count);
-      vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface.handle, &count, result.data());
+      vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &count, result.data());
     }
     return result;
   }
 
-  std::vector<VkPresentModeKHR> get_physical_device_surface_present_modes_khr(VkPhysicalDevice physical_device, const Surface& surface)
+  std::vector<VkPresentModeKHR> get_physical_device_surface_present_modes_khr(VkPhysicalDevice physical_device, VkSurfaceKHR surface)
   {
     std::vector<VkPresentModeKHR> result;
     {
       uint32_t count;
-      vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface.handle, &count, nullptr);
+      vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &count, nullptr);
       result.resize(count);
-      vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface.handle, &count, result.data());
+      vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &count, result.data());
     }
     return result;
   }
 
-  struct Swapchain
+  VkSwapchainKHR create_swapchain_khr(VkDevice device, VkSurfaceKHR surface, VkExtent2D extent, uint32_t image_count, VkSurfaceFormatKHR surface_format, VkPresentModeKHR present_mode, VkSurfaceTransformFlagBitsKHR transform)
   {
-  public:
-    Swapchain(const Device& device, const Surface& surface, VkExtent2D extent, uint32_t image_count, VkSurfaceFormatKHR surface_format, VkPresentModeKHR present_mode, VkSurfaceTransformFlagBitsKHR transform)
-      : device(device)
-    {
-      VkSwapchainCreateInfoKHR create_info = {};
-      create_info.sType                 = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-      create_info.surface               = surface.handle;
-      create_info.imageExtent           = extent;
-      create_info.minImageCount         = image_count;
-      create_info.imageFormat           = surface_format.format;
-      create_info.imageColorSpace       = surface_format.colorSpace;
-      create_info.imageArrayLayers      = 1;
-      create_info.imageUsage            = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-      create_info.imageSharingMode      = VK_SHARING_MODE_EXCLUSIVE;
-      create_info.queueFamilyIndexCount = 0;
-      create_info.pQueueFamilyIndices   = nullptr;
-      create_info.preTransform          = transform;
-      create_info.compositeAlpha        = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-      create_info.presentMode           = present_mode;
-      create_info.clipped               = VK_TRUE;
-      create_info.oldSwapchain          = VK_NULL_HANDLE;
-      VK_CHECK(vkCreateSwapchainKHR(device.handle, &create_info, nullptr, &handle));
-    }
+    VkSwapchainCreateInfoKHR create_info = {};
+    create_info.sType                 = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    create_info.surface               = surface;
+    create_info.imageExtent           = extent;
+    create_info.minImageCount         = image_count;
+    create_info.imageFormat           = surface_format.format;
+    create_info.imageColorSpace       = surface_format.colorSpace;
+    create_info.imageArrayLayers      = 1;
+    create_info.imageUsage            = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    create_info.imageSharingMode      = VK_SHARING_MODE_EXCLUSIVE;
+    create_info.queueFamilyIndexCount = 0;
+    create_info.pQueueFamilyIndices   = nullptr;
+    create_info.preTransform          = transform;
+    create_info.compositeAlpha        = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    create_info.presentMode           = present_mode;
+    create_info.clipped               = VK_TRUE;
+    create_info.oldSwapchain          = VK_NULL_HANDLE;
 
-    ~Swapchain()
-    {
-      vkDestroySwapchainKHR(device.handle, handle, nullptr);
-    }
+    VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+    VK_CHECK(vkCreateSwapchainKHR(device, &create_info, nullptr, &swapchain));
+    return swapchain;
+  }
 
-    std::vector<VkImage> images()
-    {
-      std::vector<VkImage> result;
-      {
-        uint32_t count;
-        vkGetSwapchainImagesKHR(device.handle, handle, &count, nullptr);
-        result.resize(count);
-        vkGetSwapchainImagesKHR(device.handle, handle, &count, result.data());
-      }
-      return result;
-    }
-
-  public:
-    const Device& device;
-    VkSwapchainKHR handle;
-  };
-
-  struct ImageView
+  void destroy_swapchain_khr(VkDevice device, VkSwapchainKHR swapchain)
   {
-  public:
-    ImageView() : device(nullptr), handle(VK_NULL_HANDLE) {}
+    vkDestroySwapchainKHR(device, swapchain, nullptr);
+  }
 
-  public:
-    ImageView(ImageView&& other)
+  std::vector<VkImage> swapchain_get_images(VkDevice device, VkSwapchainKHR swapchain)
+  {
+    std::vector<VkImage> result;
     {
-      device = std::exchange(other.device, nullptr);
-      handle = std::exchange(other.handle, VK_NULL_HANDLE);
+      uint32_t count;
+      vkGetSwapchainImagesKHR(device, swapchain, &count, nullptr);
+      result.resize(count);
+      vkGetSwapchainImagesKHR(device, swapchain, &count, result.data());
     }
+    return result;
+  }
 
-    ImageView& operator=(ImageView&& other)
-    {
-      std::swap(device, other.device);
-      std::swap(handle, other.handle);
-      return *this;
-    }
+  VkImageView create_image_view(VkDevice device, VkImage image, VkFormat format)
+  {
+    VkImageViewCreateInfo create_info = {};
+    create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    create_info.image = image;
+    create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    create_info.format = format;
+    create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+    create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+    create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+    create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+    create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    create_info.subresourceRange.baseMipLevel = 0;
+    create_info.subresourceRange.levelCount = 1;
+    create_info.subresourceRange.baseArrayLayer = 0;
+    create_info.subresourceRange.layerCount = 1;
 
-  public:
-    ImageView(const Device& device, VkImage image, VkFormat format)
-      : device(&device)
-    {
-      VkImageViewCreateInfo create_info = {};
-      create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-      create_info.image = image;
-      create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-      create_info.format = format;
-      create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-      create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-      create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-      create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-      create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-      create_info.subresourceRange.baseMipLevel = 0;
-      create_info.subresourceRange.levelCount = 1;
-      create_info.subresourceRange.baseArrayLayer = 0;
-      create_info.subresourceRange.layerCount = 1;
+    VkImageView image_view = VK_NULL_HANDLE;
+    VK_CHECK(vkCreateImageView(device, &create_info, nullptr, &image_view));
+    return image_view;
+  }
 
-      VK_CHECK(vkCreateImageView(device.handle, &create_info, nullptr, &handle));
-    }
-
-    ~ImageView()
-    {
-      if(device && handle != VK_NULL_HANDLE)
-        vkDestroyImageView(device->handle, handle, nullptr);
-    }
-
-  public:
-    const Device* device;
-    VkImageView handle;
-  };
+  void destroy_image_view(VkDevice device, VkImageView image_view)
+  {
+    vkDestroyImageView(device, image_view, nullptr);
+  }
 }
 
 template<typename T>
@@ -365,23 +334,27 @@ int main()
   auto required_instance_extensions = glfw::get_required_instance_extensions();
   auto required_device_extensions   = std::vector<const char*>{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
-  auto instance = vulkan::Instance(
+  auto instance = vulkan::create_instance(
       "Vulkan", VK_MAKE_VERSION(1, 0, 0),
       "Engine", VK_MAKE_VERSION(1, 0, 0),
       required_instance_extensions, required_layers
   );
+  DEFER(vulkan::destroy_instance(instance));
 
-  auto surface = vulkan::Surface(instance, window);
+  auto surface = vulkan::create_surface(instance, window);
+  DEFER(vulkan::destroy_surface(instance, surface));
 
   // We want some better way to select them, this is the most annoying part of vulkan
   auto physical_device = vulkan::enumerate_physical_devices(instance).at(0);
   auto queue_family_indices = std::vector<uint32_t>{0};
 
-  auto device = vulkan::Device(
+  auto device = vulkan::create_device(
       physical_device, queue_family_indices, {},
       required_device_extensions, required_layers
   );
-  auto queue = device.get_queue(0, 0);
+  DEFER(vulkan::destroy_device(device));
+
+  auto queue = vulkan::device_get_queue(device, 0, 0);
 
   auto capabilities  = vulkan::get_physical_device_surface_capabilities_khr(physical_device, surface);
   auto formats       = vulkan::get_physical_device_surface_formats_khr(physical_device, surface);
@@ -392,11 +365,14 @@ int main()
   auto format       = select_surface_format_khr(formats);
   auto present_mode = select_present_mode_khr(present_modes);
 
-  auto swapchain = vulkan::Swapchain(device, surface, extent, image_count, format, present_mode, capabilities.currentTransform);
-  auto images      = swapchain.images();
-  auto image_views = std::vector<vulkan::ImageView>();
-  for(const auto& image : images)
-    image_views.emplace_back(device,image, format.format);
+  auto swapchain = vulkan::create_swapchain_khr(device, surface, extent, image_count, format, present_mode, capabilities.currentTransform);
+  DEFER(vulkan::destroy_swapchain_khr(device, swapchain));
+
+  auto images = vulkan::swapchain_get_images(device, swapchain);
+
+  auto image_views = std::vector<VkImageView>();
+  for(const auto& image : images) image_views.push_back(vulkan::create_image_view(device, image, format.format));
+  DEFER(for(const auto& image_view : image_views) { vulkan::destroy_image_view(device, image_view); });
 
   while(!glfwWindowShouldClose(window))
     glfwPollEvents();
