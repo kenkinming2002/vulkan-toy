@@ -12,6 +12,7 @@
 
 #include <stdio.h>
 #include <assert.h>
+#include <vulkan/vulkan_core.h>
 
 namespace vulkan
 {
@@ -181,7 +182,9 @@ namespace vulkan
     std::vector<VertexBindingDescription> vertex_binding_descriptions;
   };
 
-  inline VkPipeline create_pipeline(VkDevice device, VkRenderPass render_pass, PipelineCreateInfo create_info)
+  inline VkPipeline create_pipeline(VkDevice device, VkRenderPass render_pass, PipelineCreateInfo create_info,
+      VkPipelineLayout& pipeline_layout,
+      VkDescriptorSetLayout& descriptor_set_layout)
   {
     VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info = {};
     vertex_input_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -269,7 +272,7 @@ namespace vulkan
     rasterizer_state_create_info.polygonMode             = VK_POLYGON_MODE_FILL;
     rasterizer_state_create_info.lineWidth               = 1.0f;
     rasterizer_state_create_info.cullMode                = VK_CULL_MODE_BACK_BIT;
-    rasterizer_state_create_info.frontFace               = VK_FRONT_FACE_CLOCKWISE;
+    rasterizer_state_create_info.frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer_state_create_info.depthBiasEnable         = VK_FALSE;
     rasterizer_state_create_info.depthBiasConstantFactor = 0.0f; // Optional
     rasterizer_state_create_info.depthBiasClamp          = 0.0f; // Optional
@@ -317,7 +320,25 @@ namespace vulkan
     dynamic_state_create_info.dynamicStateCount = dynamic_states.size();
     dynamic_state_create_info.pDynamicStates    = dynamic_states.data();
 
-    auto pipeline_layout = vulkan::create_empty_pipeline_layout(device);
+    // We no longer have empty pipeline layout
+    VkDescriptorSetLayoutBinding ubo_layout_binding = {};
+    ubo_layout_binding.binding = 0;
+    ubo_layout_binding.descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    ubo_layout_binding.descriptorCount    = 1;
+    ubo_layout_binding.stageFlags         = VK_SHADER_STAGE_VERTEX_BIT;
+    ubo_layout_binding.pImmutableSamplers = nullptr;
+
+    VkDescriptorSetLayoutCreateInfo descriptor_set_layout_create_info = {};
+    descriptor_set_layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    descriptor_set_layout_create_info.bindingCount = 1;
+    descriptor_set_layout_create_info.pBindings    = &ubo_layout_binding;
+    VK_CHECK(vkCreateDescriptorSetLayout(device, &descriptor_set_layout_create_info, nullptr, &descriptor_set_layout));
+
+    VkPipelineLayoutCreateInfo pipeline_layout_create_info = {};
+    pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipeline_layout_create_info.setLayoutCount = 1;
+    pipeline_layout_create_info.pSetLayouts    = &descriptor_set_layout;
+    VK_CHECK(vkCreatePipelineLayout(device, &pipeline_layout_create_info, nullptr, &pipeline_layout));
 
     VkGraphicsPipelineCreateInfo graphics_pipeline_create_info = {};
     graphics_pipeline_create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -341,7 +362,6 @@ namespace vulkan
 
     VkPipeline pipeline = VK_NULL_HANDLE;
     VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &graphics_pipeline_create_info, nullptr, &pipeline));
-    vulkan::destroy_pipeline_layout(device, pipeline_layout);
     return pipeline;
   }
 
@@ -357,8 +377,10 @@ namespace vulkan
     VkExtent2D     extent; // If this change we have to recreate the swapchain but fortunately not the render pass
 
     // TODO: How to support multiple render pass
-    VkRenderPass render_pass;
-    VkPipeline   pipeline;
+    VkRenderPass          render_pass;
+    VkPipelineLayout      pipeline_layout;
+    VkPipeline            pipeline;
+    VkDescriptorSetLayout descriptor_set_layout;
 
     std::vector<VkImage>       images;
     std::vector<VkImageView>   image_views;
@@ -396,7 +418,10 @@ namespace vulkan
 
     // This part need to know about the image format
     render_context.render_pass = create_render_pass(context.device, render_context.format);
-    render_context.pipeline = create_pipeline(context.device, render_context.render_pass, create_info.pipeline);
+    render_context.pipeline = create_pipeline(context.device,
+        render_context.render_pass, create_info.pipeline,
+        render_context.pipeline_layout,
+        render_context.descriptor_set_layout);
 
     render_context.images = vulkan::swapchain_get_images(context.device, render_context.swapchain);
     for(const auto& image : render_context.images)
@@ -421,6 +446,8 @@ namespace vulkan
     render_context.image_views.clear();
 
     vulkan::destroy_pipeline     (context.device, render_context.pipeline);
+    vulkan::destroy_pipeline_layout(context.device, render_context.pipeline_layout);
+    vkDestroyDescriptorSetLayout(context.device, render_context.descriptor_set_layout, nullptr);
     vulkan::destroy_render_pass  (context.device, render_context.render_pass);
     vulkan::destroy_swapchain_khr(context.device, render_context.swapchain);
   }
