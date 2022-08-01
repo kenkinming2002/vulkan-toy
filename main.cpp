@@ -423,6 +423,24 @@ void end_render_frame(const Context& context, RenderInfo render_info, VkSemaphor
   vkQueuePresentKHR(context.queue, &present_info);
 }
 
+struct RenderResource
+{
+  VkCommandBuffer command_buffer;
+  VkSemaphore semaphore_image_available;
+  VkSemaphore semaphore_render_finished;
+  VkFence in_flight_fence;
+};
+
+RenderResource create_render_resouce(const Context& context)
+{
+  RenderResource render_resource = {};
+  render_resource.command_buffer            = vulkan::create_command_buffer(context.device, context.command_pool);
+  render_resource.semaphore_image_available = vulkan::create_semaphore(context.device);
+  render_resource.semaphore_render_finished = vulkan::create_semaphore(context.device);
+  render_resource.in_flight_fence           = vulkan::create_fence(context.device, true);
+  return render_resource;
+}
+
 int main()
 {
   glfwInit();
@@ -432,8 +450,6 @@ int main()
   glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
   GLFWwindow *window = glfwCreateWindow(800, 600, "Vulkan", nullptr, nullptr);
 
-  static constexpr size_t MAX_FRAME_IN_FLIGHT = 4;
-
   ContextCreateInfo create_info = {};
   create_info.application_name    = "Vulkan";
   create_info.application_version = VK_MAKE_VERSION(1, 0, 0);
@@ -442,34 +458,27 @@ int main()
   create_info.window              = window;
   auto context = create_context(create_info);
 
-  VkCommandBuffer command_buffers[MAX_FRAME_IN_FLIGHT]        = {};
-  VkSemaphore image_avail_semaphores[MAX_FRAME_IN_FLIGHT]     = {};
-  VkSemaphore render_finished_semaphores[MAX_FRAME_IN_FLIGHT] = {};
-  VkFence in_flight_fences[MAX_FRAME_IN_FLIGHT]               = {};
+  static constexpr size_t MAX_FRAME_IN_FLIGHT = 4;
+  RenderResource render_resources[MAX_FRAME_IN_FLIGHT];
   for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
-  {
-    command_buffers[i]            = vulkan::create_command_buffer(context.device, context.command_pool);
-    image_avail_semaphores[i]     = vulkan::create_semaphore(context.device);
-    render_finished_semaphores[i] = vulkan::create_semaphore(context.device);
-    in_flight_fences[i]           = vulkan::create_fence(context.device, true);
-  }
+    render_resources[i] = create_render_resouce(context);
 
   while(!glfwWindowShouldClose(window))
-    for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
+    for(const auto& render_resource : render_resources)
     {
       glfwPollEvents();
 
-      vkWaitForFences(context.device, 1, &in_flight_fences[i], VK_TRUE, UINT64_MAX);
-      vkResetFences(context.device, 1, &in_flight_fences[i]);
+      vkWaitForFences(context.device, 1, &render_resource.in_flight_fence, VK_TRUE, UINT64_MAX);
+      vkResetFences(context.device, 1, &render_resource.in_flight_fence);
 
-      auto render_info = begin_render_frame(context, image_avail_semaphores[i]);
+      auto render_info = begin_render_frame(context, render_resource.semaphore_image_available);
       {
         // Record the command buffer
-        VK_CHECK(vkResetCommandBuffer(command_buffers[i], 0));
+        VK_CHECK(vkResetCommandBuffer(render_resource.command_buffer, 0));
 
         VkCommandBufferBeginInfo begin_info = {};
         begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        VK_CHECK(vkBeginCommandBuffer(command_buffers[i], &begin_info));
+        VK_CHECK(vkBeginCommandBuffer(render_resource.command_buffer, &begin_info));
 
         VkRenderPassBeginInfo render_pass_begin_info = {};
         render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -482,8 +491,8 @@ int main()
         render_pass_begin_info.clearValueCount = 1;
         render_pass_begin_info.pClearValues = &clear_color;
 
-        vkCmdBeginRenderPass(command_buffers[i], &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
-        vkCmdBindPipeline(command_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, context.pipeline);
+        vkCmdBeginRenderPass(render_resource.command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdBindPipeline(render_resource.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, context.pipeline);
 
         VkViewport viewport = {};
         viewport.x = 0.0f;
@@ -492,22 +501,22 @@ int main()
         viewport.height = context.extent.height;
         viewport.minDepth = 0.0f;
         viewport.maxDepth = 1.0f;
-        vkCmdSetViewport(command_buffers[i], 0, 1, &viewport);
+        vkCmdSetViewport(render_resource.command_buffer, 0, 1, &viewport);
 
         VkRect2D scissor = {};
         scissor.offset = {0, 0};
         scissor.extent = context.extent;
-        vkCmdSetScissor(command_buffers[i], 0, 1, &scissor);
+        vkCmdSetScissor(render_resource.command_buffer, 0, 1, &scissor);
 
-        vkCmdDraw(command_buffers[i], 3, 1, 0, 0);
+        vkCmdDraw(render_resource.command_buffer, 3, 1, 0, 0);
 
-        vkCmdEndRenderPass(command_buffers[i]);
+        vkCmdEndRenderPass(render_resource.command_buffer);
 
-        VK_CHECK(vkEndCommandBuffer(command_buffers[i]));
+        VK_CHECK(vkEndCommandBuffer(render_resource.command_buffer));
 
         // Submit the command buffer
-        VkSemaphore wait_semaphores[]   = { image_avail_semaphores[i] };
-        VkSemaphore signal_semaphores[] = { render_finished_semaphores[i] };
+        VkSemaphore wait_semaphores[]   = { render_resource.semaphore_image_available };
+        VkSemaphore signal_semaphores[] = { render_resource.semaphore_render_finished };
 
         VkPipelineStageFlags wait_stages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 
@@ -523,11 +532,10 @@ int main()
         submit_info.pSignalSemaphores    = signal_semaphores;
 
         submit_info.commandBufferCount = 1;
-        submit_info.pCommandBuffers    = &command_buffers[i];
+        submit_info.pCommandBuffers    = &render_resource.command_buffer;
 
-        VK_CHECK(vkQueueSubmit(context.queue, 1, &submit_info, in_flight_fences[i]));
-
-        end_render_frame(context, render_info, render_finished_semaphores[i]);
+        VK_CHECK(vkQueueSubmit(context.queue, 1, &submit_info, render_resource.in_flight_fence));
+        end_render_frame(context, render_info, render_resource.semaphore_render_finished);
       }
 
     }
