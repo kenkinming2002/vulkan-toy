@@ -443,11 +443,13 @@ RenderResource create_render_resouce(const Context& context)
 
 struct RenderInfo
 {
+  VkCommandBuffer command_buffer;
 };
 
 RenderInfo begin_render(const Context& context, const RenderResource& render_resource, const FrameInfo& frame_info)
 {
   RenderInfo render_info = {};
+  render_info.command_buffer = render_resource.command_buffer;
 
   VK_CHECK(vkResetCommandBuffer(render_resource.command_buffer, 0));
 
@@ -535,14 +537,14 @@ int main()
       viewport.height = context.extent.height;
       viewport.minDepth = 0.0f;
       viewport.maxDepth = 1.0f;
-      vkCmdSetViewport(render_resource.command_buffer, 0, 1, &viewport);
+      vkCmdSetViewport(render_info.command_buffer, 0, 1, &viewport);
 
       VkRect2D scissor = {};
       scissor.offset = {0, 0};
       scissor.extent = context.extent;
-      vkCmdSetScissor(render_resource.command_buffer, 0, 1, &scissor);
+      vkCmdSetScissor(render_info.command_buffer, 0, 1, &scissor);
 
-      vkCmdDraw(render_resource.command_buffer, 3, 1, 0, 0);
+      vkCmdDraw(render_info.command_buffer, 3, 1, 0, 0);
 
       end_render(context, render_resource, render_info);
       end_frame(context, frame_info, render_resource.semaphore_render_finished);
