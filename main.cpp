@@ -6,6 +6,8 @@
 
 #include <vulkan/vulkan.h>
 
+#include <glm/glm.hpp>
+
 #include <utility>
 #include <limits>
 #include <fstream>
@@ -15,6 +17,7 @@
 #include <iostream>
 
 #include <assert.h>
+#include <string.h>
 #include <stdlib.h>
 
 #define VK_CHECK(expr) do { if(expr != VK_SUCCESS) { fprintf(stderr, "Vulkan pooped itself:%s\n", #expr); } } while(0)
@@ -170,7 +173,42 @@ void destroy_render_pass(VkDevice device, VkRenderPass render_pass)
   vkDestroyRenderPass(device, render_pass, nullptr);
 }
 
-VkPipeline create_pipeline(VkDevice device, VkRenderPass render_pass)
+// Question: What even is important when creating a pipeline
+// Answer:
+// *: Render subpass
+//
+// 1: vertex layout description
+// 2: shaders
+// 3: A lot of misc state config
+//  - input assembly
+//  - viewport
+//  - rasterizer
+//  - multi-sampling
+//  - blending
+//  - dynamic state
+//
+//
+
+// Describe layout of vertex attribute in a single buffer
+struct VertexAttributeDescription
+{
+  enum class Type
+  {
+    FLOAT1, FLOAT2, FLOAT3, FLOAT4 // Which maniac who not use float as vertex input anyway?
+  };
+
+  size_t offset;
+  Type type;
+};
+
+// You need multiple binding description if you use multiple buffer
+struct VertexBindingDescription
+{
+  size_t stride;
+  std::vector<VertexAttributeDescription> attribute_descriptions;
+};
+
+VkPipeline create_pipeline(VkDevice device, VkRenderPass render_pass, const std::vector<VertexBindingDescription>& vertex_binding_descriptions)
 {
   auto vert_shader_module = vulkan::create_shader_module(device, read_file("shaders/vert.spv"));
   auto frag_shader_module = vulkan::create_shader_module(device, read_file("shaders/frag.spv"));
@@ -181,6 +219,52 @@ VkPipeline create_pipeline(VkDevice device, VkRenderPass render_pass)
   vertex_input_state_create_info.pVertexBindingDescriptions      = nullptr;
   vertex_input_state_create_info.vertexAttributeDescriptionCount = 0;
   vertex_input_state_create_info.pVertexAttributeDescriptions    = nullptr;
+
+  std::vector<VkVertexInputBindingDescription>   vertex_input_binding_descriptions;
+  std::vector<VkVertexInputAttributeDescription> vertex_input_attribute_descriptions;
+  {
+    uint32_t binding = 0;
+    for(const auto& vertex_binding_description : vertex_binding_descriptions)
+    {
+      uint32_t location = 0;
+      for(const auto& vertex_attribute_description : vertex_binding_description.attribute_descriptions)
+      {
+        // Vertex input attribute
+        VkVertexInputAttributeDescription vertex_input_attribute_description = {};
+        vertex_input_attribute_description.binding  = binding;
+        vertex_input_attribute_description.location = location;
+
+        switch(vertex_attribute_description.type)
+        {
+        case VertexAttributeDescription::Type::FLOAT1: vertex_input_attribute_description.format = VK_FORMAT_R32_SFLOAT;          break;
+        case VertexAttributeDescription::Type::FLOAT2: vertex_input_attribute_description.format = VK_FORMAT_R32G32_SFLOAT;       break;
+        case VertexAttributeDescription::Type::FLOAT3: vertex_input_attribute_description.format = VK_FORMAT_R32G32B32_SFLOAT;    break;
+        case VertexAttributeDescription::Type::FLOAT4: vertex_input_attribute_description.format = VK_FORMAT_R32G32B32A32_SFLOAT; break;
+        default:
+          fprintf(stderr, "Unknown vertex attribute type\n");
+          abort();
+        }
+        vertex_input_attribute_description.offset   = vertex_attribute_description.offset;
+        vertex_input_attribute_descriptions.push_back(vertex_input_attribute_description);
+
+        ++location;
+      }
+
+      VkVertexInputBindingDescription vertex_input_binding_description = {};
+      vertex_input_binding_description.binding   = binding;
+      vertex_input_binding_description.stride    = vertex_binding_description.stride;
+      vertex_input_binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+      vertex_input_binding_descriptions.push_back(vertex_input_binding_description);
+
+      ++binding;
+    }
+  }
+
+  vertex_input_state_create_info.vertexBindingDescriptionCount = vertex_input_binding_descriptions.size();
+  vertex_input_state_create_info.pVertexBindingDescriptions    = vertex_input_binding_descriptions.data();
+
+  vertex_input_state_create_info.vertexAttributeDescriptionCount = vertex_input_attribute_descriptions.size();
+  vertex_input_state_create_info.pVertexAttributeDescriptions    = vertex_input_attribute_descriptions.data();
 
   VkPipelineInputAssemblyStateCreateInfo input_assembly_state_create_info = {};
   input_assembly_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -300,9 +384,13 @@ void destroy_pipeline(VkDevice device, VkPipeline pipeline)
 
 struct Context
 {
-  VkInstance instance;
-  VkDevice   device;
-  VkQueue    queue;
+  VkInstance       instance;
+
+  VkPhysicalDevice physical_device;
+  uint32_t         queue_family_index;
+
+  VkDevice device;
+  VkQueue  queue;
 
   VkSurfaceKHR   surface;
   VkSwapchainKHR swapchain;
@@ -330,6 +418,12 @@ struct ContextCreateInfo
   GLFWwindow *window;
 };
 
+struct Vertex
+{
+  glm::vec2 pos;
+  glm::vec3 color;
+};
+
 Context create_context(ContextCreateInfo create_info)
 {
   auto required_layers              = std::vector<const char*>{"VK_LAYER_KHRONOS_validation"};
@@ -344,18 +438,17 @@ Context create_context(ContextCreateInfo create_info)
   );
 
   context.surface = vulkan::create_surface(context.instance, create_info.window);
-
-  auto physical_device = vulkan::enumerate_physical_devices(context.instance).at(0);
-  auto queue_family_indices = std::vector<uint32_t>{0};
+  context.physical_device    = vulkan::enumerate_physical_devices(context.instance).at(0);
+  context.queue_family_index = 0;
   context.device = vulkan::create_device(
-      physical_device, queue_family_indices, {},
+      context.physical_device, { context.queue_family_index }, {},
       required_device_extensions, required_layers
   );
-  context.queue = vulkan::device_get_queue(context.device, 0, 0);
+  context.queue = vulkan::device_get_queue(context.device, context.queue_family_index, 0);
 
-  auto capabilities    = vulkan::get_physical_device_surface_capabilities_khr(physical_device, context.surface);
-  auto surface_formats = vulkan::get_physical_device_surface_formats_khr(physical_device, context.surface);
-  auto present_modes   = vulkan::get_physical_device_surface_present_modes_khr(physical_device, context.surface);
+  auto capabilities    = vulkan::get_physical_device_surface_capabilities_khr(context.physical_device, context.surface);
+  auto surface_formats = vulkan::get_physical_device_surface_formats_khr(context.physical_device, context.surface);
+  auto present_modes   = vulkan::get_physical_device_surface_present_modes_khr(context.physical_device, context.surface);
 
   auto extent         = select_swap_extent(capabilities, create_info.window);
   auto image_count    = select_image_count(capabilities);
@@ -366,7 +459,21 @@ Context create_context(ContextCreateInfo create_info)
   context.extent = extent;
 
   context.render_pass = create_render_pass(context.device, context.format);
-  context.pipeline    = create_pipeline(context.device, context.render_pass);
+  context.pipeline    = create_pipeline(context.device, context.render_pass, {
+    VertexBindingDescription{
+      .stride = sizeof(Vertex),
+      .attribute_descriptions = {
+        VertexAttributeDescription{
+          .offset = offsetof(Vertex, pos),
+          .type = VertexAttributeDescription::Type::FLOAT2,
+        },
+        VertexAttributeDescription{
+          .offset = offsetof(Vertex, color),
+          .type = VertexAttributeDescription::Type::FLOAT3,
+        },
+      }
+    }
+  });
 
   context.images = vulkan::swapchain_get_images(context.device, context.swapchain);
   for(const auto& image : context.images)
@@ -491,6 +598,56 @@ int main()
   create_info.window              = window;
   auto context = create_context(create_info);
 
+  const std::vector<Vertex> vertices = {
+    {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{0.5f,  0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+  };
+
+  // Create the vertex buffer
+  VkBufferCreateInfo buffer_create_info = {};
+  buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  buffer_create_info.size        = sizeof vertices[0] * vertices.size();
+  buffer_create_info.usage       = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+  buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+  VkBuffer buffer = VK_NULL_HANDLE;
+  VK_CHECK(vkCreateBuffer(context.device, &buffer_create_info, nullptr, &buffer));
+
+  VkMemoryRequirements buffer_memory_requirement = {};
+  vkGetBufferMemoryRequirements(context.device, buffer, &buffer_memory_requirement);
+
+  VkPhysicalDeviceMemoryProperties physical_device_memory_properties = {};
+  vkGetPhysicalDeviceMemoryProperties(context.physical_device, &physical_device_memory_properties);
+
+  // How is it different from picking lowest significant set bit of type filter
+  uint32_t              type_filter       = buffer_memory_requirement.memoryTypeBits;
+  VkMemoryPropertyFlags memory_properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+  uint32_t memory_type_index = [&]()
+  {
+    for (uint32_t i = 0; i < physical_device_memory_properties.memoryTypeCount; i++)
+      if (type_filter & (1 << i) && (memory_properties & physical_device_memory_properties.memoryTypes[i].propertyFlags) == memory_properties)
+        return i;
+
+    fprintf(stderr, "No memory type suitable");
+    abort();
+  }();
+
+  VkMemoryAllocateInfo allocate_info = {};
+  allocate_info.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+  allocate_info.memoryTypeIndex = memory_type_index;
+  allocate_info.allocationSize  = buffer_memory_requirement.size;
+
+  VkDeviceMemory device_memory = VK_NULL_HANDLE;
+  VK_CHECK(vkAllocateMemory(context.device, &allocate_info, nullptr, &device_memory));
+  VK_CHECK(vkBindBufferMemory(context.device, buffer, device_memory, 0));
+
+  void *data;
+  VK_CHECK(vkMapMemory(context.device, device_memory, 0, buffer_memory_requirement.size, 0, &data));
+  memcpy(data, vertices.data(), buffer_create_info.size);
+  vkUnmapMemory(context.device, device_memory);
+
   static constexpr size_t MAX_FRAME_IN_FLIGHT = 4;
   RenderResource render_resources[MAX_FRAME_IN_FLIGHT];
   for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
@@ -507,6 +664,10 @@ int main()
       auto frame_info = begin_frame(context, render_resource.semaphore_image_available);
       {
         begin_render(context, render_resource, frame_info);
+
+        VkBuffer buffers[] = { buffer };
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(render_resource.command_buffer, 0, 1, buffers, offsets);
 
         VkViewport viewport = {};
         viewport.x = 0.0f;
