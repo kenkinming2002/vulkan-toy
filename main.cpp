@@ -32,15 +32,22 @@ struct FrameInfo
   VkFramebuffer framebuffer;
 };
 
-FrameInfo begin_frame(const vulkan::Context& context, const vulkan::RenderContext& render_context, VkSemaphore semaphore)
+std::optional<FrameInfo> begin_frame(const vulkan::Context& context, const vulkan::RenderContext& render_context, VkSemaphore semaphore)
 {
   FrameInfo frame_info = {};
-  vkAcquireNextImageKHR(context.device, render_context.swapchain, UINT64_MAX, semaphore, VK_NULL_HANDLE, &frame_info.image_index);
+  auto result = vkAcquireNextImageKHR(context.device, render_context.swapchain, UINT64_MAX, semaphore, VK_NULL_HANDLE, &frame_info.image_index);
+  if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+  {
+    // The window have probably resized
+    return std::nullopt;
+  }
+  VK_CHECK(result);
+
   frame_info.framebuffer = render_context.framebuffers[frame_info.image_index];
   return frame_info;
 }
 
-void end_frame(const vulkan::Context& context, const vulkan::RenderContext& render_context, FrameInfo frame_info, VkSemaphore semaphore)
+bool end_frame(const vulkan::Context& context, const vulkan::RenderContext& render_context, FrameInfo frame_info, VkSemaphore semaphore)
 {
   VkPresentInfoKHR present_info = {};
   present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -53,7 +60,15 @@ void end_frame(const vulkan::Context& context, const vulkan::RenderContext& rend
   present_info.pImageIndices  = &frame_info.image_index;
   present_info.pResults       = nullptr;
 
-  vkQueuePresentKHR(context.queue, &present_info);
+  auto result = vkQueuePresentKHR(context.queue, &present_info);
+  if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+  {
+    // The window have probably resized
+    return false;
+  }
+
+  VK_CHECK(result);
+  return true;
 }
 
 struct RenderResource
@@ -192,7 +207,7 @@ int main()
 
   // Window and KHR API
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-  glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+  //glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
   GLFWwindow *window = glfwCreateWindow(800, 600, "Vulkan", nullptr, nullptr);
 
   vulkan::ContextCreateInfo context_create_info = {};
@@ -296,13 +311,22 @@ int main()
       glfwPollEvents();
 
       auto frame_info = begin_frame(context, render_context, render_resource.semaphore_image_available);
+      while(!frame_info)
+      {
+        std::cout << "Recreating render context\n";
+        vkDeviceWaitIdle(context.device);
+        vulkan::destroy_render_context(context, render_context);
+        render_context = vulkan::create_render_context(context, render_context_create_info);
+        frame_info = begin_frame(context, render_context, render_resource.semaphore_image_available);
+      }
+
       {
         // A single frame to have multiple render pass and each render pass would need multiple pipeline
         // so we probably should not bind them in begin render
         // A problem is that to create the framebuffer, we need the render pass
         // so how to abstract over them?
         // Do we actually need multiple render pass?
-        begin_render(context, render_context, render_resource, frame_info);
+        begin_render(context, render_context, render_resource, *frame_info);
 
         VkBuffer buffers[] = { buffer };
         VkDeviceSize offsets[] = {0};
@@ -326,8 +350,15 @@ int main()
 
         end_render(context, render_resource);
       }
-      end_frame(context, render_context, frame_info, render_resource.semaphore_render_finished);
 
+      if(!end_frame(context, render_context, *frame_info, render_resource.semaphore_render_finished))
+      {
+        std::cout << "Recreating render context\n";
+        vkDeviceWaitIdle(context.device);
+        vulkan::destroy_render_context(context, render_context);
+        render_context = vulkan::create_render_context(context, render_context_create_info);
+        frame_info = begin_frame(context, render_context, render_resource.semaphore_image_available);
+      }
     }
 
   vkDeviceWaitIdle(context.device);

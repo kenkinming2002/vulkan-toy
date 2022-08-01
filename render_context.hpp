@@ -354,7 +354,7 @@ namespace vulkan
   {
     VkSwapchainKHR swapchain;
     VkFormat       format;
-    VkExtent2D     extent;
+    VkExtent2D     extent; // If this change we have to recreate the swapchain but fortunately not the render pass
 
     // TODO: How to support multiple render pass
     VkRenderPass render_pass;
@@ -370,6 +370,12 @@ namespace vulkan
     PipelineCreateInfo pipeline;
   };
 
+  /*
+   * Dependency diagram
+   *
+   * If format have changed, we have to recreate everything.
+   * If any otherthing change, we only have to recreate the swapchain
+   */
   inline RenderContext create_render_context(const Context& context, RenderContextCreateInfo create_info)
   {
     RenderContext render_context = {};
@@ -383,9 +389,12 @@ namespace vulkan
     auto surface_format = select_surface_format_khr(surface_formats);
     auto present_mode   = select_present_mode_khr(present_modes);
 
+    // This part need to know about everything
     render_context.swapchain = vulkan::create_swapchain_khr(context.device, context.surface, extent, image_count, surface_format, present_mode, capabilities.currentTransform);
     render_context.format = surface_format.format;
     render_context.extent = extent;
+
+    // This part need to know about the image format
     render_context.render_pass = create_render_pass(context.device, render_context.format);
     render_context.pipeline = create_pipeline(context.device, render_context.render_pass, create_info.pipeline);
 
@@ -399,6 +408,21 @@ namespace vulkan
     return render_context;
   }
 
+  inline void destroy_render_context(const Context& context, RenderContext& render_context)
+  {
+    for(const auto& framebuffer : render_context.framebuffers)
+      vulkan::destroy_framebuffer(context.device, framebuffer);
 
+    render_context.framebuffers.clear();
+
+    for(const auto& image_view : render_context.image_views)
+      vulkan::destroy_image_view(context.device, image_view);
+
+    render_context.image_views.clear();
+
+    vulkan::destroy_pipeline     (context.device, render_context.pipeline);
+    vulkan::destroy_render_pass  (context.device, render_context.render_pass);
+    vulkan::destroy_swapchain_khr(context.device, render_context.swapchain);
+  }
 }
 
