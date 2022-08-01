@@ -441,6 +441,60 @@ RenderResource create_render_resouce(const Context& context)
   return render_resource;
 }
 
+struct RenderInfo
+{
+};
+
+RenderInfo begin_render(const Context& context, const RenderResource& render_resource, const FrameInfo& frame_info)
+{
+  RenderInfo render_info = {};
+
+  VK_CHECK(vkResetCommandBuffer(render_resource.command_buffer, 0));
+
+  VkCommandBufferBeginInfo begin_info = {};
+  begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  VK_CHECK(vkBeginCommandBuffer(render_resource.command_buffer, &begin_info));
+
+  VkRenderPassBeginInfo render_pass_begin_info = {};
+  render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+  render_pass_begin_info.renderPass        = context.render_pass;
+  render_pass_begin_info.framebuffer       = frame_info.framebuffer;
+  render_pass_begin_info.renderArea.offset = {0, 0};
+  render_pass_begin_info.renderArea.extent = context.extent;
+
+  VkClearValue clear_color = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
+  render_pass_begin_info.clearValueCount = 1;
+  render_pass_begin_info.pClearValues = &clear_color;
+
+  vkCmdBeginRenderPass(render_resource.command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+  vkCmdBindPipeline(render_resource.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, context.pipeline);
+
+  return render_info;
+}
+
+void end_render(const Context& context, const RenderResource& render_resource, RenderInfo render_info)
+{
+  vkCmdEndRenderPass(render_resource.command_buffer);
+  VK_CHECK(vkEndCommandBuffer(render_resource.command_buffer));
+
+  VkSubmitInfo submit_info = {};
+  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+  submit_info.waitSemaphoreCount = 1;
+  submit_info.pWaitSemaphores    = &render_resource.semaphore_image_available;
+
+  VkPipelineStageFlags wait_stages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+  submit_info.pWaitDstStageMask  = wait_stages;
+
+  submit_info.signalSemaphoreCount = 1;
+  submit_info.pSignalSemaphores    = &render_resource.semaphore_render_finished;
+
+  submit_info.commandBufferCount = 1;
+  submit_info.pCommandBuffers    = &render_resource.command_buffer;
+
+  VK_CHECK(vkQueueSubmit(context.queue, 1, &submit_info, render_resource.in_flight_fence));
+}
+
 int main()
 {
   glfwInit();
@@ -471,72 +525,27 @@ int main()
       vkWaitForFences(context.device, 1, &render_resource.in_flight_fence, VK_TRUE, UINT64_MAX);
       vkResetFences(context.device, 1, &render_resource.in_flight_fence);
 
-      auto frame_info = begin_frame(context, render_resource.semaphore_image_available);
-      {
-        // Record the command buffer
-        VK_CHECK(vkResetCommandBuffer(render_resource.command_buffer, 0));
+      auto frame_info  = begin_frame(context, render_resource.semaphore_image_available);
+      auto render_info = begin_render(context, render_resource, frame_info);
 
-        VkCommandBufferBeginInfo begin_info = {};
-        begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        VK_CHECK(vkBeginCommandBuffer(render_resource.command_buffer, &begin_info));
+      VkViewport viewport = {};
+      viewport.x = 0.0f;
+      viewport.y = 0.0f;
+      viewport.width  = context.extent.width;
+      viewport.height = context.extent.height;
+      viewport.minDepth = 0.0f;
+      viewport.maxDepth = 1.0f;
+      vkCmdSetViewport(render_resource.command_buffer, 0, 1, &viewport);
 
-        VkRenderPassBeginInfo render_pass_begin_info = {};
-        render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        render_pass_begin_info.renderPass        = context.render_pass;
-        render_pass_begin_info.framebuffer       = frame_info.framebuffer;
-        render_pass_begin_info.renderArea.offset = {0, 0};
-        render_pass_begin_info.renderArea.extent = context.extent;
+      VkRect2D scissor = {};
+      scissor.offset = {0, 0};
+      scissor.extent = context.extent;
+      vkCmdSetScissor(render_resource.command_buffer, 0, 1, &scissor);
 
-        VkClearValue clear_color = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
-        render_pass_begin_info.clearValueCount = 1;
-        render_pass_begin_info.pClearValues = &clear_color;
+      vkCmdDraw(render_resource.command_buffer, 3, 1, 0, 0);
 
-        vkCmdBeginRenderPass(render_resource.command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
-        vkCmdBindPipeline(render_resource.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, context.pipeline);
-
-        VkViewport viewport = {};
-        viewport.x = 0.0f;
-        viewport.y = 0.0f;
-        viewport.width  = context.extent.width;
-        viewport.height = context.extent.height;
-        viewport.minDepth = 0.0f;
-        viewport.maxDepth = 1.0f;
-        vkCmdSetViewport(render_resource.command_buffer, 0, 1, &viewport);
-
-        VkRect2D scissor = {};
-        scissor.offset = {0, 0};
-        scissor.extent = context.extent;
-        vkCmdSetScissor(render_resource.command_buffer, 0, 1, &scissor);
-
-        vkCmdDraw(render_resource.command_buffer, 3, 1, 0, 0);
-
-        vkCmdEndRenderPass(render_resource.command_buffer);
-
-        VK_CHECK(vkEndCommandBuffer(render_resource.command_buffer));
-
-        // Submit the command buffer
-        VkSemaphore wait_semaphores[]   = { render_resource.semaphore_image_available };
-        VkSemaphore signal_semaphores[] = { render_resource.semaphore_render_finished };
-
-        VkPipelineStageFlags wait_stages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-
-        VkSubmitInfo submit_info = {};
-        submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-        submit_info.waitSemaphoreCount = 1;
-        submit_info.pWaitSemaphores    = wait_semaphores;
-
-        submit_info.pWaitDstStageMask  = wait_stages;
-
-        submit_info.signalSemaphoreCount = 1;
-        submit_info.pSignalSemaphores    = signal_semaphores;
-
-        submit_info.commandBufferCount = 1;
-        submit_info.pCommandBuffers    = &render_resource.command_buffer;
-
-        VK_CHECK(vkQueueSubmit(context.queue, 1, &submit_info, render_resource.in_flight_fence));
-        end_frame(context, frame_info, render_resource.semaphore_render_finished);
-      }
+      end_render(context, render_resource, render_info);
+      end_frame(context, frame_info, render_resource.semaphore_render_finished);
 
     }
 
