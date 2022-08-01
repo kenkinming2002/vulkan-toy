@@ -561,7 +561,7 @@ void begin_render(const Context& context, const RenderResource& render_resource,
   vkCmdBindPipeline(render_resource.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, context.pipeline);
 }
 
-VkBuffer allocate_buffer(const Context& context, VkDeviceSize size, VkDeviceMemory& device_memory)
+VkBuffer allocate_buffer(const Context& context, VkDeviceSize size, VkMemoryPropertyFlags memory_properties, VkDeviceMemory& device_memory)
 {
   VkBufferCreateInfo buffer_create_info = {};
   buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -579,9 +579,7 @@ VkBuffer allocate_buffer(const Context& context, VkDeviceSize size, VkDeviceMemo
   vkGetPhysicalDeviceMemoryProperties(context.physical_device, &physical_device_memory_properties);
 
   // How is it different from picking lowest significant set bit of type filter
-  uint32_t              type_filter       = buffer_memory_requirement.memoryTypeBits;
-  VkMemoryPropertyFlags memory_properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-
+  uint32_t type_filter       = buffer_memory_requirement.memoryTypeBits;
   uint32_t memory_type_index = [&]()
   {
     for (uint32_t i = 0; i < physical_device_memory_properties.memoryTypeCount; i++)
@@ -653,7 +651,7 @@ int main()
   const size_t buffer_size = sizeof vertices[0] * vertices.size();
 
   VkDeviceMemory buffer_memory = VK_NULL_HANDLE;
-  auto buffer = allocate_buffer(context, buffer_size, buffer_memory);
+  auto buffer = allocate_buffer(context, buffer_size, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, buffer_memory);
 
   void *data;
   VK_CHECK(vkMapMemory(context.device, buffer_memory, 0, buffer_size, 0, &data));
