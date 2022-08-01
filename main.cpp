@@ -58,18 +58,18 @@ T select(const std::vector<T>& choices, const auto& get_score)
   return best_selection->choice;
 }
 
-VkExtent2D select_swap_extent(const VkSurfaceCapabilitiesKHR& surface_capabilities, GLFWwindow *window)
+VkExtent2D select_swap_extent(VkSurfaceCapabilitiesKHR surface_capabilities)
 {
-  if(surface_capabilities.currentExtent.height != std::numeric_limits<uint32_t>::max() &&
-     surface_capabilities.currentExtent.width  != std::numeric_limits<uint32_t>::max())
-    return surface_capabilities.currentExtent;
-
-  int width, height;
-  glfwGetFramebufferSize(window, &width, &height);
-
-  VkExtent2D extent = {};
-  extent.width  = width;
-  extent.height = height;
+  VkExtent2D extent = surface_capabilities.currentExtent;
+  if(extent.height == std::numeric_limits<uint32_t>::max() ||
+     extent.width  == std::numeric_limits<uint32_t>::max())
+  {
+    // This should never happen in practice since this means we did not
+    // speicify the window size when we create the window. Just use some
+    // hard-coded value in this case
+    fprintf(stderr, "Window size not specified. Using a default value of 1080x720\n");
+    extent = { 1080, 720 };
+  }
   extent.width  = std::clamp(extent.width , surface_capabilities.minImageExtent.width , surface_capabilities.maxImageExtent.width );
   extent.height = std::clamp(extent.height, surface_capabilities.minImageExtent.height, surface_capabilities.maxImageExtent.height);
   return extent;
@@ -462,7 +462,6 @@ struct RenderContext
 
 struct RenderContextCreateInfo
 {
-  GLFWwindow *window;
 };
 
 RenderContext create_render_context(const Context& context, RenderContextCreateInfo create_info)
@@ -473,7 +472,7 @@ RenderContext create_render_context(const Context& context, RenderContextCreateI
   auto surface_formats = vulkan::get_physical_device_surface_formats_khr(context.physical_device, context.surface);
   auto present_modes   = vulkan::get_physical_device_surface_present_modes_khr(context.physical_device, context.surface);
 
-  auto extent         = select_swap_extent(capabilities, create_info.window);
+  auto extent         = select_swap_extent(capabilities);
   auto image_count    = select_image_count(capabilities);
   auto surface_format = select_surface_format_khr(surface_formats);
   auto present_mode   = select_present_mode_khr(present_modes);
