@@ -393,21 +393,21 @@ Context create_context(ContextCreateInfo create_info)
   return context;
 }
 
-struct RenderInfo
+struct FrameInfo
 {
   uint32_t image_index;
   VkFramebuffer framebuffer;
 };
 
-RenderInfo begin_render_frame(const Context& context, VkSemaphore semaphore)
+FrameInfo begin_frame(const Context& context, VkSemaphore semaphore)
 {
-  RenderInfo render_info = {};
-  vkAcquireNextImageKHR(context.device, context.swapchain, UINT64_MAX, semaphore, VK_NULL_HANDLE, &render_info.image_index);
-  render_info.framebuffer = context.framebuffers[render_info.image_index];
-  return render_info;
+  FrameInfo frame_info = {};
+  vkAcquireNextImageKHR(context.device, context.swapchain, UINT64_MAX, semaphore, VK_NULL_HANDLE, &frame_info.image_index);
+  frame_info.framebuffer = context.framebuffers[frame_info.image_index];
+  return frame_info;
 }
 
-void end_render_frame(const Context& context, RenderInfo render_info, VkSemaphore semaphore)
+void end_frame(const Context& context, FrameInfo frame_info, VkSemaphore semaphore)
 {
   VkPresentInfoKHR present_info = {};
   present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -417,7 +417,7 @@ void end_render_frame(const Context& context, RenderInfo render_info, VkSemaphor
   VkSwapchainKHR swapchains[] = { context.swapchain };
   present_info.swapchainCount = 1;
   present_info.pSwapchains    = swapchains;
-  present_info.pImageIndices  = &render_info.image_index;
+  present_info.pImageIndices  = &frame_info.image_index;
   present_info.pResults       = nullptr;
 
   vkQueuePresentKHR(context.queue, &present_info);
@@ -471,7 +471,7 @@ int main()
       vkWaitForFences(context.device, 1, &render_resource.in_flight_fence, VK_TRUE, UINT64_MAX);
       vkResetFences(context.device, 1, &render_resource.in_flight_fence);
 
-      auto render_info = begin_render_frame(context, render_resource.semaphore_image_available);
+      auto frame_info = begin_frame(context, render_resource.semaphore_image_available);
       {
         // Record the command buffer
         VK_CHECK(vkResetCommandBuffer(render_resource.command_buffer, 0));
@@ -483,7 +483,7 @@ int main()
         VkRenderPassBeginInfo render_pass_begin_info = {};
         render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
         render_pass_begin_info.renderPass        = context.render_pass;
-        render_pass_begin_info.framebuffer       = render_info.framebuffer;
+        render_pass_begin_info.framebuffer       = frame_info.framebuffer;
         render_pass_begin_info.renderArea.offset = {0, 0};
         render_pass_begin_info.renderArea.extent = context.extent;
 
@@ -535,7 +535,7 @@ int main()
         submit_info.pCommandBuffers    = &render_resource.command_buffer;
 
         VK_CHECK(vkQueueSubmit(context.queue, 1, &submit_info, render_resource.in_flight_fence));
-        end_render_frame(context, render_info, render_resource.semaphore_render_finished);
+        end_frame(context, frame_info, render_resource.semaphore_render_finished);
       }
 
     }
