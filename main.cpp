@@ -163,6 +163,29 @@ void end_render(const vulkan::Context& context, const RenderResource& render_res
   VK_CHECK(vkQueueSubmit(context.queue, 1, &submit_info, render_resource.in_flight_fence));
 }
 
+// TODO: Move this outside
+inline std::vector<char> read_file(const char* file_name)
+{
+  std::ifstream file(file_name, std::ios::ate | std::ios::binary);
+  assert(file.is_open());
+
+  auto end = file.tellg();
+  file.seekg(0);
+  auto begin = file.tellg();
+
+  const size_t file_size = end - begin;
+  auto file_content = std::vector<char>(file_size);
+  file.read(file_content.data(), file_content.size());
+  return file_content;
+}
+
+// TODO: Move this outside
+struct Vertex
+{
+  glm::vec2 pos;
+  glm::vec3 color;
+};
+
 int main()
 {
   glfwInit();
@@ -182,9 +205,28 @@ int main()
 
   // May need to be recreated on window resize
   vulkan::RenderContextCreateInfo render_context_create_info = {};
-  auto render_context = create_render_context(context, render_context_create_info);
+  vulkan::PipelineCreateInfo pipeline_create_info = {};
+  pipeline_create_info.vert_shader_module = vulkan::create_shader_module(context.device, read_file("shaders/vert.spv"));
+  pipeline_create_info.frag_shader_module = vulkan::create_shader_module(context.device, read_file("shaders/frag.spv"));
+  pipeline_create_info.vertex_binding_descriptions = {
+    vulkan::VertexBindingDescription{
+      .stride = sizeof(Vertex),
+      .attribute_descriptions = {
+        vulkan::VertexAttributeDescription{
+          .offset = offsetof(Vertex, pos),
+          .type = vulkan::VertexAttributeDescription::Type::FLOAT2,
+        },
+        vulkan::VertexAttributeDescription{
+          .offset = offsetof(Vertex, color),
+          .type = vulkan::VertexAttributeDescription::Type::FLOAT3,
+        },
+      }
+    }
+  };
+  render_context_create_info.pipeline = pipeline_create_info;
 
-  const std::vector<vulkan::Vertex> vertices = {
+  auto render_context = create_render_context(context, render_context_create_info);
+  const std::vector<Vertex> vertices = {
     {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
     {{0.5f,  0.5f}, {0.0f, 1.0f, 0.0f}},
     {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}

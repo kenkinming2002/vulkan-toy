@@ -367,29 +367,7 @@ namespace vulkan
 
   struct RenderContextCreateInfo
   {
-  };
-
-  // TODO: Move this outside
-  inline std::vector<char> read_file(const char* file_name)
-  {
-    std::ifstream file(file_name, std::ios::ate | std::ios::binary);
-    assert(file.is_open());
-
-    auto end = file.tellg();
-    file.seekg(0);
-    auto begin = file.tellg();
-
-    const size_t file_size = end - begin;
-    auto file_content = std::vector<char>(file_size);
-    file.read(file_content.data(), file_content.size());
-    return file_content;
-  }
-
-  // TODO: Move this outside
-  struct Vertex
-  {
-    glm::vec2 pos;
-    glm::vec3 color;
+    PipelineCreateInfo pipeline;
   };
 
   inline RenderContext create_render_context(const Context& context, RenderContextCreateInfo create_info)
@@ -409,26 +387,7 @@ namespace vulkan
     render_context.format = surface_format.format;
     render_context.extent = extent;
     render_context.render_pass = create_render_pass(context.device, render_context.format);
-
-    PipelineCreateInfo pipeline_create_info = {};
-    pipeline_create_info.vert_shader_module = vulkan::create_shader_module(context.device, read_file("shaders/vert.spv"));
-    pipeline_create_info.frag_shader_module = vulkan::create_shader_module(context.device, read_file("shaders/frag.spv"));
-    pipeline_create_info.vertex_binding_descriptions = {
-      VertexBindingDescription{
-        .stride = sizeof(Vertex),
-        .attribute_descriptions = {
-          VertexAttributeDescription{
-            .offset = offsetof(Vertex, pos),
-            .type = VertexAttributeDescription::Type::FLOAT2,
-          },
-          VertexAttributeDescription{
-            .offset = offsetof(Vertex, color),
-            .type = VertexAttributeDescription::Type::FLOAT3,
-          },
-        }
-      }
-    };
-    render_context.pipeline = create_pipeline(context.device, render_context.render_pass, pipeline_create_info);
+    render_context.pipeline = create_pipeline(context.device, render_context.render_pass, create_info.pipeline);
 
     render_context.images = vulkan::swapchain_get_images(context.device, render_context.swapchain);
     for(const auto& image : render_context.images)
