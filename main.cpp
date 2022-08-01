@@ -17,19 +17,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
-template<typename T>
-struct Defer
-{
-  Defer(T func) : func(func) {}
-  ~Defer() { func(); }
-  T func;
-};
-
 #define VK_CHECK(expr) do { if(expr != VK_SUCCESS) { fprintf(stderr, "Vulkan pooped itself:%s\n", #expr); } } while(0)
-
-#define DEFER__(expr, counter) Defer _defer##counter([&](){ expr; })
-#define DEFER_(expr, counter) DEFER__(expr, counter)
-#define DEFER(expr) DEFER_(expr, __COUNTER__)
 
 namespace glfw
 {
@@ -185,10 +173,7 @@ void destroy_render_pass(VkDevice device, VkRenderPass render_pass)
 VkPipeline create_pipeline(VkDevice device, VkRenderPass render_pass)
 {
   auto vert_shader_module = vulkan::create_shader_module(device, read_file("shaders/vert.spv"));
-  DEFER(vulkan::destroy_shader_module(device, vert_shader_module));
-
   auto frag_shader_module = vulkan::create_shader_module(device, read_file("shaders/frag.spv"));
-  DEFER(vulkan::destroy_shader_module(device, frag_shader_module));
 
   VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info = {};
   vertex_input_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -279,7 +264,6 @@ VkPipeline create_pipeline(VkDevice device, VkRenderPass render_pass)
   dynamic_state_create_info.pDynamicStates    = dynamic_states.data();
 
   auto pipeline_layout = vulkan::create_empty_pipeline_layout(device);
-  DEFER(vulkan::destroy_pipeline_layout(device, pipeline_layout));
 
   VkGraphicsPipelineCreateInfo graphics_pipeline_create_info = {};
   graphics_pipeline_create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -303,6 +287,9 @@ VkPipeline create_pipeline(VkDevice device, VkRenderPass render_pass)
 
   VkPipeline pipeline = VK_NULL_HANDLE;
   VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &graphics_pipeline_create_info, nullptr, &pipeline));
+  vulkan::destroy_shader_module(device, vert_shader_module);
+  vulkan::destroy_shader_module(device, frag_shader_module);
+  vulkan::destroy_pipeline_layout(device, pipeline_layout);
   return pipeline;
 }
 
