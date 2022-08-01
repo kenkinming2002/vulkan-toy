@@ -561,6 +561,48 @@ void begin_render(const Context& context, const RenderResource& render_resource,
   vkCmdBindPipeline(render_resource.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, context.pipeline);
 }
 
+VkBuffer allocate_buffer(const Context& context, VkDeviceSize size, VkDeviceMemory& device_memory)
+{
+  VkBufferCreateInfo buffer_create_info = {};
+  buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  buffer_create_info.size        = size;
+  buffer_create_info.usage       = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+  buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+  VkBuffer buffer = VK_NULL_HANDLE;
+  VK_CHECK(vkCreateBuffer(context.device, &buffer_create_info, nullptr, &buffer));
+
+  VkMemoryRequirements buffer_memory_requirement = {};
+  vkGetBufferMemoryRequirements(context.device, buffer, &buffer_memory_requirement);
+
+  VkPhysicalDeviceMemoryProperties physical_device_memory_properties = {};
+  vkGetPhysicalDeviceMemoryProperties(context.physical_device, &physical_device_memory_properties);
+
+  // How is it different from picking lowest significant set bit of type filter
+  uint32_t              type_filter       = buffer_memory_requirement.memoryTypeBits;
+  VkMemoryPropertyFlags memory_properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+  uint32_t memory_type_index = [&]()
+  {
+    for (uint32_t i = 0; i < physical_device_memory_properties.memoryTypeCount; i++)
+      if (type_filter & (1 << i) && (memory_properties & physical_device_memory_properties.memoryTypes[i].propertyFlags) == memory_properties)
+        return i;
+
+    fprintf(stderr, "No memory type suitable");
+    abort();
+  }();
+
+  VkMemoryAllocateInfo allocate_info = {};
+  allocate_info.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+  allocate_info.memoryTypeIndex = memory_type_index;
+  allocate_info.allocationSize  = buffer_memory_requirement.size;
+
+  VK_CHECK(vkAllocateMemory(context.device, &allocate_info, nullptr, &device_memory));
+  VK_CHECK(vkBindBufferMemory(context.device, buffer, device_memory, 0));
+
+  return buffer;
+}
+
 void end_render(const Context& context, const RenderResource& render_resource)
 {
   vkCmdEndRenderPass(render_resource.command_buffer);
@@ -608,48 +650,15 @@ int main()
   };
 
   // Create the vertex buffer
-  VkBufferCreateInfo buffer_create_info = {};
-  buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-  buffer_create_info.size        = sizeof vertices[0] * vertices.size();
-  buffer_create_info.usage       = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-  buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+  const size_t buffer_size = sizeof vertices[0] * vertices.size();
 
-  VkBuffer buffer = VK_NULL_HANDLE;
-  VK_CHECK(vkCreateBuffer(context.device, &buffer_create_info, nullptr, &buffer));
-
-  VkMemoryRequirements buffer_memory_requirement = {};
-  vkGetBufferMemoryRequirements(context.device, buffer, &buffer_memory_requirement);
-
-  VkPhysicalDeviceMemoryProperties physical_device_memory_properties = {};
-  vkGetPhysicalDeviceMemoryProperties(context.physical_device, &physical_device_memory_properties);
-
-  // How is it different from picking lowest significant set bit of type filter
-  uint32_t              type_filter       = buffer_memory_requirement.memoryTypeBits;
-  VkMemoryPropertyFlags memory_properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-
-  uint32_t memory_type_index = [&]()
-  {
-    for (uint32_t i = 0; i < physical_device_memory_properties.memoryTypeCount; i++)
-      if (type_filter & (1 << i) && (memory_properties & physical_device_memory_properties.memoryTypes[i].propertyFlags) == memory_properties)
-        return i;
-
-    fprintf(stderr, "No memory type suitable");
-    abort();
-  }();
-
-  VkMemoryAllocateInfo allocate_info = {};
-  allocate_info.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-  allocate_info.memoryTypeIndex = memory_type_index;
-  allocate_info.allocationSize  = buffer_memory_requirement.size;
-
-  VkDeviceMemory device_memory = VK_NULL_HANDLE;
-  VK_CHECK(vkAllocateMemory(context.device, &allocate_info, nullptr, &device_memory));
-  VK_CHECK(vkBindBufferMemory(context.device, buffer, device_memory, 0));
+  VkDeviceMemory buffer_memory = VK_NULL_HANDLE;
+  auto buffer = allocate_buffer(context, buffer_size, buffer_memory);
 
   void *data;
-  VK_CHECK(vkMapMemory(context.device, device_memory, 0, buffer_memory_requirement.size, 0, &data));
-  memcpy(data, vertices.data(), buffer_create_info.size);
-  vkUnmapMemory(context.device, device_memory);
+  VK_CHECK(vkMapMemory(context.device, buffer_memory, 0, buffer_size, 0, &data));
+  memcpy(data, vertices.data(), buffer_size);
+  vkUnmapMemory(context.device, buffer_memory);
 
   static constexpr size_t MAX_FRAME_IN_FLIGHT = 4;
   RenderResource render_resources[MAX_FRAME_IN_FLIGHT];
