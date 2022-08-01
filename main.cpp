@@ -133,70 +133,62 @@ std::vector<char> read_file(const char* file_name)
   return file_content;
 }
 
-int main()
+VkRenderPass create_render_pass(VkDevice device, VkFormat format)
 {
-  glfwInit();
+  VkAttachmentDescription color_attachment = {};
+  color_attachment.format         = format;
+  color_attachment.samples        = VK_SAMPLE_COUNT_1_BIT;
+  color_attachment.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
+  color_attachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
+  color_attachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+  color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  color_attachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+  color_attachment.finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-  // Window and KHR API
-  glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-  glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-  GLFWwindow *window = glfwCreateWindow(800, 600, "Vulkan", nullptr, nullptr);
+  VkAttachmentReference color_attachment_reference = {};
+  color_attachment_reference.attachment = 0;
+  color_attachment_reference.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-  // Vulkan
-  auto required_layers              = std::vector<const char*>{"VK_LAYER_KHRONOS_validation"};
-  auto required_instance_extensions = glfw::get_required_instance_extensions();
-  auto required_device_extensions   = std::vector<const char*>{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+  VkSubpassDescription subpass_description = {};
+  subpass_description.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+  subpass_description.colorAttachmentCount = 1;
+  subpass_description.pColorAttachments    = &color_attachment_reference;
 
-  auto instance = vulkan::create_instance(
-      "Vulkan", VK_MAKE_VERSION(1, 0, 0),
-      "Engine", VK_MAKE_VERSION(1, 0, 0),
-      required_instance_extensions, required_layers
-  );
-  DEFER(vulkan::destroy_instance(instance));
+  VkRenderPassCreateInfo render_pass_create_info = {};
+  render_pass_create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+  render_pass_create_info.attachmentCount = 1;
+  render_pass_create_info.pAttachments    = &color_attachment;
+  render_pass_create_info.subpassCount    = 1;
+  render_pass_create_info.pSubpasses      = &subpass_description;
 
-  auto surface = vulkan::create_surface(instance, window);
-  DEFER(vulkan::destroy_surface(instance, surface));
+  VkSubpassDependency subpass_dependency = {};
+  subpass_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+  subpass_dependency.dstSubpass = 0;
+  subpass_dependency.srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  subpass_dependency.srcAccessMask = 0;
+  subpass_dependency.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  subpass_dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
-  // We want some better way to select them, this is the most annoying part of vulkan
-  auto physical_device = vulkan::enumerate_physical_devices(instance).at(0);
-  auto queue_family_indices = std::vector<uint32_t>{0};
+  render_pass_create_info.dependencyCount = 1;
+  render_pass_create_info.pDependencies   = &subpass_dependency;
 
-  auto device = vulkan::create_device(
-      physical_device, queue_family_indices, {},
-      required_device_extensions, required_layers
-  );
-  DEFER(vulkan::destroy_device(device));
+  VkRenderPass render_pass = VK_NULL_HANDLE;
+  VK_CHECK(vkCreateRenderPass(device, &render_pass_create_info, nullptr, &render_pass));
+  return render_pass;
+}
 
-  auto queue = vulkan::device_get_queue(device, 0, 0);
+void destroy_render_pass(VkDevice device, VkRenderPass render_pass)
+{
+  vkDestroyRenderPass(device, render_pass, nullptr);
+}
 
-  auto capabilities  = vulkan::get_physical_device_surface_capabilities_khr(physical_device, surface);
-  auto formats       = vulkan::get_physical_device_surface_formats_khr(physical_device, surface);
-  auto present_modes = vulkan::get_physical_device_surface_present_modes_khr(physical_device, surface);
-
-  auto extent       = select_swap_extent(capabilities, window);
-  auto image_count  = select_image_count(capabilities);
-  auto format       = select_surface_format_khr(formats);
-  auto present_mode = select_present_mode_khr(present_modes);
-
-  auto swapchain = vulkan::create_swapchain_khr(device, surface, extent, image_count, format, present_mode, capabilities.currentTransform);
-  DEFER(vulkan::destroy_swapchain_khr(device, swapchain));
-
-  auto images = vulkan::swapchain_get_images(device, swapchain);
-
-  auto image_views = std::vector<VkImageView>();
-  for(const auto& image : images) image_views.push_back(vulkan::create_image_view(device, image, format.format));
-  DEFER(for(const auto& image_view : image_views) { vulkan::destroy_image_view(device, image_view); });
-
+VkPipeline create_pipeline(VkDevice device, VkRenderPass render_pass)
+{
   auto vert_shader_module = vulkan::create_shader_module(device, read_file("shaders/vert.spv"));
   DEFER(vulkan::destroy_shader_module(device, vert_shader_module));
 
   auto frag_shader_module = vulkan::create_shader_module(device, read_file("shaders/frag.spv"));
   DEFER(vulkan::destroy_shader_module(device, frag_shader_module));
-
-  // Vulkan pipeline creation
-  //
-  // The plethora of parameter is due to the fact that we have to specifiy every parameter
-  // whereas in OpenGL, all the parameters are global states and have implicit default value.
 
   VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info = {};
   vertex_input_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -286,47 +278,6 @@ int main()
   dynamic_state_create_info.dynamicStateCount = dynamic_states.size();
   dynamic_state_create_info.pDynamicStates    = dynamic_states.data();
 
-  VkAttachmentDescription color_attachment = {};
-  color_attachment.format = format.format;
-  color_attachment.samples        = VK_SAMPLE_COUNT_1_BIT;
-  color_attachment.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  color_attachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
-  color_attachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-  color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-  color_attachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
-  color_attachment.finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-  VkAttachmentReference color_attachment_reference = {};
-  color_attachment_reference.attachment = 0;
-  color_attachment_reference.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-  VkSubpassDescription subpass_description = {};
-  subpass_description.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-  subpass_description.colorAttachmentCount = 1;
-  subpass_description.pColorAttachments    = &color_attachment_reference;
-
-  VkRenderPassCreateInfo render_pass_create_info = {};
-  render_pass_create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-  render_pass_create_info.attachmentCount = 1;
-  render_pass_create_info.pAttachments    = &color_attachment;
-  render_pass_create_info.subpassCount    = 1;
-  render_pass_create_info.pSubpasses      = &subpass_description;
-
-  VkSubpassDependency subpass_dependency = {};
-  subpass_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-  subpass_dependency.dstSubpass = 0;
-  subpass_dependency.srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  subpass_dependency.srcAccessMask = 0;
-  subpass_dependency.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-  subpass_dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-  render_pass_create_info.dependencyCount = 1;
-  render_pass_create_info.pDependencies   = &subpass_dependency;
-
-  VkRenderPass render_pass = VK_NULL_HANDLE;
-  VK_CHECK(vkCreateRenderPass(device, &render_pass_create_info, nullptr, &render_pass));
-  DEFER(vkDestroyRenderPass(device, render_pass, nullptr));
-
   auto pipeline_layout = vulkan::create_empty_pipeline_layout(device);
   DEFER(vulkan::destroy_pipeline_layout(device, pipeline_layout));
 
@@ -352,7 +303,77 @@ int main()
 
   VkPipeline pipeline = VK_NULL_HANDLE;
   VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &graphics_pipeline_create_info, nullptr, &pipeline));
-  DEFER(vkDestroyPipeline(device, pipeline, nullptr));
+  return pipeline;
+}
+
+void destroy_pipeline(VkDevice device, VkPipeline pipeline)
+{
+  vkDestroyPipeline(device, pipeline, nullptr);
+}
+
+int main()
+{
+  glfwInit();
+
+  // Window and KHR API
+  glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+  glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+  GLFWwindow *window = glfwCreateWindow(800, 600, "Vulkan", nullptr, nullptr);
+
+  // Vulkan
+  auto required_layers              = std::vector<const char*>{"VK_LAYER_KHRONOS_validation"};
+  auto required_instance_extensions = glfw::get_required_instance_extensions();
+  auto required_device_extensions   = std::vector<const char*>{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+
+  auto instance = vulkan::create_instance(
+      "Vulkan", VK_MAKE_VERSION(1, 0, 0),
+      "Engine", VK_MAKE_VERSION(1, 0, 0),
+      required_instance_extensions, required_layers
+  );
+  DEFER(vulkan::destroy_instance(instance));
+
+  auto surface = vulkan::create_surface(instance, window);
+  DEFER(vulkan::destroy_surface(instance, surface));
+
+  // We want some better way to select them, this is the most annoying part of vulkan
+  auto physical_device = vulkan::enumerate_physical_devices(instance).at(0);
+  auto queue_family_indices = std::vector<uint32_t>{0};
+
+  auto device = vulkan::create_device(
+      physical_device, queue_family_indices, {},
+      required_device_extensions, required_layers
+  );
+  DEFER(vulkan::destroy_device(device));
+
+  auto queue = vulkan::device_get_queue(device, 0, 0);
+
+  auto capabilities  = vulkan::get_physical_device_surface_capabilities_khr(physical_device, surface);
+  auto surface_formats       = vulkan::get_physical_device_surface_formats_khr(physical_device, surface);
+  auto present_modes = vulkan::get_physical_device_surface_present_modes_khr(physical_device, surface);
+
+  auto extent       = select_swap_extent(capabilities, window);
+  auto image_count  = select_image_count(capabilities);
+  auto surface_format       = select_surface_format_khr(surface_formats);
+  auto present_mode = select_present_mode_khr(present_modes);
+
+  auto swapchain = vulkan::create_swapchain_khr(device, surface, extent, image_count, surface_format, present_mode, capabilities.currentTransform);
+  DEFER(vulkan::destroy_swapchain_khr(device, swapchain));
+
+  auto images = vulkan::swapchain_get_images(device, swapchain);
+
+  auto image_views = std::vector<VkImageView>();
+  for(const auto& image : images) image_views.push_back(vulkan::create_image_view(device, image, surface_format.format));
+  DEFER(for(const auto& image_view : image_views) { vulkan::destroy_image_view(device, image_view); });
+
+  // Vulkan pipeline creation
+  //
+  // The plethora of parameter is due to the fact that we have to specifiy every parameter
+  // whereas in OpenGL, all the parameters are global states and have implicit default value.
+  auto render_pass = create_render_pass(device, surface_format.format);
+  DEFER(destroy_render_pass(device, render_pass));
+
+  auto pipeline    = create_pipeline(device, render_pass);
+  DEFER(destroy_pipeline(device, pipeline));
 
   auto framebuffers = std::vector<VkFramebuffer>();
   for(const auto& image_view : image_views) framebuffers.push_back(vulkan::create_framebuffer(device, render_pass, image_view, extent));
