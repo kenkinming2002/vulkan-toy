@@ -382,6 +382,7 @@ void destroy_pipeline(VkDevice device, VkPipeline pipeline)
   vkDestroyPipeline(device, pipeline, nullptr);
 }
 
+// General vulkan context of a single window
 struct Context
 {
   VkInstance       instance;
@@ -392,21 +393,16 @@ struct Context
   VkDevice device;
   VkQueue  queue;
 
+  VkCommandPool command_pool;
   VkSurfaceKHR   surface;
+
   VkSwapchainKHR swapchain;
   VkFormat       format;
   VkExtent2D     extent;
-
-  VkRenderPass render_pass;
-  VkPipeline   pipeline;
-
-  std::vector<VkImage>       images;
-  std::vector<VkImageView>   image_views;
-  std::vector<VkFramebuffer> framebuffers;
-
-  VkCommandPool command_pool;
 };
 
+// How you want to render?
+// Unlike OpenGL, you have to prespecify a lot of things
 struct ContextCreateInfo
 {
   const char *application_name;
@@ -416,12 +412,6 @@ struct ContextCreateInfo
   uint32_t    engine_version;
 
   GLFWwindow *window;
-};
-
-struct Vertex
-{
-  glm::vec2 pos;
-  glm::vec3 color;
 };
 
 Context create_context(ContextCreateInfo create_info)
@@ -458,8 +448,33 @@ Context create_context(ContextCreateInfo create_info)
   context.format = surface_format.format;
   context.extent = extent;
 
-  context.render_pass = create_render_pass(context.device, context.format);
-  context.pipeline    = create_pipeline(context.device, context.render_pass, {
+  context.command_pool = vulkan::create_command_pool(context.device, 0);
+
+  return context;
+}
+
+struct Vertex
+{
+  glm::vec2 pos;
+  glm::vec3 color;
+};
+
+struct RenderContext
+{
+  VkRenderPass render_pass;
+  VkPipeline   pipeline;
+
+  std::vector<VkImage>       images;
+  std::vector<VkImageView>   image_views;
+  std::vector<VkFramebuffer> framebuffers;
+};
+
+RenderContext create_render_context(const Context& context)
+{
+  RenderContext render_context = {};
+
+  render_context.render_pass = create_render_pass(context.device, context.format);
+  render_context.pipeline    = create_pipeline(context.device, render_context.render_pass, {
     VertexBindingDescription{
       .stride = sizeof(Vertex),
       .attribute_descriptions = {
@@ -475,17 +490,16 @@ Context create_context(ContextCreateInfo create_info)
     }
   });
 
-  context.images = vulkan::swapchain_get_images(context.device, context.swapchain);
-  for(const auto& image : context.images)
-    context.image_views.push_back(vulkan::create_image_view(context.device, image, context.format));
+  render_context.images = vulkan::swapchain_get_images(context.device, context.swapchain);
+  for(const auto& image : render_context.images)
+    render_context.image_views.push_back(vulkan::create_image_view(context.device, image, context.format));
 
-  for(const auto& image_view : context.image_views)
-    context.framebuffers.push_back(vulkan::create_framebuffer(context.device, context.render_pass, image_view, extent));
+  for(const auto& image_view : render_context.image_views)
+    render_context.framebuffers.push_back(vulkan::create_framebuffer(context.device, render_context.render_pass, image_view, context.extent));
 
-  context.command_pool = vulkan::create_command_pool(context.device, 0);
-
-  return context;
+  return render_context;
 }
+
 
 struct FrameInfo
 {
@@ -493,11 +507,11 @@ struct FrameInfo
   VkFramebuffer framebuffer;
 };
 
-FrameInfo begin_frame(const Context& context, VkSemaphore semaphore)
+FrameInfo begin_frame(const Context& context, const RenderContext& render_context, VkSemaphore semaphore)
 {
   FrameInfo frame_info = {};
   vkAcquireNextImageKHR(context.device, context.swapchain, UINT64_MAX, semaphore, VK_NULL_HANDLE, &frame_info.image_index);
-  frame_info.framebuffer = context.framebuffers[frame_info.image_index];
+  frame_info.framebuffer = render_context.framebuffers[frame_info.image_index];
   return frame_info;
 }
 
@@ -535,7 +549,7 @@ RenderResource create_render_resouce(const Context& context)
   return render_resource;
 }
 
-void begin_render(const Context& context, const RenderResource& render_resource, const FrameInfo& frame_info)
+void begin_render(const Context& context, const RenderContext& render_context, const RenderResource& render_resource, const FrameInfo& frame_info)
 {
   vkWaitForFences(context.device, 1, &render_resource.in_flight_fence, VK_TRUE, UINT64_MAX);
   vkResetFences(context.device, 1, &render_resource.in_flight_fence);
@@ -548,7 +562,7 @@ void begin_render(const Context& context, const RenderResource& render_resource,
 
   VkRenderPassBeginInfo render_pass_begin_info = {};
   render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-  render_pass_begin_info.renderPass        = context.render_pass;
+  render_pass_begin_info.renderPass        = render_context.render_pass;
   render_pass_begin_info.framebuffer       = frame_info.framebuffer;
   render_pass_begin_info.renderArea.offset = {0, 0};
   render_pass_begin_info.renderArea.extent = context.extent;
@@ -558,7 +572,7 @@ void begin_render(const Context& context, const RenderResource& render_resource,
   render_pass_begin_info.pClearValues = &clear_color;
 
   vkCmdBeginRenderPass(render_resource.command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
-  vkCmdBindPipeline(render_resource.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, context.pipeline);
+  vkCmdBindPipeline(render_resource.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render_context.pipeline);
 }
 
 VkBuffer allocate_buffer(const Context& context, VkDeviceSize size, VkBufferUsageFlags buffer_usage, VkMemoryPropertyFlags memory_properties, VkDeviceMemory& device_memory)
@@ -639,7 +653,9 @@ int main()
   create_info.engine_name         = "Engine";
   create_info.engine_version      = VK_MAKE_VERSION(1, 0, 0);
   create_info.window              = window;
-  auto context = create_context(create_info);
+
+  auto context        = create_context(create_info);
+  auto render_context = create_render_context(context);
 
   const std::vector<Vertex> vertices = {
     {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
@@ -710,9 +726,14 @@ int main()
     {
       glfwPollEvents();
 
-      auto frame_info = begin_frame(context, render_resource.semaphore_image_available);
+      auto frame_info = begin_frame(context, render_context, render_resource.semaphore_image_available);
       {
-        begin_render(context, render_resource, frame_info);
+        // A single frame to have multiple render pass and each render pass would need multiple pipeline
+        // so we probably should not bind them in begin render
+        // A problem is that to create the framebuffer, we need the render pass
+        // so how to abstract over them?
+        // Do we actually need multiple render pass?
+        begin_render(context, render_context, render_resource, frame_info);
 
         VkBuffer buffers[] = { buffer };
         VkDeviceSize offsets[] = {0};
