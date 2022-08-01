@@ -537,6 +537,9 @@ RenderResource create_render_resouce(const Context& context)
 
 void begin_render(const Context& context, const RenderResource& render_resource, const FrameInfo& frame_info)
 {
+  vkWaitForFences(context.device, 1, &render_resource.in_flight_fence, VK_TRUE, UINT64_MAX);
+  vkResetFences(context.device, 1, &render_resource.in_flight_fence);
+
   VK_CHECK(vkResetCommandBuffer(render_resource.command_buffer, 0));
 
   VkCommandBufferBeginInfo begin_info = {};
@@ -657,9 +660,6 @@ int main()
     for(const auto& render_resource : render_resources)
     {
       glfwPollEvents();
-
-      vkWaitForFences(context.device, 1, &render_resource.in_flight_fence, VK_TRUE, UINT64_MAX);
-      vkResetFences(context.device, 1, &render_resource.in_flight_fence);
 
       auto frame_info = begin_frame(context, render_resource.semaphore_image_available);
       {
