@@ -441,16 +441,8 @@ RenderResource create_render_resouce(const Context& context)
   return render_resource;
 }
 
-struct RenderInfo
+void begin_render(const Context& context, const RenderResource& render_resource, const FrameInfo& frame_info)
 {
-  VkCommandBuffer command_buffer;
-};
-
-RenderInfo begin_render(const Context& context, const RenderResource& render_resource, const FrameInfo& frame_info)
-{
-  RenderInfo render_info = {};
-  render_info.command_buffer = render_resource.command_buffer;
-
   VK_CHECK(vkResetCommandBuffer(render_resource.command_buffer, 0));
 
   VkCommandBufferBeginInfo begin_info = {};
@@ -470,11 +462,9 @@ RenderInfo begin_render(const Context& context, const RenderResource& render_res
 
   vkCmdBeginRenderPass(render_resource.command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
   vkCmdBindPipeline(render_resource.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, context.pipeline);
-
-  return render_info;
 }
 
-void end_render(const Context& context, const RenderResource& render_resource, RenderInfo render_info)
+void end_render(const Context& context, const RenderResource& render_resource)
 {
   vkCmdEndRenderPass(render_resource.command_buffer);
   VK_CHECK(vkEndCommandBuffer(render_resource.command_buffer));
@@ -527,26 +517,28 @@ int main()
       vkWaitForFences(context.device, 1, &render_resource.in_flight_fence, VK_TRUE, UINT64_MAX);
       vkResetFences(context.device, 1, &render_resource.in_flight_fence);
 
-      auto frame_info  = begin_frame(context, render_resource.semaphore_image_available);
-      auto render_info = begin_render(context, render_resource, frame_info);
+      auto frame_info = begin_frame(context, render_resource.semaphore_image_available);
+      {
+        begin_render(context, render_resource, frame_info);
 
-      VkViewport viewport = {};
-      viewport.x = 0.0f;
-      viewport.y = 0.0f;
-      viewport.width  = context.extent.width;
-      viewport.height = context.extent.height;
-      viewport.minDepth = 0.0f;
-      viewport.maxDepth = 1.0f;
-      vkCmdSetViewport(render_info.command_buffer, 0, 1, &viewport);
+        VkViewport viewport = {};
+        viewport.x = 0.0f;
+        viewport.y = 0.0f;
+        viewport.width  = context.extent.width;
+        viewport.height = context.extent.height;
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+        vkCmdSetViewport(render_resource.command_buffer, 0, 1, &viewport);
 
-      VkRect2D scissor = {};
-      scissor.offset = {0, 0};
-      scissor.extent = context.extent;
-      vkCmdSetScissor(render_info.command_buffer, 0, 1, &scissor);
+        VkRect2D scissor = {};
+        scissor.offset = {0, 0};
+        scissor.extent = context.extent;
+        vkCmdSetScissor(render_resource.command_buffer, 0, 1, &scissor);
 
-      vkCmdDraw(render_info.command_buffer, 3, 1, 0, 0);
+        vkCmdDraw(render_resource.command_buffer, 3, 1, 0, 0);
 
-      end_render(context, render_resource, render_info);
+        end_render(context, render_resource);
+      }
       end_frame(context, frame_info, render_resource.semaphore_render_finished);
 
     }
