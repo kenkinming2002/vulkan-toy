@@ -311,6 +311,88 @@ void destroy_pipeline(VkDevice device, VkPipeline pipeline)
   vkDestroyPipeline(device, pipeline, nullptr);
 }
 
+struct Context
+{
+  VkInstance instance;
+  VkDevice   device;
+  VkQueue    queue;
+
+  VkSurfaceKHR   surface;
+  VkSwapchainKHR swapchain;
+  VkFormat       format;
+  VkExtent2D     extent;
+
+  VkRenderPass render_pass;
+  VkPipeline   pipeline;
+
+  std::vector<VkImage>       images;
+  std::vector<VkImageView>   image_views;
+  std::vector<VkFramebuffer> framebuffers;
+
+  VkCommandPool command_pool;
+};
+
+struct ContextCreateInfo
+{
+  const char *application_name;
+  uint32_t    application_version;
+
+  const char *engine_name;
+  uint32_t    engine_version;
+
+  GLFWwindow *window;
+};
+
+Context create_context(ContextCreateInfo create_info)
+{
+  auto required_layers              = std::vector<const char*>{"VK_LAYER_KHRONOS_validation"};
+  auto required_instance_extensions = glfw::get_required_instance_extensions();
+  auto required_device_extensions   = std::vector<const char*>{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+
+  Context context = {};
+  context.instance = vulkan::create_instance(
+      "Vulkan", VK_MAKE_VERSION(1, 0, 0),
+      "Engine", VK_MAKE_VERSION(1, 0, 0),
+      required_instance_extensions, required_layers
+  );
+
+  context.surface = vulkan::create_surface(context.instance, create_info.window);
+
+  auto physical_device = vulkan::enumerate_physical_devices(context.instance).at(0);
+  auto queue_family_indices = std::vector<uint32_t>{0};
+  context.device = vulkan::create_device(
+      physical_device, queue_family_indices, {},
+      required_device_extensions, required_layers
+  );
+  context.queue = vulkan::device_get_queue(context.device, 0, 0);
+
+  auto capabilities    = vulkan::get_physical_device_surface_capabilities_khr(physical_device, context.surface);
+  auto surface_formats = vulkan::get_physical_device_surface_formats_khr(physical_device, context.surface);
+  auto present_modes   = vulkan::get_physical_device_surface_present_modes_khr(physical_device, context.surface);
+
+  auto extent         = select_swap_extent(capabilities, create_info.window);
+  auto image_count    = select_image_count(capabilities);
+  auto surface_format = select_surface_format_khr(surface_formats);
+  auto present_mode   = select_present_mode_khr(present_modes);
+  context.swapchain = vulkan::create_swapchain_khr(context.device, context.surface, extent, image_count, surface_format, present_mode, capabilities.currentTransform);
+  context.format = surface_format.format;
+  context.extent = extent;
+
+  context.render_pass = create_render_pass(context.device, context.format);
+  context.pipeline    = create_pipeline(context.device, context.render_pass);
+
+  context.images = vulkan::swapchain_get_images(context.device, context.swapchain);
+  for(const auto& image : context.images)
+    context.image_views.push_back(vulkan::create_image_view(context.device, image, context.format));
+
+  for(const auto& image_view : context.image_views)
+    context.framebuffers.push_back(vulkan::create_framebuffer(context.device, context.render_pass, image_view, extent));
+
+  context.command_pool = vulkan::create_command_pool(context.device, 0);
+
+  return context;
+}
+
 int main()
 {
   glfwInit();
@@ -320,105 +402,38 @@ int main()
   glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
   GLFWwindow *window = glfwCreateWindow(800, 600, "Vulkan", nullptr, nullptr);
 
-  // Vulkan
-  auto required_layers              = std::vector<const char*>{"VK_LAYER_KHRONOS_validation"};
-  auto required_instance_extensions = glfw::get_required_instance_extensions();
-  auto required_device_extensions   = std::vector<const char*>{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-
-  auto instance = vulkan::create_instance(
-      "Vulkan", VK_MAKE_VERSION(1, 0, 0),
-      "Engine", VK_MAKE_VERSION(1, 0, 0),
-      required_instance_extensions, required_layers
-  );
-  DEFER(vulkan::destroy_instance(instance));
-
-  auto surface = vulkan::create_surface(instance, window);
-  DEFER(vulkan::destroy_surface(instance, surface));
-
-  // We want some better way to select them, this is the most annoying part of vulkan
-  auto physical_device = vulkan::enumerate_physical_devices(instance).at(0);
-  auto queue_family_indices = std::vector<uint32_t>{0};
-
-  auto device = vulkan::create_device(
-      physical_device, queue_family_indices, {},
-      required_device_extensions, required_layers
-  );
-  DEFER(vulkan::destroy_device(device));
-
-  auto queue = vulkan::device_get_queue(device, 0, 0);
-
-  auto capabilities  = vulkan::get_physical_device_surface_capabilities_khr(physical_device, surface);
-  auto surface_formats       = vulkan::get_physical_device_surface_formats_khr(physical_device, surface);
-  auto present_modes = vulkan::get_physical_device_surface_present_modes_khr(physical_device, surface);
-
-  auto extent       = select_swap_extent(capabilities, window);
-  auto image_count  = select_image_count(capabilities);
-  auto surface_format       = select_surface_format_khr(surface_formats);
-  auto present_mode = select_present_mode_khr(present_modes);
-
-  auto swapchain = vulkan::create_swapchain_khr(device, surface, extent, image_count, surface_format, present_mode, capabilities.currentTransform);
-  DEFER(vulkan::destroy_swapchain_khr(device, swapchain));
-
-  auto images = vulkan::swapchain_get_images(device, swapchain);
-
-  auto image_views = std::vector<VkImageView>();
-  for(const auto& image : images) image_views.push_back(vulkan::create_image_view(device, image, surface_format.format));
-  DEFER(for(const auto& image_view : image_views) { vulkan::destroy_image_view(device, image_view); });
-
-  // Vulkan pipeline creation
-  //
-  // The plethora of parameter is due to the fact that we have to specifiy every parameter
-  // whereas in OpenGL, all the parameters are global states and have implicit default value.
-  auto render_pass = create_render_pass(device, surface_format.format);
-  DEFER(destroy_render_pass(device, render_pass));
-
-  auto pipeline    = create_pipeline(device, render_pass);
-  DEFER(destroy_pipeline(device, pipeline));
-
-  auto framebuffers = std::vector<VkFramebuffer>();
-  for(const auto& image_view : image_views) framebuffers.push_back(vulkan::create_framebuffer(device, render_pass, image_view, extent));
-  DEFER(for(const auto& framebuffer : framebuffers) { vulkan::destroy_framebuffer(device, framebuffer); });
-
-  auto command_pool = vulkan::create_command_pool(device, 0);
-  DEFER(vulkan::destroy_command_pool(device, command_pool));
-
   static constexpr size_t MAX_FRAME_IN_FLIGHT = 4;
+
+  ContextCreateInfo create_info = {};
+  create_info.application_name    = "Vulkan";
+  create_info.application_version = VK_MAKE_VERSION(1, 0, 0);
+  create_info.engine_name         = "Engine";
+  create_info.engine_version      = VK_MAKE_VERSION(1, 0, 0);
+  create_info.window              = window;
+  auto context = create_context(create_info);
 
   VkCommandBuffer command_buffers[MAX_FRAME_IN_FLIGHT]        = {};
   VkSemaphore image_avail_semaphores[MAX_FRAME_IN_FLIGHT]     = {};
   VkSemaphore render_finished_semaphores[MAX_FRAME_IN_FLIGHT] = {};
   VkFence in_flight_fences[MAX_FRAME_IN_FLIGHT]               = {};
-
   for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
   {
-    command_buffers[i]            = vulkan::create_command_buffer(device, command_pool);
-    image_avail_semaphores[i]     = vulkan::create_semaphore(device);
-    render_finished_semaphores[i] = vulkan::create_semaphore(device);
-    in_flight_fences[i]           = vulkan::create_fence(device, true);
+    command_buffers[i]            = vulkan::create_command_buffer(context.device, context.command_pool);
+    image_avail_semaphores[i]     = vulkan::create_semaphore(context.device);
+    render_finished_semaphores[i] = vulkan::create_semaphore(context.device);
+    in_flight_fences[i]           = vulkan::create_fence(context.device, true);
   }
-
-  DEFER(
-    for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
-    {
-      vulkan::destroy_command_buffer(device, command_pool, command_buffers[i]);
-      vulkan::destroy_semaphore(device, image_avail_semaphores[i]);
-      vulkan::destroy_semaphore(device, render_finished_semaphores[i]);
-      vulkan::destroy_fence(device, in_flight_fences[i]);
-    }
-  );
-
-
 
   while(!glfwWindowShouldClose(window))
     for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
     {
       glfwPollEvents();
 
-      vkWaitForFences(device, 1, &in_flight_fences[i], VK_TRUE, UINT64_MAX);
-      vkResetFences(device, 1, &in_flight_fences[i]);
+      vkWaitForFences(context.device, 1, &in_flight_fences[i], VK_TRUE, UINT64_MAX);
+      vkResetFences(context.device, 1, &in_flight_fences[i]);
 
       uint32_t image_index;
-      vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, image_avail_semaphores[i], VK_NULL_HANDLE, &image_index);
+      vkAcquireNextImageKHR(context.device, context.swapchain, UINT64_MAX, image_avail_semaphores[i], VK_NULL_HANDLE, &image_index);
 
       // Record the command buffer
       VK_CHECK(vkResetCommandBuffer(command_buffers[i], 0));
@@ -429,30 +444,30 @@ int main()
 
       VkRenderPassBeginInfo render_pass_begin_info = {};
       render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-      render_pass_begin_info.renderPass = render_pass;
-      render_pass_begin_info.framebuffer = framebuffers[image_index];
+      render_pass_begin_info.renderPass        = context.render_pass;
+      render_pass_begin_info.framebuffer       = context.framebuffers[image_index];
       render_pass_begin_info.renderArea.offset = {0, 0};
-      render_pass_begin_info.renderArea.extent = extent;
+      render_pass_begin_info.renderArea.extent = context.extent;
 
       VkClearValue clear_color = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
       render_pass_begin_info.clearValueCount = 1;
       render_pass_begin_info.pClearValues = &clear_color;
 
       vkCmdBeginRenderPass(command_buffers[i], &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
-      vkCmdBindPipeline(command_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+      vkCmdBindPipeline(command_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, context.pipeline);
 
       VkViewport viewport = {};
       viewport.x = 0.0f;
       viewport.y = 0.0f;
-      viewport.width  = extent.width;
-      viewport.height = extent.height;
+      viewport.width  = context.extent.width;
+      viewport.height = context.extent.height;
       viewport.minDepth = 0.0f;
       viewport.maxDepth = 1.0f;
       vkCmdSetViewport(command_buffers[i], 0, 1, &viewport);
 
       VkRect2D scissor = {};
       scissor.offset = {0, 0};
-      scissor.extent = extent;
+      scissor.extent = context.extent;
       vkCmdSetScissor(command_buffers[i], 0, 1, &scissor);
 
       vkCmdDraw(command_buffers[i], 3, 1, 0, 0);
@@ -481,23 +496,23 @@ int main()
       submit_info.commandBufferCount = 1;
       submit_info.pCommandBuffers    = &command_buffers[i];
 
-      VK_CHECK(vkQueueSubmit(queue, 1, &submit_info, in_flight_fences[i]));
+      VK_CHECK(vkQueueSubmit(context.queue, 1, &submit_info, in_flight_fences[i]));
 
       VkPresentInfoKHR present_info = {};
       present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
       present_info.waitSemaphoreCount = 1;
       present_info.pWaitSemaphores = signal_semaphores;
 
-      VkSwapchainKHR swapchains[] = { swapchain };
+      VkSwapchainKHR swapchains[] = { context.swapchain };
       present_info.swapchainCount = 1;
       present_info.pSwapchains    = swapchains;
       present_info.pImageIndices  = &image_index;
       present_info.pResults       = nullptr;
 
-      vkQueuePresentKHR(queue, &present_info);
+      vkQueuePresentKHR(context.queue, &present_info);
     }
 
-  vkDeviceWaitIdle(device);
+  vkDeviceWaitIdle(context.device);
 
   glfwDestroyWindow(window);
   glfwTerminate();
