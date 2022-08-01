@@ -208,11 +208,15 @@ struct VertexBindingDescription
   std::vector<VertexAttributeDescription> attribute_descriptions;
 };
 
-VkPipeline create_pipeline(VkDevice device, VkRenderPass render_pass, const std::vector<VertexBindingDescription>& vertex_binding_descriptions)
+struct PipelineCreateInfo
 {
-  auto vert_shader_module = vulkan::create_shader_module(device, read_file("shaders/vert.spv"));
-  auto frag_shader_module = vulkan::create_shader_module(device, read_file("shaders/frag.spv"));
+  VkShaderModule vert_shader_module;
+  VkShaderModule frag_shader_module;
+  std::vector<VertexBindingDescription> vertex_binding_descriptions;
+};
 
+VkPipeline create_pipeline(VkDevice device, VkRenderPass render_pass, PipelineCreateInfo create_info)
+{
   VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info = {};
   vertex_input_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
   vertex_input_state_create_info.vertexBindingDescriptionCount   = 0;
@@ -224,7 +228,7 @@ VkPipeline create_pipeline(VkDevice device, VkRenderPass render_pass, const std:
   std::vector<VkVertexInputAttributeDescription> vertex_input_attribute_descriptions;
   {
     uint32_t binding = 0;
-    for(const auto& vertex_binding_description : vertex_binding_descriptions)
+    for(const auto& vertex_binding_description : create_info.vertex_binding_descriptions)
     {
       uint32_t location = 0;
       for(const auto& vertex_attribute_description : vertex_binding_description.attribute_descriptions)
@@ -274,13 +278,13 @@ VkPipeline create_pipeline(VkDevice device, VkRenderPass render_pass, const std:
   VkPipelineShaderStageCreateInfo vert_shader_stage_create_info = {};
   vert_shader_stage_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
   vert_shader_stage_create_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
-  vert_shader_stage_create_info.module = vert_shader_module;
+  vert_shader_stage_create_info.module = create_info.vert_shader_module;
   vert_shader_stage_create_info.pName = "main";
 
   VkPipelineShaderStageCreateInfo frag_shader_stage_create_info = {};
   frag_shader_stage_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
   frag_shader_stage_create_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-  frag_shader_stage_create_info.module = frag_shader_module;
+  frag_shader_stage_create_info.module = create_info.frag_shader_module;
   frag_shader_stage_create_info.pName = "main";
 
   VkPipelineShaderStageCreateInfo shader_stage_create_infos[] = {
@@ -371,8 +375,6 @@ VkPipeline create_pipeline(VkDevice device, VkRenderPass render_pass, const std:
 
   VkPipeline pipeline = VK_NULL_HANDLE;
   VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &graphics_pipeline_create_info, nullptr, &pipeline));
-  vulkan::destroy_shader_module(device, vert_shader_module);
-  vulkan::destroy_shader_module(device, frag_shader_module);
   vulkan::destroy_pipeline_layout(device, pipeline_layout);
   return pipeline;
 }
@@ -480,8 +482,11 @@ RenderContext create_render_context(const Context& context, RenderContextCreateI
   render_context.format = surface_format.format;
   render_context.extent = extent;
   render_context.render_pass = create_render_pass(context.device, render_context.format);
-  render_context.pipeline    = create_pipeline(context.device, render_context.render_pass, {
 
+  PipelineCreateInfo pipeline_create_info = {};
+  pipeline_create_info.vert_shader_module = vulkan::create_shader_module(context.device, read_file("shaders/vert.spv"));
+  pipeline_create_info.frag_shader_module = vulkan::create_shader_module(context.device, read_file("shaders/frag.spv"));
+  pipeline_create_info.vertex_binding_descriptions = {
     VertexBindingDescription{
       .stride = sizeof(Vertex),
       .attribute_descriptions = {
@@ -495,7 +500,8 @@ RenderContext create_render_context(const Context& context, RenderContextCreateI
         },
       }
     }
-  });
+  };
+  render_context.pipeline = create_pipeline(context.device, render_context.render_pass, pipeline_create_info);
 
   render_context.images = vulkan::swapchain_get_images(context.device, render_context.swapchain);
   for(const auto& image : render_context.images)
