@@ -395,10 +395,6 @@ struct Context
 
   VkCommandPool command_pool;
   VkSurfaceKHR   surface;
-
-  VkSwapchainKHR swapchain;
-  VkFormat       format;
-  VkExtent2D     extent;
 };
 
 // How you want to render?
@@ -436,18 +432,6 @@ Context create_context(ContextCreateInfo create_info)
   );
   context.queue = vulkan::device_get_queue(context.device, context.queue_family_index, 0);
 
-  auto capabilities    = vulkan::get_physical_device_surface_capabilities_khr(context.physical_device, context.surface);
-  auto surface_formats = vulkan::get_physical_device_surface_formats_khr(context.physical_device, context.surface);
-  auto present_modes   = vulkan::get_physical_device_surface_present_modes_khr(context.physical_device, context.surface);
-
-  auto extent         = select_swap_extent(capabilities, create_info.window);
-  auto image_count    = select_image_count(capabilities);
-  auto surface_format = select_surface_format_khr(surface_formats);
-  auto present_mode   = select_present_mode_khr(present_modes);
-  context.swapchain = vulkan::create_swapchain_khr(context.device, context.surface, extent, image_count, surface_format, present_mode, capabilities.currentTransform);
-  context.format = surface_format.format;
-  context.extent = extent;
-
   context.command_pool = vulkan::create_command_pool(context.device, 0);
 
   return context;
@@ -461,6 +445,11 @@ struct Vertex
 
 struct RenderContext
 {
+  VkSwapchainKHR swapchain;
+  VkFormat       format;
+  VkExtent2D     extent;
+
+  // TODO: How to support multiple render pass
   VkRenderPass render_pass;
   VkPipeline   pipeline;
 
@@ -469,12 +458,30 @@ struct RenderContext
   std::vector<VkFramebuffer> framebuffers;
 };
 
-RenderContext create_render_context(const Context& context)
+struct RenderContextCreateInfo
+{
+  GLFWwindow *window;
+};
+
+RenderContext create_render_context(const Context& context, RenderContextCreateInfo create_info)
 {
   RenderContext render_context = {};
 
-  render_context.render_pass = create_render_pass(context.device, context.format);
+  auto capabilities    = vulkan::get_physical_device_surface_capabilities_khr(context.physical_device, context.surface);
+  auto surface_formats = vulkan::get_physical_device_surface_formats_khr(context.physical_device, context.surface);
+  auto present_modes   = vulkan::get_physical_device_surface_present_modes_khr(context.physical_device, context.surface);
+
+  auto extent         = select_swap_extent(capabilities, create_info.window);
+  auto image_count    = select_image_count(capabilities);
+  auto surface_format = select_surface_format_khr(surface_formats);
+  auto present_mode   = select_present_mode_khr(present_modes);
+
+  render_context.swapchain = vulkan::create_swapchain_khr(context.device, context.surface, extent, image_count, surface_format, present_mode, capabilities.currentTransform);
+  render_context.format = surface_format.format;
+  render_context.extent = extent;
+  render_context.render_pass = create_render_pass(context.device, render_context.format);
   render_context.pipeline    = create_pipeline(context.device, render_context.render_pass, {
+
     VertexBindingDescription{
       .stride = sizeof(Vertex),
       .attribute_descriptions = {
@@ -490,12 +497,12 @@ RenderContext create_render_context(const Context& context)
     }
   });
 
-  render_context.images = vulkan::swapchain_get_images(context.device, context.swapchain);
+  render_context.images = vulkan::swapchain_get_images(context.device, render_context.swapchain);
   for(const auto& image : render_context.images)
-    render_context.image_views.push_back(vulkan::create_image_view(context.device, image, context.format));
+    render_context.image_views.push_back(vulkan::create_image_view(context.device, image, render_context.format));
 
   for(const auto& image_view : render_context.image_views)
-    render_context.framebuffers.push_back(vulkan::create_framebuffer(context.device, render_context.render_pass, image_view, context.extent));
+    render_context.framebuffers.push_back(vulkan::create_framebuffer(context.device, render_context.render_pass, image_view, render_context.extent));
 
   return render_context;
 }
@@ -510,19 +517,19 @@ struct FrameInfo
 FrameInfo begin_frame(const Context& context, const RenderContext& render_context, VkSemaphore semaphore)
 {
   FrameInfo frame_info = {};
-  vkAcquireNextImageKHR(context.device, context.swapchain, UINT64_MAX, semaphore, VK_NULL_HANDLE, &frame_info.image_index);
+  vkAcquireNextImageKHR(context.device, render_context.swapchain, UINT64_MAX, semaphore, VK_NULL_HANDLE, &frame_info.image_index);
   frame_info.framebuffer = render_context.framebuffers[frame_info.image_index];
   return frame_info;
 }
 
-void end_frame(const Context& context, FrameInfo frame_info, VkSemaphore semaphore)
+void end_frame(const Context& context, const RenderContext& render_context, FrameInfo frame_info, VkSemaphore semaphore)
 {
   VkPresentInfoKHR present_info = {};
   present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
   present_info.waitSemaphoreCount = 1;
   present_info.pWaitSemaphores = &semaphore;
 
-  VkSwapchainKHR swapchains[] = { context.swapchain };
+  VkSwapchainKHR swapchains[] = { render_context.swapchain };
   present_info.swapchainCount = 1;
   present_info.pSwapchains    = swapchains;
   present_info.pImageIndices  = &frame_info.image_index;
@@ -565,7 +572,7 @@ void begin_render(const Context& context, const RenderContext& render_context, c
   render_pass_begin_info.renderPass        = render_context.render_pass;
   render_pass_begin_info.framebuffer       = frame_info.framebuffer;
   render_pass_begin_info.renderArea.offset = {0, 0};
-  render_pass_begin_info.renderArea.extent = context.extent;
+  render_pass_begin_info.renderArea.extent = render_context.extent;
 
   VkClearValue clear_color = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
   render_pass_begin_info.clearValueCount = 1;
@@ -647,15 +654,18 @@ int main()
   glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
   GLFWwindow *window = glfwCreateWindow(800, 600, "Vulkan", nullptr, nullptr);
 
-  ContextCreateInfo create_info = {};
-  create_info.application_name    = "Vulkan";
-  create_info.application_version = VK_MAKE_VERSION(1, 0, 0);
-  create_info.engine_name         = "Engine";
-  create_info.engine_version      = VK_MAKE_VERSION(1, 0, 0);
-  create_info.window              = window;
+  ContextCreateInfo context_create_info = {};
+  context_create_info.application_name    = "Vulkan";
+  context_create_info.application_version = VK_MAKE_VERSION(1, 0, 0);
+  context_create_info.engine_name         = "Engine";
+  context_create_info.engine_version      = VK_MAKE_VERSION(1, 0, 0);
+  context_create_info.window              = window;
+  auto context = create_context(context_create_info);
 
-  auto context        = create_context(create_info);
-  auto render_context = create_render_context(context);
+  // May need to be recreated on window resize
+  RenderContextCreateInfo render_context_create_info = {};
+  render_context_create_info.window = window;
+  auto render_context = create_render_context(context, render_context_create_info);
 
   const std::vector<Vertex> vertices = {
     {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
@@ -742,22 +752,22 @@ int main()
         VkViewport viewport = {};
         viewport.x = 0.0f;
         viewport.y = 0.0f;
-        viewport.width  = context.extent.width;
-        viewport.height = context.extent.height;
+        viewport.width  = render_context.extent.width;
+        viewport.height = render_context.extent.height;
         viewport.minDepth = 0.0f;
         viewport.maxDepth = 1.0f;
         vkCmdSetViewport(render_resource.command_buffer, 0, 1, &viewport);
 
         VkRect2D scissor = {};
         scissor.offset = {0, 0};
-        scissor.extent = context.extent;
+        scissor.extent = render_context.extent;
         vkCmdSetScissor(render_resource.command_buffer, 0, 1, &scissor);
 
         vkCmdDraw(render_resource.command_buffer, 3, 1, 0, 0);
 
         end_render(context, render_resource);
       }
-      end_frame(context, frame_info, render_resource.semaphore_render_finished);
+      end_frame(context, render_context, frame_info, render_resource.semaphore_render_finished);
 
     }
 
