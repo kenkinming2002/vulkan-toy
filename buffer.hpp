@@ -61,27 +61,43 @@ namespace vulkan
     abort();
   }
 
-  inline void allocate_buffer(const vulkan::Context& context, Allocator& allocator,
-      VkDeviceSize size, VkBufferUsageFlags buffer_usage,
-      VkMemoryPropertyFlags memory_properties,
-      VkBuffer *buffer, VkDeviceMemory *device_memory)
+  struct BufferAllocation
   {
+    VkBuffer buffer;
+    VkDeviceMemory memory;
+  };
+
+  inline BufferAllocation allocate_buffer(const vulkan::Context& context, Allocator& allocator,
+      VkDeviceSize size, VkBufferUsageFlags buffer_usage,
+      VkMemoryPropertyFlags memory_properties)
+  {
+    BufferAllocation allocation = {};
+
     VkBufferCreateInfo buffer_create_info = {};
     buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     buffer_create_info.size        = size;
     buffer_create_info.usage       = buffer_usage;
     buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    VK_CHECK(vkCreateBuffer(context.device, &buffer_create_info, nullptr, buffer));
+    VK_CHECK(vkCreateBuffer(context.device, &buffer_create_info, nullptr, &allocation.buffer));
 
     VkMemoryRequirements buffer_memory_requirement = {};
-    vkGetBufferMemoryRequirements(context.device, *buffer, &buffer_memory_requirement);
+    vkGetBufferMemoryRequirements(context.device, allocation.buffer, &buffer_memory_requirement);
     uint32_t memory_type_index = select_memory_type(allocator, buffer_memory_requirement.memoryTypeBits, memory_properties);
 
     VkMemoryAllocateInfo allocate_info = {};
     allocate_info.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocate_info.memoryTypeIndex = memory_type_index;
     allocate_info.allocationSize  = buffer_memory_requirement.size;
-    VK_CHECK(vkAllocateMemory(context.device, &allocate_info, nullptr, device_memory));
-    VK_CHECK(vkBindBufferMemory(context.device, *buffer, *device_memory, 0));
+    VK_CHECK(vkAllocateMemory(context.device, &allocate_info, nullptr, &allocation.memory));
+    VK_CHECK(vkBindBufferMemory(context.device, allocation.buffer, allocation.memory, 0));
+
+    return allocation;
+  }
+
+  inline void deallocate_buffer(const Context& context, const Allocator& allocator, BufferAllocation allocation)
+  {
+    (void)allocator;
+    vkDestroyBuffer(context.device, allocation.buffer, nullptr);
+    vkFreeMemory(context.device, allocation.memory, nullptr);
   }
 }

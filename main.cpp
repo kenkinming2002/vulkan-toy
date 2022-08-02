@@ -99,8 +99,7 @@ struct RenderResource
   VkSemaphore semaphore_render_finished;
   VkFence in_flight_fence;
 
-  VkBuffer       ubo_buffer;
-  VkDeviceMemory ubo_memory;
+  vulkan::BufferAllocation ubo_allocation;
 };
 
 RenderResource create_render_resouce(const vulkan::Context& context, vulkan::Allocator& allocator)
@@ -110,11 +109,9 @@ RenderResource create_render_resouce(const vulkan::Context& context, vulkan::All
   render_resource.semaphore_image_available = vulkan::create_semaphore(context.device);
   render_resource.semaphore_render_finished = vulkan::create_semaphore(context.device);
   render_resource.in_flight_fence           = vulkan::create_fence(context.device, true);
-  vulkan::allocate_buffer(context, allocator, sizeof(UniformBufferObject),
+  render_resource.ubo_allocation            = vulkan::allocate_buffer(context, allocator, sizeof(UniformBufferObject),
       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-      &render_resource.ubo_buffer,
-      &render_resource.ubo_memory);
+      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
   return render_resource;
 }
 
@@ -231,62 +228,49 @@ int main()
 
   auto allocator = vulkan::create_allocator(context);
 
-  // Create the vertex buffer
   const size_t buffer_size = sizeof vertices[0] * vertices.size();
-
-  VkBuffer staging_buffer = VK_NULL_HANDLE;
-  VkBuffer buffer = VK_NULL_HANDLE;
-  VkDeviceMemory staging_buffer_memory = VK_NULL_HANDLE;
-  VkDeviceMemory buffer_memory = VK_NULL_HANDLE;
-
-  vulkan::allocate_buffer(context, allocator, buffer_size,
-      VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-      &staging_buffer,
-      &staging_buffer_memory);
-
-  void *data;
-  VK_CHECK(vkMapMemory(context.device, staging_buffer_memory, 0, buffer_size, 0, &data));
-  memcpy(data, vertices.data(), buffer_size);
-  vkUnmapMemory(context.device, staging_buffer_memory);
-
-  allocate_buffer(context, allocator, buffer_size,
+  auto vbo_allocation = allocate_buffer(context, allocator, buffer_size,
       VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-      &buffer,
-      &buffer_memory);
+      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-  // Single shot buffer command
+  // Upload the vertex buffer
   {
-    auto single_shot_command_buffer = vulkan::create_command_buffer(context.device, context.command_pool);
+    // Create the vertex buffer
+    auto vbo_staging_allocation =
+      vulkan::allocate_buffer(context, allocator, buffer_size,
+          VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
+    void *data;
+    VK_CHECK(vkMapMemory(context.device, vbo_staging_allocation.memory, 0, buffer_size, 0, &data));
+    memcpy(data, vertices.data(), buffer_size);
+    vkUnmapMemory(context.device, vbo_staging_allocation.memory);
+
+    // Single shot buffer command
     VkCommandBufferBeginInfo commad_buffer_begin_info{};
     commad_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     commad_buffer_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-    vkBeginCommandBuffer(single_shot_command_buffer, &commad_buffer_begin_info);
+    vkBeginCommandBuffer(context.command_buffer, &commad_buffer_begin_info);
 
     VkBufferCopy buffer_copy = {};
     buffer_copy.srcOffset = 0;
     buffer_copy.dstOffset = 0;
     buffer_copy.size      = buffer_size;
-    vkCmdCopyBuffer(single_shot_command_buffer, staging_buffer, buffer, 1, &buffer_copy);
+    vkCmdCopyBuffer(context.command_buffer, vbo_staging_allocation.buffer, vbo_allocation.buffer, 1, &buffer_copy);
 
-    vkEndCommandBuffer(single_shot_command_buffer);
+    vkEndCommandBuffer(context.command_buffer);
 
     VkSubmitInfo submit_info = {};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers    = &single_shot_command_buffer;
+    submit_info.pCommandBuffers    = &context.command_buffer;
 
     VK_CHECK(vkQueueSubmit(context.queue, 1, &submit_info, VK_NULL_HANDLE));
     VK_CHECK(vkQueueWaitIdle(context.queue));
 
-    vulkan::destroy_command_buffer(context.device, context.command_pool, single_shot_command_buffer);
+    vulkan::deallocate_buffer(context, allocator, vbo_staging_allocation);
   }
-
-  vkDestroyBuffer(context.device, staging_buffer, nullptr);
-  vkFreeMemory(context.device, staging_buffer_memory, nullptr);
 
   static constexpr size_t MAX_FRAME_IN_FLIGHT = 4;
   RenderResource render_resources[MAX_FRAME_IN_FLIGHT];
@@ -323,7 +307,7 @@ int main()
   for (size_t i = 0; i < MAX_FRAME_IN_FLIGHT; i++)
   {
     VkDescriptorBufferInfo buffer_info = {};
-    buffer_info.buffer = render_resources[i].ubo_buffer;
+    buffer_info.buffer = render_resources[i].ubo_allocation.buffer;
     buffer_info.offset = 0;
     buffer_info.range  = sizeof(UniformBufferObject);
 
@@ -368,9 +352,9 @@ int main()
       ubo.proj[1][1] *= -1;
 
       void* data;
-      vkMapMemory(context.device, render_resource.ubo_memory, 0, sizeof(ubo), 0, &data);
+      vkMapMemory(context.device, render_resource.ubo_allocation.memory, 0, sizeof(ubo), 0, &data);
       memcpy(data, &ubo, sizeof(ubo));
-      vkUnmapMemory(context.device, render_resource.ubo_memory);
+      vkUnmapMemory(context.device, render_resource.ubo_allocation.memory);
 
       {
         // A single frame to have multiple render pass and each render pass would need multiple pipeline
@@ -384,7 +368,7 @@ int main()
             VK_PIPELINE_BIND_POINT_GRAPHICS, render_context.pipeline_layout, 0, 1,
             &descriptor_sets[i], 0, nullptr);
 
-        VkBuffer buffers[] = { buffer };
+        VkBuffer buffers[] = { vbo_allocation.buffer };
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(render_resource.command_buffer, 0, 1, buffers, offsets);
 
