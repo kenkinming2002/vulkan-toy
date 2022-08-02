@@ -1,6 +1,7 @@
 #include "context.hpp"
 #include "render_context.hpp"
 #include "vulkan.hpp"
+#include "buffer.hpp"
 
 #include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
@@ -27,47 +28,6 @@
 #include <stdlib.h>
 
 #define VK_CHECK(expr) do { if(expr != VK_SUCCESS) { fprintf(stderr, "Vulkan pooped itself:%s\n", #expr); } } while(0)
-
-VkBuffer allocate_buffer(const vulkan::Context& context, VkDeviceSize size, VkBufferUsageFlags buffer_usage, VkMemoryPropertyFlags memory_properties, VkDeviceMemory& device_memory)
-{
-  VkBufferCreateInfo buffer_create_info = {};
-  buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-  buffer_create_info.size        = size;
-  buffer_create_info.usage       = buffer_usage;
-  buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-  VkBuffer buffer = VK_NULL_HANDLE;
-  VK_CHECK(vkCreateBuffer(context.device, &buffer_create_info, nullptr, &buffer));
-
-  VkMemoryRequirements buffer_memory_requirement = {};
-  vkGetBufferMemoryRequirements(context.device, buffer, &buffer_memory_requirement);
-
-  VkPhysicalDeviceMemoryProperties physical_device_memory_properties = {};
-  vkGetPhysicalDeviceMemoryProperties(context.physical_device, &physical_device_memory_properties);
-
-  // How is it different from picking lowest significant set bit of type filter
-  uint32_t type_filter       = buffer_memory_requirement.memoryTypeBits;
-  uint32_t memory_type_index = [&]()
-  {
-    for (uint32_t i = 0; i < physical_device_memory_properties.memoryTypeCount; i++)
-      if (type_filter & (1 << i) && (memory_properties & physical_device_memory_properties.memoryTypes[i].propertyFlags) == memory_properties)
-        return i;
-
-    fprintf(stderr, "No memory type suitable");
-    abort();
-  }();
-
-  VkMemoryAllocateInfo allocate_info = {};
-  allocate_info.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-  allocate_info.memoryTypeIndex = memory_type_index;
-  allocate_info.allocationSize  = buffer_memory_requirement.size;
-
-  VK_CHECK(vkAllocateMemory(context.device, &allocate_info, nullptr, &device_memory));
-  VK_CHECK(vkBindBufferMemory(context.device, buffer, device_memory, 0));
-
-  return buffer;
-}
-
 
 // How you want to render?
 // Unlike OpenGL, you have to prespecify a lot of things
@@ -143,17 +103,18 @@ struct RenderResource
   VkDeviceMemory ubo_memory;
 };
 
-RenderResource create_render_resouce(const vulkan::Context& context)
+RenderResource create_render_resouce(const vulkan::Context& context, vulkan::Allocator& allocator)
 {
   RenderResource render_resource = {};
   render_resource.command_buffer            = vulkan::create_command_buffer(context.device, context.command_pool);
   render_resource.semaphore_image_available = vulkan::create_semaphore(context.device);
   render_resource.semaphore_render_finished = vulkan::create_semaphore(context.device);
   render_resource.in_flight_fence           = vulkan::create_fence(context.device, true);
-  render_resource.ubo_buffer = allocate_buffer(context, sizeof(UniformBufferObject),
+  vulkan::allocate_buffer(context, allocator, sizeof(UniformBufferObject),
       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-      render_resource.ubo_memory);
+      &render_resource.ubo_buffer,
+      &render_resource.ubo_memory);
   return render_resource;
 }
 
@@ -268,26 +229,32 @@ int main()
     {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
   };
 
+  auto allocator = vulkan::create_allocator(context);
+
   // Create the vertex buffer
   const size_t buffer_size = sizeof vertices[0] * vertices.size();
 
+  VkBuffer staging_buffer = VK_NULL_HANDLE;
+  VkBuffer buffer = VK_NULL_HANDLE;
   VkDeviceMemory staging_buffer_memory = VK_NULL_HANDLE;
   VkDeviceMemory buffer_memory = VK_NULL_HANDLE;
 
-  auto staging_buffer = allocate_buffer(context, buffer_size,
+  vulkan::allocate_buffer(context, allocator, buffer_size,
       VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-      staging_buffer_memory);
+      &staging_buffer,
+      &staging_buffer_memory);
 
   void *data;
   VK_CHECK(vkMapMemory(context.device, staging_buffer_memory, 0, buffer_size, 0, &data));
   memcpy(data, vertices.data(), buffer_size);
   vkUnmapMemory(context.device, staging_buffer_memory);
 
-  auto buffer = allocate_buffer(context, buffer_size,
+  allocate_buffer(context, allocator, buffer_size,
       VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-      buffer_memory);
+      &buffer,
+      &buffer_memory);
 
   // Single shot buffer command
   {
@@ -324,7 +291,7 @@ int main()
   static constexpr size_t MAX_FRAME_IN_FLIGHT = 4;
   RenderResource render_resources[MAX_FRAME_IN_FLIGHT];
   for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
-    render_resources[i] = create_render_resouce(context);
+    render_resources[i] = create_render_resouce(context, allocator);
 
   // Descriptor pool
   VkDescriptorPoolSize pool_size = {};
