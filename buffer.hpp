@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define VK_CHECK(expr) do { if(expr != VK_SUCCESS) { fprintf(stderr, "Vulkan pooped itself:%s\n", #expr); } } while(0)
 
@@ -99,5 +100,14 @@ namespace vulkan
     (void)allocator;
     vkDestroyBuffer(context.device, allocation.buffer, nullptr);
     vkFreeMemory(context.device, allocation.memory, nullptr);
+  }
+
+  // Write to buffer, buffer must be created with VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+  inline void write_buffer(const Context& context, BufferAllocation& allocation, const void *data, size_t size)
+  {
+    void *buffer_data;
+    VK_CHECK(vkMapMemory(context.device, allocation.memory, 0, size, 0, &buffer_data));
+    memcpy(buffer_data, data, size);
+    vkUnmapMemory(context.device, allocation.memory);
   }
 }

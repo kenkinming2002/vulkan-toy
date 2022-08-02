@@ -241,10 +241,7 @@ int main()
           VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-    void *data;
-    VK_CHECK(vkMapMemory(context.device, vbo_staging_allocation.memory, 0, buffer_size, 0, &data));
-    memcpy(data, vertices.data(), buffer_size);
-    vkUnmapMemory(context.device, vbo_staging_allocation.memory);
+    vulkan::write_buffer(context, vbo_staging_allocation, vertices.data(), buffer_size);
 
     // Single shot buffer command
     VkCommandBufferBeginInfo commad_buffer_begin_info{};
@@ -327,7 +324,7 @@ int main()
   while(!glfwWindowShouldClose(window))
   {
     size_t i = 0;
-    for(const auto& render_resource : render_resources)
+    for(auto& render_resource : render_resources)
     {
       glfwPollEvents();
 
@@ -350,11 +347,7 @@ int main()
       ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
       ubo.proj = glm::perspective(glm::radians(45.0f), render_context.extent.width / (float) render_context.extent.height, 0.1f, 10.0f);
       ubo.proj[1][1] *= -1;
-
-      void* data;
-      vkMapMemory(context.device, render_resource.ubo_allocation.memory, 0, sizeof(ubo), 0, &data);
-      memcpy(data, &ubo, sizeof(ubo));
-      vkUnmapMemory(context.device, render_resource.ubo_allocation.memory);
+      vulkan::write_buffer(context, render_resource.ubo_allocation, &ubo, sizeof ubo);
 
       {
         // A single frame to have multiple render pass and each render pass would need multiple pipeline
