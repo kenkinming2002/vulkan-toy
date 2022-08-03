@@ -18,6 +18,8 @@ namespace vulkan
   void command_buffer_end(CommandBuffer command_buffer);
 
   void command_buffer_wait(const Context& context, CommandBuffer command_buffer);
+
+  void command_buffer_submit(const Context& context, CommandBuffer command_buffer);
   void command_buffer_submit(const Context& context, CommandBuffer command_buffer,
       VkSemaphore wait_semaphore, VkPipelineStageFlags wait_stage,
       VkSemaphore signal_semaphore);

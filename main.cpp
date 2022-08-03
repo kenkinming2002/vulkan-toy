@@ -174,7 +174,8 @@ int main()
   context_create_info.engine_name         = "Engine";
   context_create_info.engine_version      = VK_MAKE_VERSION(1, 0, 0);
   context_create_info.window              = window;
-  auto context = create_context(context_create_info);
+  auto context        = create_context(context_create_info);
+  auto command_buffer = vulkan::create_command_buffer(context);
 
   // May need to be recreated on window resize
   vulkan::RenderContextCreateInfo render_context_create_info = {};
@@ -220,32 +221,21 @@ int main()
           VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
+
     vulkan::write_buffer(context, vbo_staging_allocation, vertices.data(), buffer_size);
 
-    // Single shot buffer command
-    VK_CHECK(vkResetCommandBuffer(context.command_buffer, 0));
-
-    VkCommandBufferBeginInfo commad_buffer_begin_info{};
-    commad_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    commad_buffer_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-    vkBeginCommandBuffer(context.command_buffer, &commad_buffer_begin_info);
+    vulkan::command_buffer_wait(context, command_buffer);
+    vulkan::command_buffer_begin(command_buffer);
 
     VkBufferCopy buffer_copy = {};
     buffer_copy.srcOffset = 0;
     buffer_copy.dstOffset = 0;
     buffer_copy.size      = buffer_size;
-    vkCmdCopyBuffer(context.command_buffer, vbo_staging_allocation.buffer, vbo_allocation.buffer, 1, &buffer_copy);
+    vkCmdCopyBuffer(command_buffer.handle, vbo_staging_allocation.buffer, vbo_allocation.buffer, 1, &buffer_copy);
 
-    vkEndCommandBuffer(context.command_buffer);
-
-    VkSubmitInfo submit_info = {};
-    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers    = &context.command_buffer;
-
-    VK_CHECK(vkQueueSubmit(context.queue, 1, &submit_info, VK_NULL_HANDLE));
-    VK_CHECK(vkQueueWaitIdle(context.queue));
+    vulkan::command_buffer_end(command_buffer);
+    vulkan::command_buffer_submit(context, command_buffer);
+    vulkan::command_buffer_wait(context, command_buffer);
 
     vulkan::deallocate_buffer(context, allocator, vbo_staging_allocation);
   }

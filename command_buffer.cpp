@@ -49,6 +49,15 @@ namespace vulkan
     vkResetFences(context.device, 1, &command_buffer.fence);
   }
 
+  void command_buffer_submit(const Context& context, CommandBuffer command_buffer)
+  {
+    VkSubmitInfo submit_info = {};
+    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers    = &command_buffer.handle;
+    VK_CHECK(vkQueueSubmit(context.queue, 1, &submit_info, command_buffer.fence));
+  }
+
   void command_buffer_submit(const Context& context, CommandBuffer command_buffer,
       VkSemaphore wait_semaphore, VkPipelineStageFlags wait_stage,
       VkSemaphore signal_semaphore)

@@ -27,8 +27,6 @@ namespace vulkan
     VkQueue  queue;
 
     VkCommandPool   command_pool;
-    VkCommandBuffer command_buffer;
-
     VkSurfaceKHR   surface;
   };
 
@@ -66,8 +64,6 @@ namespace vulkan
     context.queue = vulkan::device_get_queue(context.device, context.queue_family_index, 0);
 
     context.command_pool   = vulkan::create_command_pool(context.device, 0);
-    context.command_buffer = vulkan::create_command_buffer(context.device, context.command_pool);
-
     return context;
   }
 }
