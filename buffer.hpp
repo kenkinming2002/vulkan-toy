@@ -2,6 +2,7 @@
 
 #include "vulkan.hpp"
 #include "context.hpp"
+#include "command_buffer.hpp"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,7 +46,7 @@ namespace vulkan
     (void)allocator;
   }
 
-  inline uint32_t select_memory_type(const Allocator& allocator, uint32_t type_filter, VkMemoryPropertyFlags memory_properties)
+  inline uint32_t select_memory_type(const Allocator& allocator, uint32_t type_filter, VkMemoryPropertyFlags& memory_properties)
   {
     for (uint32_t i = 0; i < allocator.memory_properties.memoryTypeCount; i++)
     {
@@ -65,14 +66,16 @@ namespace vulkan
   struct BufferAllocation
   {
     VkBuffer buffer;
+
     VkDeviceMemory memory;
+    VkDeviceSize size;
+    VkMemoryPropertyFlags memory_properties;
   };
 
   // Ideally, we would want the buffer memory to be device local
-
+  //
   inline BufferAllocation allocate_buffer(const vulkan::Context& context, Allocator& allocator,
-      VkDeviceSize size, VkBufferUsageFlags buffer_usage,
-      VkMemoryPropertyFlags memory_properties)
+      VkDeviceSize size, VkBufferUsageFlags buffer_usage, VkMemoryPropertyFlags memory_properties)
   {
     BufferAllocation allocation = {};
 
@@ -83,9 +86,14 @@ namespace vulkan
     buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     VK_CHECK(vkCreateBuffer(context.device, &buffer_create_info, nullptr, &allocation.buffer));
 
+    // Even if we do not request host visible memory, the selected memory type may still be host visible
+    // because that is the only memory type which is the case for integrated GPU.
     VkMemoryRequirements buffer_memory_requirement = {};
     vkGetBufferMemoryRequirements(context.device, allocation.buffer, &buffer_memory_requirement);
     uint32_t memory_type_index = select_memory_type(allocator, buffer_memory_requirement.memoryTypeBits, memory_properties);
+
+    allocation.size              = size;
+    allocation.memory_properties = allocator.memory_properties.memoryTypes[memory_type_index].propertyFlags;
 
     VkMemoryAllocateInfo allocate_info = {};
     allocate_info.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -104,12 +112,39 @@ namespace vulkan
     vkFreeMemory(context.device, allocation.memory, nullptr);
   }
 
-  // Write to buffer, buffer must be created with VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-  inline void write_buffer(const Context& context, BufferAllocation& allocation, const void *data, size_t size)
+  inline void write_buffer(const Context& context, Allocator& allocator, BufferAllocation& allocation, const void *data)
   {
-    void *buffer_data;
-    VK_CHECK(vkMapMemory(context.device, allocation.memory, 0, size, 0, &buffer_data));
-    memcpy(buffer_data, data, size);
-    vkUnmapMemory(context.device, allocation.memory);
+    if(allocation.memory_properties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+    {
+      void *buffer_data;
+      VK_CHECK(vkMapMemory(context.device, allocation.memory, 0, allocation.size, 0, &buffer_data));
+      memcpy(buffer_data, data, allocation.size);
+      vkUnmapMemory(context.device, allocation.memory);
+      return;
+    }
+
+    auto staging_allocation = allocate_buffer(context, allocator, allocation.size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+    {
+      // Write to staging buffer which is HOST_VISIBLE
+      write_buffer(context, allocator, staging_allocation, data);
+
+      // Copy from staging_allocation to allocation
+      auto command_buffer = create_command_buffer(context, false);
+
+      vulkan::command_buffer_begin(command_buffer);
+
+      VkBufferCopy buffer_copy = {};
+      buffer_copy.srcOffset = 0;
+      buffer_copy.dstOffset = 0;
+      buffer_copy.size      = allocation.size;
+      vkCmdCopyBuffer(command_buffer.handle, staging_allocation.buffer, allocation.buffer, 1, &buffer_copy);
+
+      vulkan::command_buffer_end(command_buffer);
+      vulkan::command_buffer_submit(context, command_buffer);
+      vulkan::command_buffer_wait(context, command_buffer);
+
+      destroy_command_buffer(context, command_buffer);
+    }
+    deallocate_buffer(context, allocator, staging_allocation);
   }
 }

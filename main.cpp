@@ -175,7 +175,6 @@ int main()
   context_create_info.engine_version      = VK_MAKE_VERSION(1, 0, 0);
   context_create_info.window              = window;
   auto context        = create_context(context_create_info);
-  auto command_buffer = vulkan::create_command_buffer(context, false);
 
   // May need to be recreated on window resize
   vulkan::RenderContextCreateInfo render_context_create_info = {};
@@ -209,35 +208,8 @@ int main()
   auto allocator = vulkan::create_allocator(context);
 
   const size_t buffer_size = sizeof vertices[0] * vertices.size();
-  auto vbo_allocation = allocate_buffer(context, allocator, buffer_size,
-      VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-  // Upload the vertex buffer
-  {
-    // Create the vertex buffer
-    auto vbo_staging_allocation =
-      vulkan::allocate_buffer(context, allocator, buffer_size,
-          VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-
-    vulkan::write_buffer(context, vbo_staging_allocation, vertices.data(), buffer_size);
-
-    vulkan::command_buffer_begin(command_buffer);
-
-    VkBufferCopy buffer_copy = {};
-    buffer_copy.srcOffset = 0;
-    buffer_copy.dstOffset = 0;
-    buffer_copy.size      = buffer_size;
-    vkCmdCopyBuffer(command_buffer.handle, vbo_staging_allocation.buffer, vbo_allocation.buffer, 1, &buffer_copy);
-
-    vulkan::command_buffer_end(command_buffer);
-    vulkan::command_buffer_submit(context, command_buffer);
-    vulkan::command_buffer_wait(context, command_buffer);
-
-    vulkan::deallocate_buffer(context, allocator, vbo_staging_allocation);
-  }
+  auto vbo_allocation = allocate_buffer(context, allocator, buffer_size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  vulkan::write_buffer(context, allocator, vbo_allocation, vertices.data());
 
   static constexpr size_t MAX_FRAME_IN_FLIGHT = 4;
   RenderResource render_resources[MAX_FRAME_IN_FLIGHT];
@@ -317,7 +289,7 @@ int main()
       ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
       ubo.proj = glm::perspective(glm::radians(45.0f), render_context.extent.width / (float) render_context.extent.height, 0.1f, 10.0f);
       ubo.proj[1][1] *= -1;
-      vulkan::write_buffer(context, render_resource.ubo_allocation, &ubo, sizeof ubo);
+      vulkan::write_buffer(context, allocator, render_resource.ubo_allocation, &ubo);
 
       {
         // A single frame to have multiple render pass and each render pass would need multiple pipeline
