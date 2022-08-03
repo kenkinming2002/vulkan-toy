@@ -168,6 +168,7 @@ int main()
   //glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
   GLFWwindow *window = glfwCreateWindow(800, 600, "Vulkan", nullptr, nullptr);
 
+  // Context
   vulkan::ContextCreateInfo context_create_info = {};
   context_create_info.application_name    = "Vulkan";
   context_create_info.application_version = VK_MAKE_VERSION(1, 0, 0);
@@ -195,19 +196,24 @@ int main()
       }
     }
   };
-
   auto render_context = create_render_context(context, render_context_create_info);
-  const std::vector<Vertex> vertices = {
-    {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-    {{0.5f,  0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+
+  const Vertex vertices[] = {
+    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
   };
+  const uint16_t indices[] = { 0, 1, 2, 2, 3, 0 };
 
   auto allocator = vulkan::create_allocator(context);
 
-  const size_t buffer_size = sizeof vertices[0] * vertices.size();
-  auto vbo_allocation = allocate_buffer(context, allocator, buffer_size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-  vulkan::write_buffer(context, allocator, vbo_allocation, vertices.data());
+  auto vbo_allocation = vulkan::allocate_buffer(context, allocator, sizeof vertices, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  vulkan::write_buffer(context, allocator, vbo_allocation, vertices);
+
+  auto ibo_allocation = vulkan::allocate_buffer(context, allocator, sizeof indices, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  vulkan::write_buffer(context, allocator, ibo_allocation, indices);
+
 
   static constexpr size_t MAX_FRAME_IN_FLIGHT = 4;
   RenderResource render_resources[MAX_FRAME_IN_FLIGHT];
@@ -301,9 +307,9 @@ int main()
             VK_PIPELINE_BIND_POINT_GRAPHICS, render_context.pipeline_layout, 0, 1,
             &descriptor_sets[i], 0, nullptr);
 
-        VkBuffer buffers[] = { vbo_allocation.buffer };
         VkDeviceSize offsets[] = {0};
-        vkCmdBindVertexBuffers(render_resource.command_buffer.handle, 0, 1, buffers, offsets);
+        vkCmdBindVertexBuffers(render_resource.command_buffer.handle, 0, 1, &vbo_allocation.buffer, offsets);
+        vkCmdBindIndexBuffer(render_resource.command_buffer.handle, ibo_allocation.buffer, 0, VK_INDEX_TYPE_UINT16);
 
         VkViewport viewport = {};
         viewport.x = 0.0f;
@@ -319,7 +325,7 @@ int main()
         scissor.extent = render_context.extent;
         vkCmdSetScissor(render_resource.command_buffer.handle, 0, 1, &scissor);
 
-        vkCmdDraw(render_resource.command_buffer.handle, 3, 1, 0, 0);
+        vkCmdDrawIndexed(render_resource.command_buffer.handle, 6, 1, 0, 0, 0);
 
         end_render(context, render_resource);
       }
