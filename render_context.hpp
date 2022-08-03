@@ -35,7 +35,7 @@ namespace vulkan
     std::vector<VertexAttributeDescription> attribute_descriptions;
   };
 
-  struct PipelineCreateInfo
+  struct RenderContextCreateInfo
   {
     VkShaderModule vert_shader_module;
     VkShaderModule frag_shader_module;
@@ -44,9 +44,14 @@ namespace vulkan
 
   struct RenderContext
   {
+    uint32_t                      image_count;
+    VkExtent2D                    extent;
+    VkSurfaceTransformFlagBitsKHR surface_transform;
+
+    VkSurfaceFormatKHR       surface_format;
+    VkPresentModeKHR         present_mode;
+
     VkSwapchainKHR swapchain;
-    VkFormat       format;
-    VkExtent2D     extent; // If this change we have to recreate the swapchain but fortunately not the render pass
 
     // TODO: How to support multiple render pass
     VkRenderPass          render_pass;
@@ -54,14 +59,9 @@ namespace vulkan
     VkPipeline            pipeline;
     VkDescriptorSetLayout descriptor_set_layout;
 
-    std::vector<VkImage>       images;
-    std::vector<VkImageView>   image_views;
-    std::vector<VkFramebuffer> framebuffers;
-  };
-
-  struct RenderContextCreateInfo
-  {
-    PipelineCreateInfo pipeline;
+    VkImage       *images;
+    VkImageView   *image_views;
+    VkFramebuffer *framebuffers;
   };
 
   RenderContext create_render_context(const Context& context, RenderContextCreateInfo create_info);

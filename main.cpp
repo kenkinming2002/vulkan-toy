@@ -178,10 +178,9 @@ int main()
 
   // May need to be recreated on window resize
   vulkan::RenderContextCreateInfo render_context_create_info = {};
-  vulkan::PipelineCreateInfo pipeline_create_info = {};
-  pipeline_create_info.vert_shader_module = vulkan::create_shader_module(context.device, read_file("shaders/vert.spv"));
-  pipeline_create_info.frag_shader_module = vulkan::create_shader_module(context.device, read_file("shaders/frag.spv"));
-  pipeline_create_info.vertex_binding_descriptions = {
+  render_context_create_info.vert_shader_module = vulkan::create_shader_module(context.device, read_file("shaders/vert.spv"));
+  render_context_create_info.frag_shader_module = vulkan::create_shader_module(context.device, read_file("shaders/frag.spv"));
+  render_context_create_info.vertex_binding_descriptions = {
     vulkan::VertexBindingDescription{
       .stride = sizeof(Vertex),
       .attribute_descriptions = {
@@ -196,7 +195,6 @@ int main()
       }
     }
   };
-  render_context_create_info.pipeline = pipeline_create_info;
 
   auto render_context = create_render_context(context, render_context_create_info);
   const std::vector<Vertex> vertices = {
