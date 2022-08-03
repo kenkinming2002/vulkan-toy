@@ -11,7 +11,7 @@ namespace vulkan
     VkFence fence;
   };
 
-  CommandBuffer create_command_buffer(const Context& context);
+  CommandBuffer create_command_buffer(const Context& context, bool async);
   void destroy_command_buffer(const Context& context, CommandBuffer command_buffer);
 
   void command_buffer_begin(CommandBuffer command_buffer);

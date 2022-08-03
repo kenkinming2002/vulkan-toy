@@ -3,7 +3,7 @@
 
 namespace vulkan
 {
-  CommandBuffer create_command_buffer(const Context& context)
+  CommandBuffer create_command_buffer(const Context& context, bool async)
   {
     CommandBuffer command_buffer = {};
 
@@ -16,7 +16,9 @@ namespace vulkan
 
     VkFenceCreateInfo create_info = {};
     create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+    if(async)
+      create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
     VK_CHECK(vkCreateFence(context.device, &create_info, nullptr, &command_buffer.fence));
 
     return command_buffer;

@@ -104,7 +104,7 @@ struct RenderResource
 RenderResource create_render_resouce(const vulkan::Context& context, vulkan::Allocator& allocator)
 {
   RenderResource render_resource = {};
-  render_resource.command_buffer            = vulkan::create_command_buffer(context);
+  render_resource.command_buffer            = vulkan::create_command_buffer(context, true);
   render_resource.semaphore_image_available = vulkan::create_semaphore(context.device);
   render_resource.semaphore_render_finished = vulkan::create_semaphore(context.device);
   render_resource.ubo_allocation            = vulkan::allocate_buffer(context, allocator, sizeof(UniformBufferObject),
@@ -175,7 +175,7 @@ int main()
   context_create_info.engine_version      = VK_MAKE_VERSION(1, 0, 0);
   context_create_info.window              = window;
   auto context        = create_context(context_create_info);
-  auto command_buffer = vulkan::create_command_buffer(context);
+  auto command_buffer = vulkan::create_command_buffer(context, false);
 
   // May need to be recreated on window resize
   vulkan::RenderContextCreateInfo render_context_create_info = {};
@@ -224,7 +224,6 @@ int main()
 
     vulkan::write_buffer(context, vbo_staging_allocation, vertices.data(), buffer_size);
 
-    vulkan::command_buffer_wait(context, command_buffer);
     vulkan::command_buffer_begin(command_buffer);
 
     VkBufferCopy buffer_copy = {};
