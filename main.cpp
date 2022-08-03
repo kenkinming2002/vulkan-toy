@@ -115,7 +115,8 @@ RenderResource create_render_resouce(const vulkan::Context& context, vulkan::All
 
 void begin_render(const vulkan::Context& context, const vulkan::RenderContext& render_context, const RenderResource& render_resource, const FrameInfo& frame_info)
 {
-  vulkan::command_buffer_begin(context, render_resource.command_buffer);
+  vulkan::command_buffer_wait(context, render_resource.command_buffer);
+  vulkan::command_buffer_begin(render_resource.command_buffer);
 
   VkRenderPassBeginInfo render_pass_begin_info = {};
   render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -135,7 +136,9 @@ void begin_render(const vulkan::Context& context, const vulkan::RenderContext& r
 void end_render(const vulkan::Context& context, const RenderResource& render_resource)
 {
   vkCmdEndRenderPass(render_resource.command_buffer.handle);
-  vulkan::command_buffer_end(context, render_resource.command_buffer,
+
+  vulkan::command_buffer_end(render_resource.command_buffer);
+  vulkan::command_buffer_submit(context, render_resource.command_buffer,
       render_resource.semaphore_image_available, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
       render_resource.semaphore_render_finished);
 }

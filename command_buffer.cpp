@@ -28,12 +28,8 @@ namespace vulkan
     vkFreeCommandBuffers(context.device, context.command_pool, 1, &command_buffer.handle);
   }
 
-  void command_buffer_begin(const Context& context, CommandBuffer command_buffer)
+  void command_buffer_begin(CommandBuffer command_buffer)
   {
-    // Wait for the last command to finish
-    vkWaitForFences(context.device, 1, &command_buffer.fence, VK_TRUE, UINT64_MAX);
-    vkResetFences(context.device, 1, &command_buffer.fence);
-
     VK_CHECK(vkResetCommandBuffer(command_buffer.handle, 0));
 
     VkCommandBufferBeginInfo begin_info = {};
@@ -41,12 +37,22 @@ namespace vulkan
     VK_CHECK(vkBeginCommandBuffer(command_buffer.handle, &begin_info));
   }
 
-  void command_buffer_end(const Context& context, CommandBuffer command_buffer,
+  void command_buffer_end(CommandBuffer command_buffer)
+  {
+    VK_CHECK(vkEndCommandBuffer(command_buffer.handle));
+  }
+
+  void command_buffer_wait(const Context& context, CommandBuffer command_buffer)
+  {
+    // Wait for the last command to finish
+    vkWaitForFences(context.device, 1, &command_buffer.fence, VK_TRUE, UINT64_MAX);
+    vkResetFences(context.device, 1, &command_buffer.fence);
+  }
+
+  void command_buffer_submit(const Context& context, CommandBuffer command_buffer,
       VkSemaphore wait_semaphore, VkPipelineStageFlags wait_stage,
       VkSemaphore signal_semaphore)
   {
-    VK_CHECK(vkEndCommandBuffer(command_buffer.handle));
-
     VkSubmitInfo submit_info = {};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
