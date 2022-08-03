@@ -375,6 +375,8 @@ present_mode_selected:
 
   void destroy_render_context(const Context& context, RenderContext& render_context)
   {
+    delete[] render_context.images;
+
     for(uint32_t i=0; i<render_context.image_count; ++i)
       vkDestroyFramebuffer(context.device, render_context.framebuffers[i], nullptr);
 
