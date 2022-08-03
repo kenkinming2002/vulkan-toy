@@ -244,6 +244,8 @@ int main()
     vulkan::write_buffer(context, vbo_staging_allocation, vertices.data(), buffer_size);
 
     // Single shot buffer command
+    VK_CHECK(vkResetCommandBuffer(context.command_buffer, 0));
+
     VkCommandBufferBeginInfo commad_buffer_begin_info{};
     commad_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     commad_buffer_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
