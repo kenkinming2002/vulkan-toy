@@ -68,6 +68,8 @@ namespace vulkan
     VkDeviceMemory memory;
   };
 
+  // Ideally, we would want the buffer memory to be device local
+
   inline BufferAllocation allocate_buffer(const vulkan::Context& context, Allocator& allocator,
       VkDeviceSize size, VkBufferUsageFlags buffer_usage,
       VkMemoryPropertyFlags memory_properties)

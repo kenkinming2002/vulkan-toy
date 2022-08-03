@@ -211,7 +211,7 @@ int main()
   const size_t buffer_size = sizeof vertices[0] * vertices.size();
   auto vbo_allocation = allocate_buffer(context, allocator, buffer_size,
       VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
   // Upload the vertex buffer
   {
