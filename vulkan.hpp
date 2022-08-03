@@ -6,6 +6,8 @@
 
 #include <vector>
 
+#include <stdio.h>
+
 #define VK_CHECK(expr) do { if(expr != VK_SUCCESS) { fprintf(stderr, "Vulkan pooped itself:%s\n", #expr); } } while(0)
 
 namespace vulkan

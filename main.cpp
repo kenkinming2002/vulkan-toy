@@ -1,5 +1,6 @@
 #include "context.hpp"
 #include "render_context.hpp"
+#include "command_buffer.hpp"
 #include "vulkan.hpp"
 #include "buffer.hpp"
 
@@ -47,7 +48,6 @@ std::optional<FrameInfo> begin_frame(const vulkan::Context& context, const vulka
     return std::nullopt;
   }
   VK_CHECK(result);
-
   frame_info.framebuffer = render_context.framebuffers[frame_info.image_index];
   return frame_info;
 }
@@ -93,11 +93,10 @@ struct Vertex
 
 struct RenderResource
 {
-  VkCommandBuffer command_buffer;
+  vulkan::CommandBuffer command_buffer;
 
   VkSemaphore semaphore_image_available;
   VkSemaphore semaphore_render_finished;
-  VkFence in_flight_fence;
 
   vulkan::BufferAllocation ubo_allocation;
 };
@@ -105,10 +104,9 @@ struct RenderResource
 RenderResource create_render_resouce(const vulkan::Context& context, vulkan::Allocator& allocator)
 {
   RenderResource render_resource = {};
-  render_resource.command_buffer            = vulkan::create_command_buffer(context.device, context.command_pool);
+  render_resource.command_buffer            = vulkan::create_command_buffer(context);
   render_resource.semaphore_image_available = vulkan::create_semaphore(context.device);
   render_resource.semaphore_render_finished = vulkan::create_semaphore(context.device);
-  render_resource.in_flight_fence           = vulkan::create_fence(context.device, true);
   render_resource.ubo_allocation            = vulkan::allocate_buffer(context, allocator, sizeof(UniformBufferObject),
       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -117,14 +115,7 @@ RenderResource create_render_resouce(const vulkan::Context& context, vulkan::All
 
 void begin_render(const vulkan::Context& context, const vulkan::RenderContext& render_context, const RenderResource& render_resource, const FrameInfo& frame_info)
 {
-  vkWaitForFences(context.device, 1, &render_resource.in_flight_fence, VK_TRUE, UINT64_MAX);
-  vkResetFences(context.device, 1, &render_resource.in_flight_fence);
-
-  VK_CHECK(vkResetCommandBuffer(render_resource.command_buffer, 0));
-
-  VkCommandBufferBeginInfo begin_info = {};
-  begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  VK_CHECK(vkBeginCommandBuffer(render_resource.command_buffer, &begin_info));
+  vulkan::command_buffer_begin(context, render_resource.command_buffer);
 
   VkRenderPassBeginInfo render_pass_begin_info = {};
   render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -137,31 +128,16 @@ void begin_render(const vulkan::Context& context, const vulkan::RenderContext& r
   render_pass_begin_info.clearValueCount = 1;
   render_pass_begin_info.pClearValues = &clear_color;
 
-  vkCmdBeginRenderPass(render_resource.command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
-  vkCmdBindPipeline(render_resource.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render_context.pipeline);
+  vkCmdBeginRenderPass(render_resource.command_buffer.handle, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+  vkCmdBindPipeline(render_resource.command_buffer.handle, VK_PIPELINE_BIND_POINT_GRAPHICS, render_context.pipeline);
 }
 
 void end_render(const vulkan::Context& context, const RenderResource& render_resource)
 {
-  vkCmdEndRenderPass(render_resource.command_buffer);
-  VK_CHECK(vkEndCommandBuffer(render_resource.command_buffer));
-
-  VkSubmitInfo submit_info = {};
-  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-  submit_info.waitSemaphoreCount = 1;
-  submit_info.pWaitSemaphores    = &render_resource.semaphore_image_available;
-
-  VkPipelineStageFlags wait_stages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-  submit_info.pWaitDstStageMask  = wait_stages;
-
-  submit_info.signalSemaphoreCount = 1;
-  submit_info.pSignalSemaphores    = &render_resource.semaphore_render_finished;
-
-  submit_info.commandBufferCount = 1;
-  submit_info.pCommandBuffers    = &render_resource.command_buffer;
-
-  VK_CHECK(vkQueueSubmit(context.queue, 1, &submit_info, render_resource.in_flight_fence));
+  vkCmdEndRenderPass(render_resource.command_buffer.handle);
+  vulkan::command_buffer_end(context, render_resource.command_buffer,
+      render_resource.semaphore_image_available, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+      render_resource.semaphore_render_finished);
 }
 
 // TODO: Move this outside
@@ -359,13 +335,13 @@ int main()
         // Do we actually need multiple render pass?
         begin_render(context, render_context, render_resource, *frame_info);
 
-        vkCmdBindDescriptorSets(render_resource.command_buffer,
+        vkCmdBindDescriptorSets(render_resource.command_buffer.handle,
             VK_PIPELINE_BIND_POINT_GRAPHICS, render_context.pipeline_layout, 0, 1,
             &descriptor_sets[i], 0, nullptr);
 
         VkBuffer buffers[] = { vbo_allocation.buffer };
         VkDeviceSize offsets[] = {0};
-        vkCmdBindVertexBuffers(render_resource.command_buffer, 0, 1, buffers, offsets);
+        vkCmdBindVertexBuffers(render_resource.command_buffer.handle, 0, 1, buffers, offsets);
 
         VkViewport viewport = {};
         viewport.x = 0.0f;
@@ -374,14 +350,14 @@ int main()
         viewport.height = render_context.extent.height;
         viewport.minDepth = 0.0f;
         viewport.maxDepth = 1.0f;
-        vkCmdSetViewport(render_resource.command_buffer, 0, 1, &viewport);
+        vkCmdSetViewport(render_resource.command_buffer.handle, 0, 1, &viewport);
 
         VkRect2D scissor = {};
         scissor.offset = {0, 0};
         scissor.extent = render_context.extent;
-        vkCmdSetScissor(render_resource.command_buffer, 0, 1, &scissor);
+        vkCmdSetScissor(render_resource.command_buffer.handle, 0, 1, &scissor);
 
-        vkCmdDraw(render_resource.command_buffer, 3, 1, 0, 0);
+        vkCmdDraw(render_resource.command_buffer.handle, 3, 1, 0, 0);
 
         end_render(context, render_resource);
       }
