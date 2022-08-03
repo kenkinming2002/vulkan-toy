@@ -25,8 +25,8 @@ namespace vulkan
     for(uint32_t i = 0; i<allocator.memory_properties.memoryTypeCount; ++i)
     {
       printf("Memory type %d\n", i);
-      printf(" - heap_index     = %d\n", allocator.memory_properties.memoryTypes[i].heapIndex);
-      printf(" - property_flags = %d\n", allocator.memory_properties.memoryTypes[i].propertyFlags);
+      printf(" - heap_index     = %d\n",     allocator.memory_properties.memoryTypes[i].heapIndex);
+      printf(" - property_flags = 0x%08x\n", allocator.memory_properties.memoryTypes[i].propertyFlags);
     }
 
     for(uint32_t i = 0; i<allocator.memory_properties.memoryHeapCount; ++i)
