@@ -63,5 +63,5 @@ namespace vulkan
       ImageAllocation allocation);
 
   void write_buffer(const Context& context, Allocator& allocator, BufferAllocation& allocation, const void *data);
-
+  void write_image2d(const Context& context, Allocator& allocator, ImageAllocation& allocation, const void *data);
 }
