@@ -18,7 +18,7 @@ namespace vulkan
   };
 
   Allocator create_allocator(const Context& context);
-  void destroy_allocator(const Allocator& allocator);
+  void destroy_allocator(Allocator allocator);
 
   struct BufferAllocation
   {
@@ -30,13 +30,16 @@ namespace vulkan
   };
 
   BufferAllocation allocate_buffer(
-      const vulkan::Context& context,
+      const Context& context,
       Allocator& allocator,
       VkDeviceSize size,
       VkBufferUsageFlags buffer_usage,
       VkMemoryPropertyFlags memory_properties);
 
-  void deallocate_buffer(const Context& context, const Allocator& allocator, BufferAllocation allocation);
+  void deallocate_buffer(
+      const Context& context,
+      Allocator& allocator,
+      BufferAllocation allocation);
 
   struct ImageAllocation
   {
@@ -54,7 +57,10 @@ namespace vulkan
       VkImageUsageFlags image_usage,
       VkMemoryPropertyFlags memory_properties);
 
-  void deallocate_image2d(const Context& context, const Allocator& allocator, ImageAllocation allocation);
+  void deallocate_image2d(
+      const Context& context,
+      Allocator& allocator,
+      ImageAllocation allocation);
 
   void write_buffer(const Context& context, Allocator& allocator, BufferAllocation& allocation, const void *data);
 

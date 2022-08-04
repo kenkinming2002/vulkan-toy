@@ -26,7 +26,7 @@ namespace vulkan
     return allocator;
   }
 
-  void destroy_allocator(const Allocator& allocator)
+  void destroy_allocator(Allocator allocator)
   {
     // Nothing to do
     (void)allocator;
@@ -97,7 +97,10 @@ namespace vulkan
     return allocation;
   }
 
-  void deallocate_buffer(const Context& context, const Allocator& allocator, BufferAllocation allocation)
+  void deallocate_buffer(
+      const Context& context,
+      Allocator& allocator,
+      BufferAllocation allocation)
   {
     (void)allocator;
     vkDestroyBuffer(context.device, allocation.buffer, nullptr);
@@ -138,7 +141,10 @@ namespace vulkan
     return allocation;
   }
 
-  void deallocate_image2d(const Context& context, const Allocator& allocator, ImageAllocation allocation)
+  void deallocate_image2d(
+      const Context& context,
+      Allocator& allocator,
+      ImageAllocation allocation)
   {
     (void)allocator;
     vkDestroyImage(context.device, allocation.image, nullptr);
