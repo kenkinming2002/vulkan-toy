@@ -1,4 +1,5 @@
 #include "buffer.hpp"
+#include <vulkan/vulkan_core.h>
 
 namespace vulkan
 {
@@ -48,8 +49,12 @@ namespace vulkan
     abort();
   }
 
-  BufferAllocation allocate_buffer(const vulkan::Context& context, Allocator& allocator,
-      VkDeviceSize size, VkBufferUsageFlags buffer_usage, VkMemoryPropertyFlags memory_properties)
+  BufferAllocation allocate_buffer(
+      const vulkan::Context& context,
+      Allocator& allocator,
+      VkDeviceSize size,
+      VkBufferUsageFlags buffer_usage,
+      VkMemoryPropertyFlags memory_properties)
   {
     BufferAllocation allocation = {};
 
@@ -66,7 +71,7 @@ namespace vulkan
     vkGetBufferMemoryRequirements(context.device, allocation.buffer, &buffer_memory_requirement);
     uint32_t memory_type_index = select_memory_type(allocator, buffer_memory_requirement.memoryTypeBits, memory_properties);
 
-    allocation.size              = size;
+    allocation.size              = buffer_memory_requirement.size;
     allocation.memory_properties = allocator.memory_properties.memoryTypes[memory_type_index].propertyFlags;
 
     VkMemoryAllocateInfo allocate_info = {};
@@ -83,6 +88,55 @@ namespace vulkan
   {
     (void)allocator;
     vkDestroyBuffer(context.device, allocation.buffer, nullptr);
+    vkFreeMemory(context.device, allocation.memory, nullptr);
+  }
+
+  ImageAllocation allocate_image2d(
+      const vulkan::Context& context,
+      Allocator& allocator,
+      uint32_t width, uint32_t height,
+      VkImageUsageFlags image_usage,
+      VkMemoryPropertyFlags memory_properties)
+  {
+    ImageAllocation allocation = {};
+
+    VkImageCreateInfo create_info = {};
+    create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    create_info.imageType     = VK_IMAGE_TYPE_2D;
+    create_info.format        = VK_FORMAT_R8G8B8A8_SRGB;
+    create_info.extent.width  = width;
+    create_info.extent.height = height;
+    create_info.extent.depth  = 1;
+    create_info.mipLevels     = 1;
+    create_info.arrayLayers   = 1;
+    create_info.tiling        = VK_IMAGE_TILING_OPTIMAL;
+    create_info.usage         = image_usage;
+    create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    VK_CHECK(vkCreateImage(context.device, &create_info, nullptr, &allocation.image));
+
+    // Even if we do not request host visible memory, the selected memory type may still be host visible
+    // because that is the only memory type which is the case for integrated GPU.
+    VkMemoryRequirements buffer_memory_requirement = {};
+    vkGetImageMemoryRequirements(context.device, allocation.image, &buffer_memory_requirement);
+    uint32_t memory_type_index = select_memory_type(allocator, buffer_memory_requirement.memoryTypeBits, memory_properties);
+
+    allocation.size              = buffer_memory_requirement.size;
+    allocation.memory_properties = allocator.memory_properties.memoryTypes[memory_type_index].propertyFlags;
+
+    VkMemoryAllocateInfo allocate_info = {};
+    allocate_info.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocate_info.memoryTypeIndex = memory_type_index;
+    allocate_info.allocationSize  = buffer_memory_requirement.size;
+    VK_CHECK(vkAllocateMemory(context.device, &allocate_info, nullptr, &allocation.memory));
+    VK_CHECK(vkBindImageMemory(context.device, allocation.image, allocation.memory, 0));
+
+    return allocation;
+  }
+
+  void deallocate_image2d(const Context& context, const Allocator& allocator, ImageAllocation allocation)
+  {
+    (void)allocator;
+    vkDestroyImage(context.device, allocation.image, nullptr);
     vkFreeMemory(context.device, allocation.memory, nullptr);
   }
 
