@@ -7,7 +7,8 @@ glfw_dep   = dependency('glfw3')
 vulkan_dep = dependency('vulkan')
 glm_dep    = dependency('glm')
 
-exe = executable('vulkan', ['vulkan.cpp', 'main.cpp', 'render_context.cpp', 'command_buffer.cpp'], dependencies : [glfw_dep, vulkan_dep, glm_dep],
+srcs = ['vulkan.cpp', 'main.cpp', 'render_context.cpp', 'command_buffer.cpp', 'buffer.cpp']
+exe = executable('vulkan', srcs, dependencies : [glfw_dep, vulkan_dep, glm_dep],
   install : true)
 
 test('basic', exe)
