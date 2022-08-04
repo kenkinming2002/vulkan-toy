@@ -352,90 +352,84 @@ present_mode_selected:
       VK_CHECK(vkCreateGraphicsPipelines(context.device, VK_NULL_HANDLE, 1, &graphics_pipeline_create_info, nullptr, &render_context.pipeline));
     }
 
-    // 5: Create images
-    {
-      printf("Number of image in swapchain requested = %d\n", render_context.image_count);
-      VK_CHECK(vkGetSwapchainImagesKHR(context.device, render_context.swapchain, &render_context.image_count, nullptr));
-      printf("Number of image in swapchain got       = %d\n", render_context.image_count);
+    // 5: Get image from swapchain
+    VK_CHECK(vkGetSwapchainImagesKHR(context.device, render_context.swapchain, &render_context.image_count, nullptr));
+    VkImage *swapchain_images = new VkImage[render_context.image_count];
+    VK_CHECK(vkGetSwapchainImagesKHR(context.device, render_context.swapchain, &render_context.image_count, swapchain_images));
 
-      render_context.images = new VkImage[render_context.image_count];
-      VK_CHECK(vkGetSwapchainImagesKHR(context.device, render_context.swapchain, &render_context.image_count, render_context.images));
-    }
-
-    // 6: Create image views
+    // 6: Create frame
     {
-      render_context.image_views = new VkImageView[render_context.image_count];
+      render_context.frames = new Frame[render_context.image_count];
       for(uint32_t i=0; i<render_context.image_count; ++i)
       {
-        VkImageViewCreateInfo create_info = {};
-        create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        create_info.image                           = render_context.images[i];
-        create_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
-        create_info.format                          = render_context.surface_format.format;
-        create_info.components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-        create_info.components.g                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-        create_info.components.b                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-        create_info.components.a                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-        create_info.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-        create_info.subresourceRange.baseMipLevel   = 0;
-        create_info.subresourceRange.levelCount     = 1;
-        create_info.subresourceRange.baseArrayLayer = 0;
-        create_info.subresourceRange.layerCount     = 1;
-        VK_CHECK(vkCreateImageView(context.device, &create_info, nullptr, &render_context.image_views[i]));
-      }
-    }
+        Frame frame = {};
+        frame.color_image = swapchain_images[i];
 
-    // 7: Depth images
-    {
-      render_context.depth_image_allocations = new ImageAllocation[render_context.image_count];
-      for(uint32_t i=0; i<render_context.image_count; ++i)
-      {
-        render_context.depth_image_allocations[i] = allocate_image2d(context, allocator, VK_FORMAT_D32_SFLOAT,
-            render_context.extent.width, render_context.extent.height,
-            VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-      }
-    }
+        // Depth image
+        {
+          auto allocation = allocate_image2d(context, allocator, VK_FORMAT_D32_SFLOAT,
+              render_context.extent.width, render_context.extent.height,
+              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    // 8: Depth image views
-    {
-      render_context.depth_image_views = new VkImageView[render_context.image_count];
-      for(uint32_t i=0; i<render_context.image_count; ++i)
-      {
-        VkImageViewCreateInfo create_info = {};
-        create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        create_info.image                           = render_context.depth_image_allocations[i].image;
-        create_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
-        create_info.format                          = VK_FORMAT_D32_SFLOAT;
-        create_info.components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-        create_info.components.g                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-        create_info.components.b                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-        create_info.components.a                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-        create_info.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_DEPTH_BIT;
-        create_info.subresourceRange.baseMipLevel   = 0;
-        create_info.subresourceRange.levelCount     = 1;
-        create_info.subresourceRange.baseArrayLayer = 0;
-        create_info.subresourceRange.layerCount     = 1;
-        VK_CHECK(vkCreateImageView(context.device, &create_info, nullptr, &render_context.depth_image_views[i]));
-      }
-    }
+          frame.depth_memory = allocation.memory;
+          frame.depth_image  = allocation.image;
+        }
 
-    // 7: Framebuffers
-    {
-      render_context.framebuffers = new VkFramebuffer[render_context.image_count];
-      for(uint32_t i=0; i<render_context.image_count; ++i)
-      {
-        VkImageView attachments[] = { render_context.image_views[i], render_context.depth_image_views[i] };
+        // Color image view
+        {
+          VkImageViewCreateInfo create_info = {};
+          create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+          create_info.image                           = frame.color_image;
+          create_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
+          create_info.format                          = render_context.surface_format.format;
+          create_info.components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY;
+          create_info.components.g                    = VK_COMPONENT_SWIZZLE_IDENTITY;
+          create_info.components.b                    = VK_COMPONENT_SWIZZLE_IDENTITY;
+          create_info.components.a                    = VK_COMPONENT_SWIZZLE_IDENTITY;
+          create_info.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+          create_info.subresourceRange.baseMipLevel   = 0;
+          create_info.subresourceRange.levelCount     = 1;
+          create_info.subresourceRange.baseArrayLayer = 0;
+          create_info.subresourceRange.layerCount     = 1;
+          VK_CHECK(vkCreateImageView(context.device, &create_info, nullptr, &frame.color_image_view));
+        }
 
-        VkFramebufferCreateInfo create_info = {};
-        create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        create_info.renderPass      = render_context.render_pass;
-        create_info.attachmentCount = 2;
-        create_info.pAttachments    = attachments;
-        create_info.width           = render_context.extent.width;
-        create_info.height          = render_context.extent.height;
-        create_info.layers          = 1;
-        VK_CHECK(vkCreateFramebuffer(context.device, &create_info, nullptr, &render_context.framebuffers[i]));
+        // Depth image view
+        {
+          VkImageViewCreateInfo create_info = {};
+          create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+          create_info.image                           = frame.depth_image;
+          create_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
+          create_info.format                          = VK_FORMAT_D32_SFLOAT;
+          create_info.components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY;
+          create_info.components.g                    = VK_COMPONENT_SWIZZLE_IDENTITY;
+          create_info.components.b                    = VK_COMPONENT_SWIZZLE_IDENTITY;
+          create_info.components.a                    = VK_COMPONENT_SWIZZLE_IDENTITY;
+          create_info.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_DEPTH_BIT;
+          create_info.subresourceRange.baseMipLevel   = 0;
+          create_info.subresourceRange.levelCount     = 1;
+          create_info.subresourceRange.baseArrayLayer = 0;
+          create_info.subresourceRange.layerCount     = 1;
+          VK_CHECK(vkCreateImageView(context.device, &create_info, nullptr, &frame.depth_image_view));
+        }
+
+        // Framebuffer
+        {
+          VkImageView attachments[] = { frame.color_image_view, frame.depth_image_view };
+
+          VkFramebufferCreateInfo create_info = {};
+          create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+          create_info.renderPass      = render_context.render_pass;
+          create_info.attachmentCount = 2;
+          create_info.pAttachments    = attachments;
+          create_info.width           = render_context.extent.width;
+          create_info.height          = render_context.extent.height;
+          create_info.layers          = 1;
+          VK_CHECK(vkCreateFramebuffer(context.device, &create_info, nullptr, &frame.framebuffer));
+        }
+
+        render_context.frames[i] = frame;
       }
     }
 
@@ -444,28 +438,18 @@ present_mode_selected:
 
   void destroy_render_context(const Context& context, Allocator& allocator, RenderContext& render_context)
   {
-    for(uint32_t i=0; i<render_context.image_count; ++i)
-      vkDestroyFramebuffer(context.device, render_context.framebuffers[i], nullptr);
-
-    delete[] render_context.framebuffers;
+    (void)allocator;
 
     for(uint32_t i=0; i<render_context.image_count; ++i)
-      vkDestroyImageView(context.device, render_context.depth_image_views[i], nullptr);
-
-    delete[] render_context.depth_image_views;
-
-    for(uint32_t i=0; i<render_context.image_count; ++i)
-      deallocate_image2d(context, allocator, render_context.depth_image_allocations[i]);
-
-    delete[] render_context.depth_image_allocations;
-
-    for(uint32_t i=0; i<render_context.image_count; ++i)
-      vkDestroyImageView(context.device, render_context.image_views[i], nullptr);
-
-    delete[] render_context.image_views;
-
-    delete[] render_context.images;
-
+    {
+      Frame frame = render_context.frames[i];
+      vkDestroyFramebuffer(context.device, frame.framebuffer, nullptr);
+      vkDestroyImageView(context.device, frame.depth_image_view, nullptr);
+      vkDestroyImageView(context.device, frame.color_image_view, nullptr);
+      vkDestroyImage    (context.device, frame.depth_image, nullptr);
+      vkFreeMemory(context.device, frame.depth_memory, nullptr);
+    }
+    delete[] render_context.frames;
 
     vkDestroyPipeline           (context.device, render_context.pipeline,              nullptr);
     vkDestroyPipelineLayout     (context.device, render_context.pipeline_layout,       nullptr);

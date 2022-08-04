@@ -43,6 +43,19 @@ namespace vulkan
     std::vector<VertexBindingDescription> vertex_binding_descriptions;
   };
 
+  struct Frame
+  {
+    VkDeviceMemory depth_memory;
+
+    VkImage color_image;
+    VkImage depth_image;
+
+    VkImageView color_image_view;
+    VkImageView depth_image_view;
+
+    VkFramebuffer framebuffer;
+  };
+
   struct RenderContext
   {
     uint32_t                      image_count;
@@ -60,13 +73,7 @@ namespace vulkan
     VkPipeline            pipeline;
     VkDescriptorSetLayout descriptor_set_layout;
 
-    VkImage       *images;
-    VkImageView   *image_views;
-
-    ImageAllocation *depth_image_allocations;
-    VkImageView     *depth_image_views;
-
-    VkFramebuffer *framebuffers;
+    Frame *frames;
   };
 
   RenderContext create_render_context(const Context& context, Allocator& allocator, RenderContextCreateInfo create_info);

@@ -52,7 +52,7 @@ std::optional<FrameInfo> begin_frame(const vulkan::Context& context, const vulka
     return std::nullopt;
   }
   VK_CHECK(result);
-  frame_info.framebuffer = render_context.framebuffers[frame_info.image_index];
+  frame_info.framebuffer = render_context.frames[frame_info.image_index].framebuffer;
   return frame_info;
 }
 
