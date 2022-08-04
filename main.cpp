@@ -4,6 +4,9 @@
 #include "vulkan.hpp"
 #include "buffer.hpp"
 
+#define TINYOBJLOADER_IMPLEMENTATION
+#include "tiny_obj_loader.h"
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -203,25 +206,8 @@ int main()
 
   auto render_context = create_render_context(context, allocator, render_context_create_info);
 
-  const Vertex vertices[] = {
-    {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f,  -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f,   0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-    {{-0.5f,  0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
-
-    {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f,  -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f,   0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-    {{-0.5f,  0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
-  };
-  const uint16_t indices[] = {
-    0, 1, 2, 2, 3, 0,
-    4, 5, 6, 6, 7, 4,
-  };
-
-
   int x, y, n;
-  unsigned char *data = stbi_load("statue-g7eb18bf0c_1920.jpg", &x, &y, &n, STBI_rgb_alpha);
+  unsigned char *data = stbi_load("viking_room.png", &x, &y, &n, STBI_rgb_alpha);
   assert(data);
 
   auto image_allocation = vulkan::allocate_image2d(
@@ -234,12 +220,40 @@ int main()
 
   stbi_image_free(data);
 
+  tinyobj::attrib_t attrib;
+  std::vector<tinyobj::shape_t> shapes;
+  std::vector<tinyobj::material_t> materials;
+  std::string warn, err;
 
-  auto vbo_allocation = vulkan::allocate_buffer(context, allocator, sizeof vertices, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-  vulkan::write_buffer(context, allocator, vbo_allocation, vertices);
+  std::vector<Vertex>   vertices;
+  std::vector<uint32_t> indices;
 
-  auto ibo_allocation = vulkan::allocate_buffer(context, allocator, sizeof indices, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-  vulkan::write_buffer(context, allocator, ibo_allocation, indices);
+  auto result = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, "viking_room.obj");
+  assert(result);
+  std::cout << "Warning:" << warn << '\n';
+  for(const auto& shape : shapes)
+    for(const auto& index : shape.mesh.indices)
+    {
+      Vertex vertex = {};
+      vertex.pos = {
+        attrib.vertices[3 * index.vertex_index + 0],
+        attrib.vertices[3 * index.vertex_index + 1],
+        attrib.vertices[3 * index.vertex_index + 2]
+      };
+      vertex.uv = {
+        attrib.texcoords[2 * index.texcoord_index + 0],
+        1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+      };
+      vertex.color = {1.0f, 1.0f, 1.0f};
+      vertices.push_back(vertex);
+      indices.push_back(indices.size());
+    }
+
+  auto vbo_allocation = vulkan::allocate_buffer(context, allocator, vertices.size() * sizeof vertices[0], VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  vulkan::write_buffer(context, allocator, vbo_allocation, vertices.data());
+
+  auto ibo_allocation = vulkan::allocate_buffer(context, allocator, indices.size() * sizeof indices[0], VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  vulkan::write_buffer(context, allocator, ibo_allocation, indices.data());
 
   VkImageView texture_image_view;
   {
@@ -390,7 +404,7 @@ int main()
 
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(render_resource.command_buffer.handle, 0, 1, &vbo_allocation.buffer, offsets);
-        vkCmdBindIndexBuffer(render_resource.command_buffer.handle, ibo_allocation.buffer, 0, VK_INDEX_TYPE_UINT16);
+        vkCmdBindIndexBuffer(render_resource.command_buffer.handle, ibo_allocation.buffer, 0, VK_INDEX_TYPE_UINT32);
 
         VkViewport viewport = {};
         viewport.x = 0.0f;
@@ -406,7 +420,7 @@ int main()
         scissor.extent = render_context.extent;
         vkCmdSetScissor(render_resource.command_buffer.handle, 0, 1, &scissor);
 
-        vkCmdDrawIndexed(render_resource.command_buffer.handle, sizeof indices / sizeof indices[0], 1, 0, 0, 0);
+        vkCmdDrawIndexed(render_resource.command_buffer.handle, indices.size(), 1, 0, 0, 0);
 
         end_render(context, render_resource);
       }
