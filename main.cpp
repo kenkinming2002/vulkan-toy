@@ -91,6 +91,7 @@ struct Vertex
 {
   glm::vec2 pos;
   glm::vec3 color;
+  glm::vec2 uv;
 };
 
 
@@ -188,24 +189,19 @@ int main()
     vulkan::VertexBindingDescription{
       .stride = sizeof(Vertex),
       .attribute_descriptions = {
-        vulkan::VertexAttributeDescription{
-          .offset = offsetof(Vertex, pos),
-          .type = vulkan::VertexAttributeDescription::Type::FLOAT2,
-        },
-        vulkan::VertexAttributeDescription{
-          .offset = offsetof(Vertex, color),
-          .type = vulkan::VertexAttributeDescription::Type::FLOAT3,
-        },
+        vulkan::VertexAttributeDescription{ .offset = offsetof(Vertex, pos),   .type = vulkan::VertexAttributeDescription::Type::FLOAT2 },
+        vulkan::VertexAttributeDescription{ .offset = offsetof(Vertex, color), .type = vulkan::VertexAttributeDescription::Type::FLOAT3 },
+        vulkan::VertexAttributeDescription{ .offset = offsetof(Vertex, uv),    .type = vulkan::VertexAttributeDescription::Type::FLOAT2 },
       }
     }
   };
   auto render_context = create_render_context(context, render_context_create_info);
 
   const Vertex vertices[] = {
-    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-    {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+    {{0.5f, -0.5f},  {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+    {{0.5f, 0.5f},   {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+    {{-0.5f, 0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
   };
   const uint16_t indices[] = { 0, 1, 2, 2, 3, 0 };
 
@@ -273,14 +269,16 @@ int main()
     render_resources[i] = create_render_resouce(context, allocator);
 
   // Descriptor pool
-  VkDescriptorPoolSize pool_size = {};
-  pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  pool_size.descriptorCount = MAX_FRAME_IN_FLIGHT;
+  VkDescriptorPoolSize pool_sizes[2] = {};
+  pool_sizes[0].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  pool_sizes[0].descriptorCount = MAX_FRAME_IN_FLIGHT;
+  pool_sizes[1].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  pool_sizes[1].descriptorCount = MAX_FRAME_IN_FLIGHT;
 
   VkDescriptorPoolCreateInfo pool_create_info = {};
   pool_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-  pool_create_info.poolSizeCount = 1;
-  pool_create_info.pPoolSizes = &pool_size;
+  pool_create_info.poolSizeCount = 2;
+  pool_create_info.pPoolSizes = pool_sizes;
   pool_create_info.maxSets    = MAX_FRAME_IN_FLIGHT;
 
   VkDescriptorPool descriptor_pool = {};
@@ -306,16 +304,29 @@ int main()
     buffer_info.offset = 0;
     buffer_info.range  = sizeof(UniformBufferObject);
 
-    VkWriteDescriptorSet descriptor_write{};
-    descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptor_write.dstSet          = descriptor_sets[i];
-    descriptor_write.dstBinding      = 0;
-    descriptor_write.dstArrayElement = 0;
-    descriptor_write.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    descriptor_write.descriptorCount = 1;
-    descriptor_write.pBufferInfo     = &buffer_info;
+    VkDescriptorImageInfo image_info = {};
+    image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    image_info.imageView   = texture_image_view;
+    image_info.sampler     = sampler;
 
-    vkUpdateDescriptorSets(context.device, 1, &descriptor_write, 0, nullptr);
+    VkWriteDescriptorSet write_descriptors[2] = {};
+    write_descriptors[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write_descriptors[0].dstSet          = descriptor_sets[i];
+    write_descriptors[0].dstBinding      = 0;
+    write_descriptors[0].dstArrayElement = 0;
+    write_descriptors[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    write_descriptors[0].descriptorCount = 1;
+    write_descriptors[0].pBufferInfo     = &buffer_info;
+
+    write_descriptors[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write_descriptors[1].dstSet          = descriptor_sets[i];
+    write_descriptors[1].dstBinding      = 1;
+    write_descriptors[1].dstArrayElement = 0;
+    write_descriptors[1].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    write_descriptors[1].descriptorCount = 1;
+    write_descriptors[1].pImageInfo      = &image_info;
+
+    vkUpdateDescriptorSets(context.device, 2, write_descriptors, 0, nullptr);
   }
 
 
