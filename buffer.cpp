@@ -32,20 +32,41 @@ namespace vulkan
     (void)allocator;
   }
 
-  inline static uint32_t select_memory_type(const Allocator& allocator, uint32_t type_filter, VkMemoryPropertyFlags& memory_properties)
+  struct MemoryAllocation
+  {
+    VkDeviceMemory        memory;
+    VkDeviceSize          size;
+    VkMemoryPropertyFlags memory_properties;
+  };
+
+  template<typename T>
+  static inline bool is_bits_set(T value, T flags)
+  {
+    return (value & flags) == flags;
+  }
+
+  static inline MemoryAllocation allocate_device_memory(const Context& context, Allocator& allocator, VkMemoryRequirements memory_requirements, VkMemoryPropertyFlags memory_properties)
   {
     for (uint32_t i = 0; i < allocator.memory_properties.memoryTypeCount; i++)
     {
-      if(!(type_filter & (1 << i)))
-        continue;
+      VkMemoryType memory_type = allocator.memory_properties.memoryTypes[i];
+      if(is_bits_set(memory_requirements.memoryTypeBits, uint32_t(1 << i)) && is_bits_set(memory_type.propertyFlags, memory_properties))
+      {
+        MemoryAllocation allocation = {};
 
-      if((memory_properties & allocator.memory_properties.memoryTypes[i].propertyFlags) != memory_properties)
-        continue;
+        VkMemoryAllocateInfo allocate_info = {};
+        allocate_info.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocate_info.memoryTypeIndex = i;
+        allocate_info.allocationSize  = memory_requirements.size;
+        VK_CHECK(vkAllocateMemory(context.device, &allocate_info, nullptr, &allocation.memory));
+        allocation.size              = memory_requirements.size;
+        allocation.memory_properties = memory_type.propertyFlags;
 
-      return i;
+        return allocation;
+      }
     }
 
-    fprintf(stderr, "No memory type suitable");
+    fprintf(stderr, "No memory type while allocating device memory");
     abort();
   }
 
@@ -65,22 +86,14 @@ namespace vulkan
     buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     VK_CHECK(vkCreateBuffer(context.device, &buffer_create_info, nullptr, &allocation.buffer));
 
-    // Even if we do not request host visible memory, the selected memory type may still be host visible
-    // because that is the only memory type which is the case for integrated GPU.
-    VkMemoryRequirements buffer_memory_requirement = {};
-    vkGetBufferMemoryRequirements(context.device, allocation.buffer, &buffer_memory_requirement);
-    uint32_t memory_type_index = select_memory_type(allocator, buffer_memory_requirement.memoryTypeBits, memory_properties);
+    VkMemoryRequirements buffer_memory_requirements = {};
+    vkGetBufferMemoryRequirements(context.device, allocation.buffer, &buffer_memory_requirements);
 
-    allocation.size              = buffer_memory_requirement.size;
-    allocation.memory_properties = allocator.memory_properties.memoryTypes[memory_type_index].propertyFlags;
-
-    VkMemoryAllocateInfo allocate_info = {};
-    allocate_info.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocate_info.memoryTypeIndex = memory_type_index;
-    allocate_info.allocationSize  = buffer_memory_requirement.size;
-    VK_CHECK(vkAllocateMemory(context.device, &allocate_info, nullptr, &allocation.memory));
-    VK_CHECK(vkBindBufferMemory(context.device, allocation.buffer, allocation.memory, 0));
-
+    MemoryAllocation memory_allocation = allocate_device_memory(context, allocator, buffer_memory_requirements, memory_properties);
+    allocation.memory            = memory_allocation.memory;
+    allocation.size              = memory_allocation.size;
+    allocation.memory_properties = memory_allocation.memory_properties;
+    VK_CHECK(vkBindBufferMemory(context.device, allocation.buffer, memory_allocation.memory, 0));
     return allocation;
   }
 
@@ -114,22 +127,14 @@ namespace vulkan
     create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     VK_CHECK(vkCreateImage(context.device, &create_info, nullptr, &allocation.image));
 
-    // Even if we do not request host visible memory, the selected memory type may still be host visible
-    // because that is the only memory type which is the case for integrated GPU.
-    VkMemoryRequirements buffer_memory_requirement = {};
-    vkGetImageMemoryRequirements(context.device, allocation.image, &buffer_memory_requirement);
-    uint32_t memory_type_index = select_memory_type(allocator, buffer_memory_requirement.memoryTypeBits, memory_properties);
+    VkMemoryRequirements memory_requirements = {};
+    vkGetImageMemoryRequirements(context.device, allocation.image, &memory_requirements);
 
-    allocation.size              = buffer_memory_requirement.size;
-    allocation.memory_properties = allocator.memory_properties.memoryTypes[memory_type_index].propertyFlags;
-
-    VkMemoryAllocateInfo allocate_info = {};
-    allocate_info.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocate_info.memoryTypeIndex = memory_type_index;
-    allocate_info.allocationSize  = buffer_memory_requirement.size;
-    VK_CHECK(vkAllocateMemory(context.device, &allocate_info, nullptr, &allocation.memory));
-    VK_CHECK(vkBindImageMemory(context.device, allocation.image, allocation.memory, 0));
-
+    MemoryAllocation memory_allocation = allocate_device_memory(context, allocator, memory_requirements, memory_properties);
+    allocation.memory            = memory_allocation.memory;
+    allocation.size              = memory_allocation.size;
+    allocation.memory_properties = memory_allocation.memory_properties;
+    VK_CHECK(vkBindImageMemory(context.device, allocation.image, memory_allocation.memory, 0));
     return allocation;
   }
 
