@@ -89,7 +89,7 @@ struct UniformBufferObject
 
 struct Vertex
 {
-  glm::vec2 pos;
+  glm::vec3 pos;
   glm::vec3 color;
   glm::vec2 uv;
 };
@@ -189,7 +189,7 @@ int main()
     vulkan::VertexBindingDescription{
       .stride = sizeof(Vertex),
       .attribute_descriptions = {
-        vulkan::VertexAttributeDescription{ .offset = offsetof(Vertex, pos),   .type = vulkan::VertexAttributeDescription::Type::FLOAT2 },
+        vulkan::VertexAttributeDescription{ .offset = offsetof(Vertex, pos),   .type = vulkan::VertexAttributeDescription::Type::FLOAT3 },
         vulkan::VertexAttributeDescription{ .offset = offsetof(Vertex, color), .type = vulkan::VertexAttributeDescription::Type::FLOAT3 },
         vulkan::VertexAttributeDescription{ .offset = offsetof(Vertex, uv),    .type = vulkan::VertexAttributeDescription::Type::FLOAT2 },
       }
@@ -198,12 +198,20 @@ int main()
   auto render_context = create_render_context(context, render_context_create_info);
 
   const Vertex vertices[] = {
-    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, -0.5f},  {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, 0.5f},   {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-    {{-0.5f, 0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
+    {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+    {{0.5f,  -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+    {{0.5f,   0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+    {{-0.5f,  0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
+
+    {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+    {{0.5f,  -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+    {{0.5f,   0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+    {{-0.5f,  0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
   };
-  const uint16_t indices[] = { 0, 1, 2, 2, 3, 0 };
+  const uint16_t indices[] = {
+    0, 1, 2, 2, 3, 0,
+    4, 5, 6, 6, 7, 4,
+  };
 
   auto allocator = vulkan::create_allocator(context);
 
@@ -388,7 +396,7 @@ int main()
         scissor.extent = render_context.extent;
         vkCmdSetScissor(render_resource.command_buffer.handle, 0, 1, &scissor);
 
-        vkCmdDrawIndexed(render_resource.command_buffer.handle, 6, 1, 0, 0, 0);
+        vkCmdDrawIndexed(render_resource.command_buffer.handle, sizeof indices / sizeof indices[0], 1, 0, 0, 0);
 
         end_render(context, render_resource);
       }
