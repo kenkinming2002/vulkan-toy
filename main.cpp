@@ -227,6 +227,45 @@ int main()
   auto ibo_allocation = vulkan::allocate_buffer(context, allocator, sizeof indices, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
   vulkan::write_buffer(context, allocator, ibo_allocation, indices);
 
+  VkImageView texture_image_view;
+  {
+    VkImageViewCreateInfo create_info = {};
+    create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    create_info.image                           = image_allocation.image;
+    create_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
+    create_info.format                          = VK_FORMAT_R8G8B8A8_SRGB;
+    create_info.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+    create_info.subresourceRange.baseMipLevel   = 0;
+    create_info.subresourceRange.levelCount     = 1;
+    create_info.subresourceRange.baseArrayLayer = 0;
+    create_info.subresourceRange.layerCount     = 1;
+    VK_CHECK(vkCreateImageView(context.device, &create_info, nullptr, &texture_image_view));
+  }
+
+  VkSampler sampler;
+  {
+    VkPhysicalDeviceProperties properties;
+    vkGetPhysicalDeviceProperties(context.physical_device, &properties);
+
+    VkSamplerCreateInfo create_info{};
+    create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    create_info.magFilter = VK_FILTER_LINEAR;
+    create_info.minFilter = VK_FILTER_LINEAR;
+    create_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    create_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    create_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    create_info.anisotropyEnable = VK_TRUE;
+    create_info.maxAnisotropy    = properties.limits.maxSamplerAnisotropy;
+    create_info.borderColor      = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    create_info.unnormalizedCoordinates = VK_FALSE;
+    create_info.compareEnable           = VK_FALSE;
+    create_info.compareOp               = VK_COMPARE_OP_ALWAYS;
+    create_info.mipmapMode              = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    create_info.mipLodBias              = 0.0f;
+    create_info.minLod                  = 0.0f;
+    create_info.maxLod                  = 0.0f;
+    VK_CHECK(vkCreateSampler(context.device, &create_info, nullptr, &sampler));
+  }
 
   static constexpr size_t MAX_FRAME_IN_FLIGHT = 4;
   RenderResource render_resources[MAX_FRAME_IN_FLIGHT];

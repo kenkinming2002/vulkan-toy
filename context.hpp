@@ -57,8 +57,11 @@ namespace vulkan
     context.surface = vulkan::create_surface(context.instance, create_info.window);
     context.physical_device    = vulkan::enumerate_physical_devices(context.instance).at(0);
     context.queue_family_index = 0;
+
+    VkPhysicalDeviceFeatures physical_device_features = {};
+    physical_device_features.samplerAnisotropy = VK_TRUE;
     context.device = vulkan::create_device(
-        context.physical_device, { context.queue_family_index }, {},
+        context.physical_device, { context.queue_family_index }, physical_device_features,
         required_device_extensions, required_layers
     );
     context.queue = vulkan::device_get_queue(context.device, context.queue_family_index, 0);
