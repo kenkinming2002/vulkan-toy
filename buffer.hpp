@@ -43,6 +43,7 @@ namespace vulkan
 
   struct ImageAllocation
   {
+    uint32_t width, height;
     VkImage image;
 
     VkDeviceMemory memory;

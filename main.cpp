@@ -4,6 +4,9 @@
 #include "vulkan.hpp"
 #include "buffer.hpp"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -207,6 +210,16 @@ int main()
   const uint16_t indices[] = { 0, 1, 2, 2, 3, 0 };
 
   auto allocator = vulkan::create_allocator(context);
+
+  int x, y, n;
+  unsigned char *data = stbi_load("statue-g7eb18bf0c_1920.jpg", &x, &y, &n, STBI_rgb_alpha);
+  assert(data);
+
+  auto image_allocation = vulkan::allocate_image2d(context, allocator, x, y, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  vulkan::write_image2d(context, allocator, image_allocation, data);
+
+  stbi_image_free(data);
+
 
   auto vbo_allocation = vulkan::allocate_buffer(context, allocator, sizeof vertices, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
   vulkan::write_buffer(context, allocator, vbo_allocation, vertices);

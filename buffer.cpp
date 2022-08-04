@@ -1,5 +1,6 @@
 #include "buffer.hpp"
-#include <vulkan/vulkan_core.h>
+
+#include "malloc.h"
 
 namespace vulkan
 {
@@ -118,6 +119,7 @@ namespace vulkan
 
     VkImageCreateInfo create_info = {};
     create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    create_info.flags         = 0;
     create_info.imageType     = VK_IMAGE_TYPE_2D;
     create_info.format        = VK_FORMAT_R8G8B8A8_SRGB;
     create_info.extent.width  = width;
@@ -125,8 +127,10 @@ namespace vulkan
     create_info.extent.depth  = 1;
     create_info.mipLevels     = 1;
     create_info.arrayLayers   = 1;
+    create_info.samples       = VK_SAMPLE_COUNT_1_BIT;
     create_info.tiling        = VK_IMAGE_TILING_OPTIMAL;
     create_info.usage         = image_usage;
+    create_info.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
     create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     VK_CHECK(vkCreateImage(context.device, &create_info, nullptr, &allocation.image));
 
@@ -134,6 +138,8 @@ namespace vulkan
     vkGetImageMemoryRequirements(context.device, allocation.image, &memory_requirements);
 
     MemoryAllocation memory_allocation = allocate_device_memory(context, allocator, memory_requirements, memory_properties);
+    allocation.width             = width;
+    allocation.height            = height;
     allocation.memory            = memory_allocation.memory;
     allocation.size              = memory_allocation.size;
     allocation.memory_properties = memory_allocation.memory_properties;
@@ -190,7 +196,7 @@ namespace vulkan
   void write_image2d(const Context& context, Allocator& allocator, ImageAllocation& allocation, const void *data)
   {
     // For image, we must use a staging buffer always
-    auto staging_allocation = allocate_buffer(context, allocator, allocation.size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+    auto staging_allocation = allocate_buffer(context, allocator, allocation.width * allocation.height * 4, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
     {
       write_buffer(context, allocator, staging_allocation, data);
 
@@ -201,12 +207,13 @@ namespace vulkan
       {
         VkImageMemoryBarrier barrier = {};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
-        barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        barrier.srcQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
+        barrier.srcAccessMask                   = 0;
+        barrier.dstAccessMask                   = VK_ACCESS_MEMORY_WRITE_BIT;
+        barrier.oldLayout                       = VK_IMAGE_LAYOUT_UNDEFINED;
+        barrier.newLayout                       = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        barrier.image                           = allocation.image;
         barrier.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
         barrier.subresourceRange.baseMipLevel   = 0;
         barrier.subresourceRange.levelCount     = 1;
@@ -225,6 +232,8 @@ namespace vulkan
         buffer_image_copy.imageSubresource.mipLevel       = 0;
         buffer_image_copy.imageSubresource.baseArrayLayer = 0;
         buffer_image_copy.imageSubresource.layerCount     = 1;
+        buffer_image_copy.imageOffset                     = {0, 0, 0};
+        buffer_image_copy.imageExtent                     = {allocation.width, allocation.height, 1};
         vkCmdCopyBufferToImage(command_buffer.handle, staging_allocation.buffer, allocation.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &buffer_image_copy);
       }
 
@@ -238,6 +247,7 @@ namespace vulkan
         barrier.dstAccessMask                   = VK_ACCESS_MEMORY_READ_BIT;
         barrier.oldLayout                       = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         barrier.newLayout                       = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barrier.image                           = allocation.image;
         barrier.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
         barrier.subresourceRange.baseMipLevel   = 0;
         barrier.subresourceRange.levelCount     = 1;
