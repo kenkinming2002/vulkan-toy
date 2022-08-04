@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define VK_CHECK(expr) do { if(expr != VK_SUCCESS) { fprintf(stderr, "Vulkan pooped itself:%s\n", #expr); } } while(0)
+#define VK_CHECK(expr) do { if(expr != VK_SUCCESS) { fprintf(stderr, "Vulkan pooped itself:%s\n", #expr); abort(); } } while(0)
 
 namespace vulkan
 {
@@ -54,6 +54,7 @@ namespace vulkan
   ImageAllocation allocate_image2d(
       const vulkan::Context& context,
       Allocator& allocator,
+      VkFormat format,
       uint32_t width, uint32_t height,
       VkImageUsageFlags image_usage,
       VkMemoryPropertyFlags memory_properties);

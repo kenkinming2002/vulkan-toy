@@ -2,6 +2,7 @@
 
 #include "context.hpp"
 #include "vulkan.hpp"
+#include "buffer.hpp"
 
 #include <glm/glm.hpp>
 
@@ -61,10 +62,14 @@ namespace vulkan
 
     VkImage       *images;
     VkImageView   *image_views;
+
+    ImageAllocation *depth_image_allocations;
+    VkImageView     *depth_image_views;
+
     VkFramebuffer *framebuffers;
   };
 
-  RenderContext create_render_context(const Context& context, RenderContextCreateInfo create_info);
-  void destroy_render_context(const Context& context, RenderContext& render_context);
+  RenderContext create_render_context(const Context& context, Allocator& allocator, RenderContextCreateInfo create_info);
+  void destroy_render_context(const Context& context, Allocator& allocator, RenderContext& render_context);
 }
 

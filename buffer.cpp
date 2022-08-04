@@ -111,6 +111,7 @@ namespace vulkan
   ImageAllocation allocate_image2d(
       const vulkan::Context& context,
       Allocator& allocator,
+      VkFormat format,
       uint32_t width, uint32_t height,
       VkImageUsageFlags image_usage,
       VkMemoryPropertyFlags memory_properties)
@@ -121,7 +122,7 @@ namespace vulkan
     create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     create_info.flags         = 0;
     create_info.imageType     = VK_IMAGE_TYPE_2D;
-    create_info.format        = VK_FORMAT_R8G8B8A8_SRGB;
+    create_info.format        = format;
     create_info.extent.width  = width;
     create_info.extent.height = height;
     create_info.extent.depth  = 1;

@@ -14,6 +14,7 @@
 #include <vulkan/vulkan.h>
 
 #define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -31,7 +32,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define VK_CHECK(expr) do { if(expr != VK_SUCCESS) { fprintf(stderr, "Vulkan pooped itself:%s\n", #expr); } } while(0)
+#define VK_CHECK(expr) do { if(expr != VK_SUCCESS) { fprintf(stderr, "Vulkan pooped itself:%s\n", #expr); abort(); } } while(0)
 
 // How you want to render?
 // Unlike OpenGL, you have to prespecify a lot of things
@@ -129,9 +130,12 @@ void begin_render(const vulkan::Context& context, const vulkan::RenderContext& r
   render_pass_begin_info.renderArea.offset = {0, 0};
   render_pass_begin_info.renderArea.extent = render_context.extent;
 
-  VkClearValue clear_color = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
-  render_pass_begin_info.clearValueCount = 1;
-  render_pass_begin_info.pClearValues = &clear_color;
+  VkClearValue clear_values[2] = {};
+  clear_values[0].color        = {{ 0.0f, 0.0f, 0.0f, 1.0f }};
+  clear_values[1].depthStencil = { 1.0f, 0 };
+
+  render_pass_begin_info.clearValueCount = 2;
+  render_pass_begin_info.pClearValues = clear_values;
 
   vkCmdBeginRenderPass(render_resource.command_buffer.handle, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
   vkCmdBindPipeline(render_resource.command_buffer.handle, VK_PIPELINE_BIND_POINT_GRAPHICS, render_context.pipeline);
@@ -179,7 +183,8 @@ int main()
   context_create_info.engine_name         = "Engine";
   context_create_info.engine_version      = VK_MAKE_VERSION(1, 0, 0);
   context_create_info.window              = window;
-  auto context        = create_context(context_create_info);
+  auto context   = create_context(context_create_info);
+  auto allocator = vulkan::create_allocator(context);
 
   // May need to be recreated on window resize
   vulkan::RenderContextCreateInfo render_context_create_info = {};
@@ -195,7 +200,8 @@ int main()
       }
     }
   };
-  auto render_context = create_render_context(context, render_context_create_info);
+
+  auto render_context = create_render_context(context, allocator, render_context_create_info);
 
   const Vertex vertices[] = {
     {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
@@ -213,13 +219,17 @@ int main()
     4, 5, 6, 6, 7, 4,
   };
 
-  auto allocator = vulkan::create_allocator(context);
 
   int x, y, n;
   unsigned char *data = stbi_load("statue-g7eb18bf0c_1920.jpg", &x, &y, &n, STBI_rgb_alpha);
   assert(data);
 
-  auto image_allocation = vulkan::allocate_image2d(context, allocator, x, y, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  auto image_allocation = vulkan::allocate_image2d(
+      context, allocator,
+      VK_FORMAT_R8G8B8A8_SRGB, x, y,
+      VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
   vulkan::write_image2d(context, allocator, image_allocation, data);
 
   stbi_image_free(data);
@@ -350,8 +360,8 @@ int main()
       {
         std::cout << "Recreating render context\n";
         vkDeviceWaitIdle(context.device);
-        vulkan::destroy_render_context(context, render_context);
-        render_context = vulkan::create_render_context(context, render_context_create_info);
+        vulkan::destroy_render_context(context, allocator, render_context);
+        render_context = vulkan::create_render_context(context, allocator, render_context_create_info);
         frame_info = begin_frame(context, render_context, render_resource.semaphore_image_available);
       }
 
@@ -405,8 +415,8 @@ int main()
       {
         std::cout << "Recreating render context\n";
         vkDeviceWaitIdle(context.device);
-        vulkan::destroy_render_context(context, render_context);
-        render_context = vulkan::create_render_context(context, render_context_create_info);
+        vulkan::destroy_render_context(context, allocator, render_context);
+        render_context = vulkan::create_render_context(context, allocator, render_context_create_info);
         frame_info = begin_frame(context, render_context, render_resource.semaphore_image_available);
       }
 

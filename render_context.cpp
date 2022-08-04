@@ -1,9 +1,8 @@
 #include "render_context.hpp"
-#include <vulkan/vulkan_core.h>
 
 namespace vulkan
 {
-  RenderContext create_render_context(const Context& context, RenderContextCreateInfo create_info)
+  RenderContext create_render_context(const Context& context, Allocator& allocator, RenderContextCreateInfo create_info)
   {
     RenderContext render_context = {};
 
@@ -114,29 +113,46 @@ present_mode_selected:
       color_attachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
       color_attachment.finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
+      VkAttachmentDescription depth_attachment = {};
+      depth_attachment.format         = VK_FORMAT_D32_SFLOAT;
+      depth_attachment.samples        = VK_SAMPLE_COUNT_1_BIT;
+      depth_attachment.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
+      depth_attachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
+      depth_attachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+      depth_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+      depth_attachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+      depth_attachment.finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+      VkAttachmentDescription attachments[] = { color_attachment, depth_attachment };
+
       VkAttachmentReference color_attachment_reference = {};
       color_attachment_reference.attachment = 0;
       color_attachment_reference.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+      VkAttachmentReference depth_attachment_reference = {};
+      depth_attachment_reference.attachment = 1;
+      depth_attachment_reference.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
       VkSubpassDescription subpass_description = {};
       subpass_description.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-      subpass_description.colorAttachmentCount = 1;
-      subpass_description.pColorAttachments    = &color_attachment_reference;
+      subpass_description.colorAttachmentCount    = 1;
+      subpass_description.pColorAttachments       = &color_attachment_reference;
+      subpass_description.pDepthStencilAttachment = &depth_attachment_reference;
 
       VkRenderPassCreateInfo render_pass_create_info = {};
       render_pass_create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-      render_pass_create_info.attachmentCount = 1;
-      render_pass_create_info.pAttachments    = &color_attachment;
+      render_pass_create_info.attachmentCount = sizeof attachments / sizeof attachments[0];
+      render_pass_create_info.pAttachments    = attachments;
       render_pass_create_info.subpassCount    = 1;
       render_pass_create_info.pSubpasses      = &subpass_description;
 
       VkSubpassDependency subpass_dependency = {};
       subpass_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
       subpass_dependency.dstSubpass = 0;
-      subpass_dependency.srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+      subpass_dependency.srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
       subpass_dependency.srcAccessMask = 0;
-      subpass_dependency.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-      subpass_dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+      subpass_dependency.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+      subpass_dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
       render_pass_create_info.dependencyCount = 1;
       render_pass_create_info.pDependencies   = &subpass_dependency;
@@ -248,6 +264,13 @@ present_mode_selected:
       multisampling_state_create_info.alphaToOneEnable      = VK_FALSE; // Optiona
 
       // No need for depth and stencil testing using VkPipelineDepthStencilStateCreateInfo
+      VkPipelineDepthStencilStateCreateInfo depth_stencil_state_create_info = {};
+      depth_stencil_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+      depth_stencil_state_create_info.depthTestEnable  = VK_TRUE;
+      depth_stencil_state_create_info.depthWriteEnable = VK_TRUE;
+      depth_stencil_state_create_info.depthCompareOp   = VK_COMPARE_OP_LESS;
+      depth_stencil_state_create_info.depthBoundsTestEnable = VK_FALSE;
+      depth_stencil_state_create_info.stencilTestEnable = VK_FALSE;
 
       VkPipelineColorBlendAttachmentState color_blend_attachment_state = {};
       color_blend_attachment_state.colorWriteMask      = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
@@ -318,7 +341,7 @@ present_mode_selected:
       graphics_pipeline_create_info.pViewportState      = &pipeline_viewport_state_create_info;
       graphics_pipeline_create_info.pRasterizationState = &rasterizer_state_create_info;
       graphics_pipeline_create_info.pMultisampleState   = &multisampling_state_create_info;
-      graphics_pipeline_create_info.pDepthStencilState  = nullptr;
+      graphics_pipeline_create_info.pDepthStencilState  = &depth_stencil_state_create_info;
       graphics_pipeline_create_info.pColorBlendState    = &color_blending_state_create_info;
       graphics_pipeline_create_info.pDynamicState       = &dynamic_state_create_info;
       graphics_pipeline_create_info.layout              = render_context.pipeline_layout;
@@ -362,16 +385,53 @@ present_mode_selected:
       }
     }
 
+    // 7: Depth images
+    {
+      render_context.depth_image_allocations = new ImageAllocation[render_context.image_count];
+      for(uint32_t i=0; i<render_context.image_count; ++i)
+      {
+        render_context.depth_image_allocations[i] = allocate_image2d(context, allocator, VK_FORMAT_D32_SFLOAT,
+            render_context.extent.width, render_context.extent.height,
+            VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+      }
+    }
+
+    // 8: Depth image views
+    {
+      render_context.depth_image_views = new VkImageView[render_context.image_count];
+      for(uint32_t i=0; i<render_context.image_count; ++i)
+      {
+        VkImageViewCreateInfo create_info = {};
+        create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        create_info.image                           = render_context.depth_image_allocations[i].image;
+        create_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
+        create_info.format                          = VK_FORMAT_D32_SFLOAT;
+        create_info.components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY;
+        create_info.components.g                    = VK_COMPONENT_SWIZZLE_IDENTITY;
+        create_info.components.b                    = VK_COMPONENT_SWIZZLE_IDENTITY;
+        create_info.components.a                    = VK_COMPONENT_SWIZZLE_IDENTITY;
+        create_info.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_DEPTH_BIT;
+        create_info.subresourceRange.baseMipLevel   = 0;
+        create_info.subresourceRange.levelCount     = 1;
+        create_info.subresourceRange.baseArrayLayer = 0;
+        create_info.subresourceRange.layerCount     = 1;
+        VK_CHECK(vkCreateImageView(context.device, &create_info, nullptr, &render_context.depth_image_views[i]));
+      }
+    }
+
     // 7: Framebuffers
     {
       render_context.framebuffers = new VkFramebuffer[render_context.image_count];
       for(uint32_t i=0; i<render_context.image_count; ++i)
       {
+        VkImageView attachments[] = { render_context.image_views[i], render_context.depth_image_views[i] };
+
         VkFramebufferCreateInfo create_info = {};
         create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         create_info.renderPass      = render_context.render_pass;
-        create_info.attachmentCount = 1;
-        create_info.pAttachments    = &render_context.image_views[i];
+        create_info.attachmentCount = 2;
+        create_info.pAttachments    = attachments;
         create_info.width           = render_context.extent.width;
         create_info.height          = render_context.extent.height;
         create_info.layers          = 1;
@@ -382,19 +442,30 @@ present_mode_selected:
     return render_context;
   }
 
-  void destroy_render_context(const Context& context, RenderContext& render_context)
+  void destroy_render_context(const Context& context, Allocator& allocator, RenderContext& render_context)
   {
-    delete[] render_context.images;
-
     for(uint32_t i=0; i<render_context.image_count; ++i)
       vkDestroyFramebuffer(context.device, render_context.framebuffers[i], nullptr);
 
     delete[] render_context.framebuffers;
 
     for(uint32_t i=0; i<render_context.image_count; ++i)
+      vkDestroyImageView(context.device, render_context.depth_image_views[i], nullptr);
+
+    delete[] render_context.depth_image_views;
+
+    for(uint32_t i=0; i<render_context.image_count; ++i)
+      deallocate_image2d(context, allocator, render_context.depth_image_allocations[i]);
+
+    delete[] render_context.depth_image_allocations;
+
+    for(uint32_t i=0; i<render_context.image_count; ++i)
       vkDestroyImageView(context.device, render_context.image_views[i], nullptr);
 
     delete[] render_context.image_views;
+
+    delete[] render_context.images;
+
 
     vkDestroyPipeline           (context.device, render_context.pipeline,              nullptr);
     vkDestroyPipelineLayout     (context.device, render_context.pipeline_layout,       nullptr);
