@@ -76,7 +76,7 @@ namespace vulkan
     Frame *frames;
   };
 
-  RenderContext create_render_context(const Context& context, Allocator& allocator, RenderContextCreateInfo create_info);
-  void destroy_render_context(const Context& context, Allocator& allocator, RenderContext& render_context);
+  RenderContext create_render_context(context_t context, allocator_t allocator, RenderContextCreateInfo create_info);
+  void destroy_render_context(context_t context, allocator_t allocator, RenderContext& render_context);
 }
 
