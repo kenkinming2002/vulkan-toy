@@ -130,52 +130,73 @@ Texture load_texture(vulkan::context_t context, vulkan::allocator_t allocator, c
   return texture;
 }
 
-int main()
+struct Model
 {
-  glfwInit();
+  size_t vertex_count;
+  size_t index_count;
 
-  // Context
-  vulkan::ContextCreateInfo context_create_info = {};
-  context_create_info.application_name    = "Vulkan";
-  context_create_info.engine_name         = "Engine";
-  context_create_info.window_name         = "Vulkan";
-  context_create_info.width = 1080;
-  context_create_info.height = 720;
+  vulkan::MemoryAllocation vbo_allocation;
+  vulkan::MemoryAllocation ibo_allocation;
 
-  vulkan::context_t   context   = vulkan::create_context(context_create_info);
-  vulkan::allocator_t allocator = vulkan::create_allocator(context);
+  VkBuffer vbo;
+  VkBuffer ibo;
 
-  // May need to be recreated on window resize
-  vulkan::RenderContextCreateInfo render_context_create_info = {};
-  render_context_create_info.vert_shader_module = vulkan::create_shader_module(vulkan::context_get_device(context), read_file("shaders/vert.spv"));
-  render_context_create_info.frag_shader_module = vulkan::create_shader_module(vulkan::context_get_device(context), read_file("shaders/frag.spv"));
-  render_context_create_info.vertex_binding_descriptions = {
-    vulkan::VertexBindingDescription{
-      .stride = sizeof(Vertex),
-      .attribute_descriptions = {
-        vulkan::VertexAttributeDescription{ .offset = offsetof(Vertex, pos),   .type = vulkan::VertexAttributeDescription::Type::FLOAT3 },
-        vulkan::VertexAttributeDescription{ .offset = offsetof(Vertex, color), .type = vulkan::VertexAttributeDescription::Type::FLOAT3 },
-        vulkan::VertexAttributeDescription{ .offset = offsetof(Vertex, uv),    .type = vulkan::VertexAttributeDescription::Type::FLOAT2 },
-      }
-    }
-  };
-  render_context_create_info.max_frame_in_flight = 4;
+};
 
-  vulkan::render_context_t render_context = create_render_context(context, allocator, render_context_create_info);
+Model create_model(vulkan::context_t context, vulkan::allocator_t allocator, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
+{
+  Model model = {};
+  model.vertex_count = vertices.size();
+  model.index_count  = indices.size();
 
-  Texture texture = load_texture(context, allocator, "viking_room.png");
+  {
+    vulkan::BufferCreateInfo info = {};
+    info.usage      = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    info.size       = vertices.size() * sizeof vertices[0];
+    model.vbo = vulkan::create_buffer(context, allocator, info, model.vbo_allocation);
+    vulkan::write_buffer(context, allocator, model.vbo, model.vbo_allocation, vertices.data());
+  }
 
+  {
+    vulkan::BufferCreateInfo info = {};
+    info.usage      = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    info.size       = indices.size() * sizeof indices[0];
+    model.ibo = vulkan::create_buffer(context, allocator, info, model.ibo_allocation);
+    vulkan::write_buffer(context, allocator, model.ibo, model.ibo_allocation, indices.data());
+  }
+
+  return model;
+}
+
+void destroy_model(vulkan::context_t context, vulkan::allocator_t allocator, Model model)
+{
+  VkDevice device = vulkan::context_get_device(context);
+
+  vkDestroyBuffer(device, model.vbo, nullptr);
+  vkDestroyBuffer(device, model.ibo, nullptr);
+
+  vulkan::deallocate_memory(context, allocator, model.vbo_allocation);
+  vulkan::deallocate_memory(context, allocator, model.ibo_allocation);
+}
+
+Model load_model(vulkan::context_t context, vulkan::allocator_t allocator, const char* file_name)
+{
   tinyobj::attrib_t attrib;
   std::vector<tinyobj::shape_t> shapes;
   std::vector<tinyobj::material_t> materials;
   std::string warn, err;
-
   std::vector<Vertex>   vertices;
   std::vector<uint32_t> indices;
 
-  auto result = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, "viking_room.obj");
-  assert(result);
-  std::cout << "Warning:" << warn << '\n';
+  if(!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, file_name))
+  {
+    fprintf(stderr, "Failed to load object file:%s", err.c_str());
+    abort();
+  }
+  fprintf(stderr, "Warning:%s", warn.c_str());
+
   for(const auto& shape : shapes)
     for(const auto& index : shape.mesh.indices)
     {
@@ -194,27 +215,44 @@ int main()
       indices.push_back(indices.size());
     }
 
-  vulkan::MemoryAllocation vbo_allocation = {};
-  VkBuffer vbo = VK_NULL_HANDLE;
-  {
-    vulkan::BufferCreateInfo info = {};
-    info.usage      = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    info.size       = vertices.size() * sizeof vertices[0];
-    vbo = vulkan::create_buffer(context, allocator, info, vbo_allocation);
-    vulkan::write_buffer(context, allocator, vbo, vbo_allocation, vertices.data());
-  }
+  return create_model(context, allocator, vertices, indices);
+}
 
-  vulkan::MemoryAllocation ibo_allocation = {};
-  VkBuffer ibo = VK_NULL_HANDLE;
-  {
-    vulkan::BufferCreateInfo info = {};
-    info.usage      = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-    info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    info.size       = indices.size() * sizeof indices[0];
-    ibo = vulkan::create_buffer(context, allocator, info, ibo_allocation);
-    vulkan::write_buffer(context, allocator, ibo, ibo_allocation, indices.data());
-  }
+int main()
+{
+  glfwInit();
+
+  // Context
+  vulkan::ContextCreateInfo context_create_info = {};
+  context_create_info.application_name    = "Vulkan";
+  context_create_info.engine_name         = "Engine";
+  context_create_info.window_name         = "Vulkan";
+  context_create_info.width = 1080;
+  context_create_info.height = 720;
+
+  vulkan::context_t   context   = vulkan::create_context(context_create_info);
+  vulkan::allocator_t allocator = vulkan::create_allocator(context);
+
+  Texture texture = load_texture(context, allocator, "viking_room.png");
+  Model model = load_model(context, allocator, "viking_room.obj");
+
+  // May need to be recreated on window resize
+  vulkan::RenderContextCreateInfo render_context_create_info = {};
+  render_context_create_info.vert_shader_module = vulkan::create_shader_module(vulkan::context_get_device(context), read_file("shaders/vert.spv"));
+  render_context_create_info.frag_shader_module = vulkan::create_shader_module(vulkan::context_get_device(context), read_file("shaders/frag.spv"));
+  render_context_create_info.vertex_binding_descriptions = {
+    vulkan::VertexBindingDescription{
+      .stride = sizeof(Vertex),
+      .attribute_descriptions = {
+        vulkan::VertexAttributeDescription{ .offset = offsetof(Vertex, pos),   .type = vulkan::VertexAttributeDescription::Type::FLOAT3 },
+        vulkan::VertexAttributeDescription{ .offset = offsetof(Vertex, color), .type = vulkan::VertexAttributeDescription::Type::FLOAT3 },
+        vulkan::VertexAttributeDescription{ .offset = offsetof(Vertex, uv),    .type = vulkan::VertexAttributeDescription::Type::FLOAT2 },
+      }
+    }
+  };
+  render_context_create_info.max_frame_in_flight = 4;
+
+  vulkan::render_context_t render_context = create_render_context(context, allocator, render_context_create_info);
 
   VkSampler sampler;
   {
@@ -352,8 +390,8 @@ int main()
         0, nullptr);
 
     VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(command_buffer_handle, 0, 1, &vbo, offsets);
-    vkCmdBindIndexBuffer(command_buffer_handle, ibo, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindVertexBuffers(command_buffer_handle, 0, 1, &model.vbo, offsets);
+    vkCmdBindIndexBuffer(command_buffer_handle, model.ibo, 0, VK_INDEX_TYPE_UINT32);
 
     VkViewport viewport = {};
     viewport.x = 0.0f;
@@ -369,7 +407,7 @@ int main()
     scissor.extent = extent;
     vkCmdSetScissor(command_buffer_handle, 0, 1, &scissor);
 
-    vkCmdDrawIndexed(command_buffer_handle, indices.size(), 1, 0, 0, 0);
+    vkCmdDrawIndexed(command_buffer_handle, model.index_count, 1, 0, 0, 0);
 
     if(!vulkan::end_render(context, render_context, *frame_info))
     {
