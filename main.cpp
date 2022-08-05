@@ -106,7 +106,8 @@ struct RenderResource
   VkSemaphore semaphore_image_available;
   VkSemaphore semaphore_render_finished;
 
-  vulkan::BufferAllocation ubo_allocation;
+  vulkan::MemoryAllocation ubo_allocation;
+  VkBuffer                 ubo;
 };
 
 RenderResource create_render_resouce(const vulkan::Context& context, vulkan::Allocator& allocator)
@@ -115,9 +116,12 @@ RenderResource create_render_resouce(const vulkan::Context& context, vulkan::All
   render_resource.command_buffer            = vulkan::create_command_buffer(context, true);
   render_resource.semaphore_image_available = vulkan::create_semaphore(context.device);
   render_resource.semaphore_render_finished = vulkan::create_semaphore(context.device);
-  render_resource.ubo_allocation            = vulkan::allocate_buffer(context, allocator, sizeof(UniformBufferObject),
-      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+  vulkan::BufferCreateInfo info = {};
+  info.usage      = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+  info.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+  info.size       = sizeof(UniformBufferObject);
+  render_resource.ubo = vulkan::create_buffer(context, allocator, info, render_resource.ubo_allocation);
   return render_resource;
 }
 
@@ -210,13 +214,18 @@ int main()
   unsigned char *data = stbi_load("viking_room.png", &x, &y, &n, STBI_rgb_alpha);
   assert(data);
 
-  auto image_allocation = vulkan::allocate_image2d(
-      context, allocator,
-      VK_FORMAT_R8G8B8A8_SRGB, x, y,
-      VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-  vulkan::write_image2d(context, allocator, image_allocation, data);
+  vulkan::MemoryAllocation image_allocation = {};
+  VkImage image = VK_NULL_HANDLE;
+  {
+    vulkan::Image2dCreateInfo info = {};
+    info.usage      = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    info.format     = VK_FORMAT_R8G8B8A8_SRGB;
+    info.width      = x;
+    info.height     = y;
+    image = vulkan::create_image2d(context, allocator, info, image_allocation);
+    vulkan::write_image2d(context, allocator, image, x, y, image_allocation, data);
+  }
 
   stbi_image_free(data);
 
@@ -249,17 +258,33 @@ int main()
       indices.push_back(indices.size());
     }
 
-  auto vbo_allocation = vulkan::allocate_buffer(context, allocator, vertices.size() * sizeof vertices[0], VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-  vulkan::write_buffer(context, allocator, vbo_allocation, vertices.data());
+  vulkan::MemoryAllocation vbo_allocation = {};
+  VkBuffer vbo = VK_NULL_HANDLE;
+  {
+    vulkan::BufferCreateInfo info = {};
+    info.usage      = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    info.size       = vertices.size() * sizeof vertices[0];
+    vbo = vulkan::create_buffer(context, allocator, info, vbo_allocation);
+    vulkan::write_buffer(context, allocator, vbo, vbo_allocation, vertices.data());
+  }
 
-  auto ibo_allocation = vulkan::allocate_buffer(context, allocator, indices.size() * sizeof indices[0], VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-  vulkan::write_buffer(context, allocator, ibo_allocation, indices.data());
+  vulkan::MemoryAllocation ibo_allocation = {};
+  VkBuffer ibo = VK_NULL_HANDLE;
+  {
+    vulkan::BufferCreateInfo info = {};
+    info.usage      = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    info.size       = indices.size() * sizeof indices[0];
+    ibo = vulkan::create_buffer(context, allocator, info, ibo_allocation);
+    vulkan::write_buffer(context, allocator, ibo, ibo_allocation, indices.data());
+  }
 
   VkImageView texture_image_view;
   {
     VkImageViewCreateInfo create_info = {};
     create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    create_info.image                           = image_allocation.image;
+    create_info.image                           = image;
     create_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
     create_info.format                          = VK_FORMAT_R8G8B8A8_SRGB;
     create_info.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -332,7 +357,7 @@ int main()
   for (size_t i = 0; i < MAX_FRAME_IN_FLIGHT; i++)
   {
     VkDescriptorBufferInfo buffer_info = {};
-    buffer_info.buffer = render_resources[i].ubo_allocation.buffer;
+    buffer_info.buffer = render_resources[i].ubo;
     buffer_info.offset = 0;
     buffer_info.range  = sizeof(UniformBufferObject);
 
@@ -388,7 +413,7 @@ int main()
       ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
       ubo.proj = glm::perspective(glm::radians(45.0f), render_context.extent.width / (float) render_context.extent.height, 0.1f, 10.0f);
       ubo.proj[1][1] *= -1;
-      vulkan::write_buffer(context, allocator, render_resource.ubo_allocation, &ubo);
+      vulkan::write_buffer(context, allocator, render_resource.ubo, render_resource.ubo_allocation, &ubo);
 
       {
         // A single frame to have multiple render pass and each render pass would need multiple pipeline
@@ -403,8 +428,8 @@ int main()
             &descriptor_sets[i], 0, nullptr);
 
         VkDeviceSize offsets[] = {0};
-        vkCmdBindVertexBuffers(render_resource.command_buffer.handle, 0, 1, &vbo_allocation.buffer, offsets);
-        vkCmdBindIndexBuffer(render_resource.command_buffer.handle, ibo_allocation.buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindVertexBuffers(render_resource.command_buffer.handle, 0, 1, &vbo, offsets);
+        vkCmdBindIndexBuffer(render_resource.command_buffer.handle, ibo, 0, VK_INDEX_TYPE_UINT32);
 
         VkViewport viewport = {};
         viewport.x = 0.0f;

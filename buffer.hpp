@@ -18,52 +18,90 @@ namespace vulkan
   };
 
   Allocator create_allocator(const Context& context);
-  void destroy_allocator(Allocator allocator);
+  void destroy_allocator(const Context& context, Allocator allocator);
 
-  struct BufferAllocation
+  struct MemoryAllocationInfo
   {
-    VkBuffer buffer;
-
-    VkDeviceMemory memory;
-    VkDeviceSize size;
-    VkMemoryPropertyFlags memory_properties;
+    uint32_t              type_bits;
+    VkMemoryPropertyFlags properties;
+    VkDeviceSize          size;
   };
 
-  BufferAllocation allocate_buffer(
-      const Context& context,
-      Allocator& allocator,
-      VkDeviceSize size,
-      VkBufferUsageFlags buffer_usage,
-      VkMemoryPropertyFlags memory_properties);
-
-  void deallocate_buffer(
-      const Context& context,
-      Allocator& allocator,
-      BufferAllocation allocation);
-
-  struct ImageAllocation
+  struct MemoryAllocation
   {
-    uint32_t width, height;
-    VkImage image;
-
     VkDeviceMemory memory;
-    VkDeviceSize size;
-    VkMemoryPropertyFlags memory_properties;
+    uint32_t       type_index;
+    VkDeviceSize   size;
   };
 
-  ImageAllocation allocate_image2d(
-      const vulkan::Context& context,
-      Allocator& allocator,
-      VkFormat format,
-      uint32_t width, uint32_t height,
-      VkImageUsageFlags image_usage,
-      VkMemoryPropertyFlags memory_properties);
+  MemoryAllocation allocate_memory(const Context& context, Allocator& allocator, MemoryAllocationInfo info);
+  void deallocate_memory(const Context& context, Allocator& allocator, MemoryAllocation allocation);
 
-  void deallocate_image2d(
-      const Context& context,
-      Allocator& allocator,
-      ImageAllocation allocation);
+  struct BufferCreateInfo
+  {
+    VkBufferUsageFlags usage;
+    VkMemoryPropertyFlags properties;
+    size_t size;
+  };
+  VkBuffer create_buffer(const Context& context, Allocator& allocator, BufferCreateInfo info, MemoryAllocation& allocation);
 
-  void write_buffer(const Context& context, Allocator& allocator, BufferAllocation& allocation, const void *data);
-  void write_image2d(const Context& context, Allocator& allocator, ImageAllocation& allocation, const void *data);
+  struct Image2dCreateInfo
+  {
+    VkImageUsageFlags usage;
+    VkMemoryPropertyFlags properties;
+    VkFormat format;
+    size_t width, height;
+  };
+  VkImage create_image2d(const Context& context, Allocator& allocator, Image2dCreateInfo info, MemoryAllocation& allocation);
+
+  void write_buffer(const Context& context, Allocator& allocator, VkBuffer buffer, MemoryAllocation allocation, const void *data);
+  void write_image2d(const Context& context, Allocator& allocator, VkImage image, size_t width, size_t height, MemoryAllocation allocation, const void *data);
+
+
+  //struct BufferAllocation
+  //{
+  //  VkBuffer buffer;
+
+  //  VkDeviceMemory memory;
+  //  VkDeviceSize size;
+  //  VkMemoryPropertyFlags memory_properties;
+  //};
+
+  //BufferAllocation allocate_buffer(
+  //    const Context& context,
+  //    Allocator& allocator,
+  //    VkDeviceSize size,
+  //    VkBufferUsageFlags buffer_usage,
+  //    VkMemoryPropertyFlags memory_properties);
+
+  //void deallocate_buffer(
+  //    const Context& context,
+  //    Allocator& allocator,
+  //    BufferAllocation allocation);
+
+  //struct ImageAllocation
+  //{
+  //  uint32_t width, height;
+  //  VkImage image;
+
+  //  VkDeviceMemory memory;
+  //  VkDeviceSize size;
+  //  VkMemoryPropertyFlags memory_properties;
+  //};
+
+  //ImageAllocation allocate_image2d(
+  //    const vulkan::Context& context,
+  //    Allocator& allocator,
+  //    VkFormat format,
+  //    uint32_t width, uint32_t height,
+  //    VkImageUsageFlags image_usage,
+  //    VkMemoryPropertyFlags memory_properties);
+
+  //void deallocate_image2d(
+  //    const Context& context,
+  //    Allocator& allocator,
+  //    ImageAllocation allocation);
+
+  //void write_buffer(const Context& context, Allocator& allocator, BufferAllocation& allocation, const void *data);
+  //void write_image2d(const Context& context, Allocator& allocator, ImageAllocation& allocation, const void *data);
 }

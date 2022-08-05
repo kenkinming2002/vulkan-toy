@@ -45,7 +45,7 @@ namespace vulkan
 
   struct Frame
   {
-    VkDeviceMemory depth_memory;
+    MemoryAllocation depth_memory_allocation;
 
     VkImage color_image;
     VkImage depth_image;

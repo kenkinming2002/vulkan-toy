@@ -1,4 +1,5 @@
 #include "render_context.hpp"
+#include "buffer.hpp"
 
 namespace vulkan
 {
@@ -367,13 +368,13 @@ present_mode_selected:
 
         // Depth image
         {
-          auto allocation = allocate_image2d(context, allocator, VK_FORMAT_D32_SFLOAT,
-              render_context.extent.width, render_context.extent.height,
-              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-          frame.depth_memory = allocation.memory;
-          frame.depth_image  = allocation.image;
+          Image2dCreateInfo create_info = {};
+          create_info.usage      = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+          create_info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+          create_info.format     = VK_FORMAT_D32_SFLOAT;
+          create_info.width      = render_context.extent.width;
+          create_info.height     = render_context.extent.height;
+          frame.depth_image = create_image2d(context, allocator, create_info, frame.depth_memory_allocation);
         }
 
         // Color image view
@@ -447,7 +448,7 @@ present_mode_selected:
       vkDestroyImageView(context.device, frame.depth_image_view, nullptr);
       vkDestroyImageView(context.device, frame.color_image_view, nullptr);
       vkDestroyImage    (context.device, frame.depth_image, nullptr);
-      vkFreeMemory(context.device, frame.depth_memory, nullptr);
+      deallocate_memory(context, allocator, frame.depth_memory_allocation);
     }
     delete[] render_context.frames;
 
