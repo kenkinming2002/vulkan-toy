@@ -355,6 +355,9 @@ int main()
   }
 
   vkDeviceWaitIdle(vulkan::context_get_device(context));
+
+  vulkan::destroy_render_context(context, allocator, render_context);
+  vulkan::destroy_allocator(context, allocator);
   vulkan::destroy_context(context);
   glfwTerminate();
 }
