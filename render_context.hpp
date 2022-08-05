@@ -43,40 +43,25 @@ namespace vulkan
     std::vector<VertexBindingDescription> vertex_binding_descriptions;
   };
 
-  struct Frame
+  typedef struct RenderContext *render_context_t;
+
+  render_context_t create_render_context(context_t context, allocator_t allocator, RenderContextCreateInfo create_info);
+  void destroy_render_context(context_t context, allocator_t allocator, render_context_t render_context);
+
+  struct RenderInfo
   {
-    MemoryAllocation depth_memory_allocation;
-
-    VkImage color_image;
-    VkImage depth_image;
-
-    VkImageView color_image_view;
-    VkImageView depth_image_view;
-
+    uint32_t      image_index;
     VkFramebuffer framebuffer;
   };
+  std::optional<RenderInfo> begin_render(context_t context, render_context_t render_context, VkSemaphore semaphore);
+  bool end_render(context_t context, render_context_t render_context, RenderInfo info, VkSemaphore semaphore);
 
-  struct RenderContext
-  {
-    uint32_t                      image_count;
-    VkExtent2D                    extent;
-    VkSurfaceTransformFlagBitsKHR surface_transform;
+  VkExtent2D render_context_get_extent(render_context_t render_context);
 
-    VkSurfaceFormatKHR       surface_format;
-    VkPresentModeKHR         present_mode;
+  VkDescriptorSetLayout render_context_get_descriptor_set_layout(render_context_t render_context);
+  VkPipelineLayout render_context_get_pipeline_layout(render_context_t render_context);
 
-    VkSwapchainKHR swapchain;
-
-    // TODO: How to support multiple render pass
-    VkRenderPass          render_pass;
-    VkPipelineLayout      pipeline_layout;
-    VkPipeline            pipeline;
-    VkDescriptorSetLayout descriptor_set_layout;
-
-    Frame *frames;
-  };
-
-  RenderContext create_render_context(context_t context, allocator_t allocator, RenderContextCreateInfo create_info);
-  void destroy_render_context(context_t context, allocator_t allocator, RenderContext& render_context);
+  VkRenderPass render_context_get_render_pass(render_context_t render_context);
+  VkPipeline render_context_get_pipeline(render_context_t render_context);
 }
 

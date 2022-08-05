@@ -37,56 +37,6 @@
 
 #define VK_CHECK(expr) do { if(expr != VK_SUCCESS) { fprintf(stderr, "Vulkan pooped itself:%s\n", #expr); abort(); } } while(0)
 
-// How you want to render?
-// Unlike OpenGL, you have to prespecify a lot of things
-struct FrameInfo
-{
-  uint32_t image_index;
-  VkFramebuffer framebuffer;
-};
-
-std::optional<FrameInfo> begin_frame(vulkan::context_t context, const vulkan::RenderContext& render_context, VkSemaphore semaphore)
-{
-  VkDevice device = vulkan::context_get_device(context);
-
-  FrameInfo frame_info = {};
-  auto result = vkAcquireNextImageKHR(device, render_context.swapchain, UINT64_MAX, semaphore, VK_NULL_HANDLE, &frame_info.image_index);
-  if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
-  {
-    // The window have probably resized
-    return std::nullopt;
-  }
-  VK_CHECK(result);
-  frame_info.framebuffer = render_context.frames[frame_info.image_index].framebuffer;
-  return frame_info;
-}
-
-bool end_frame(vulkan::context_t context, const vulkan::RenderContext& render_context, FrameInfo frame_info, VkSemaphore semaphore)
-{
-  VkQueue queue = vulkan::context_get_queue(context);
-
-  VkPresentInfoKHR present_info = {};
-  present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-  present_info.waitSemaphoreCount = 1;
-  present_info.pWaitSemaphores = &semaphore;
-
-  VkSwapchainKHR swapchains[] = { render_context.swapchain };
-  present_info.swapchainCount = 1;
-  present_info.pSwapchains    = swapchains;
-  present_info.pImageIndices  = &frame_info.image_index;
-  present_info.pResults       = nullptr;
-
-  auto result = vkQueuePresentKHR(queue, &present_info);
-  if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
-  {
-    // The window have probably resized
-    return false;
-  }
-
-  VK_CHECK(result);
-  return true;
-}
-
 // TODO: Move this outside
 struct UniformBufferObject
 {
@@ -131,7 +81,7 @@ RenderResource create_render_resouce(vulkan::context_t context, vulkan::allocato
   return render_resource;
 }
 
-void begin_render(vulkan::context_t context, const vulkan::RenderContext& render_context, const RenderResource& render_resource, const FrameInfo& frame_info)
+void begin_render(vulkan::context_t context, vulkan::render_context_t render_context, const RenderResource& render_resource, vulkan::RenderInfo info)
 {
   VkCommandBuffer command_buffer_handle = vulkan::command_buffer_get_handle(render_resource.command_buffer);
 
@@ -140,10 +90,10 @@ void begin_render(vulkan::context_t context, const vulkan::RenderContext& render
 
   VkRenderPassBeginInfo render_pass_begin_info = {};
   render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-  render_pass_begin_info.renderPass        = render_context.render_pass;
-  render_pass_begin_info.framebuffer       = frame_info.framebuffer;
+  render_pass_begin_info.renderPass        = vulkan::render_context_get_render_pass(render_context);
+  render_pass_begin_info.framebuffer       = info.framebuffer;
   render_pass_begin_info.renderArea.offset = {0, 0};
-  render_pass_begin_info.renderArea.extent = render_context.extent;
+  render_pass_begin_info.renderArea.extent = vulkan::render_context_get_extent(render_context);
 
   VkClearValue clear_values[2] = {};
   clear_values[0].color        = {{ 0.0f, 0.0f, 0.0f, 1.0f }};
@@ -153,7 +103,7 @@ void begin_render(vulkan::context_t context, const vulkan::RenderContext& render
   render_pass_begin_info.pClearValues = clear_values;
 
   vkCmdBeginRenderPass(command_buffer_handle, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
-  vkCmdBindPipeline(command_buffer_handle, VK_PIPELINE_BIND_POINT_GRAPHICS, render_context.pipeline);
+  vkCmdBindPipeline(command_buffer_handle, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkan::render_context_get_pipeline(render_context));
 }
 
 void end_render(vulkan::context_t context, const RenderResource& render_resource)
@@ -214,7 +164,7 @@ int main()
     }
   };
 
-  auto render_context = create_render_context(context, allocator, render_context_create_info);
+  vulkan::render_context_t render_context = create_render_context(context, allocator, render_context_create_info);
 
   int x, y, n;
   unsigned char *data = stbi_load("viking_room.png", &x, &y, &n, STBI_rgb_alpha);
@@ -350,7 +300,7 @@ int main()
   VkDescriptorSetLayout descriptor_set_layouts[MAX_FRAME_IN_FLIGHT];
   VkDescriptorSet descriptor_sets[MAX_FRAME_IN_FLIGHT];
 
-  std::fill(std::begin(descriptor_set_layouts), std::end(descriptor_set_layouts), render_context.descriptor_set_layout);
+  std::fill(std::begin(descriptor_set_layouts), std::end(descriptor_set_layouts), vulkan::render_context_get_descriptor_set_layout(render_context));
 
   VkDescriptorSetAllocateInfo alloc_info = {};
   alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -401,24 +351,26 @@ int main()
       vulkan::context_handle_events(context);
       VkCommandBuffer command_buffer_handle = vulkan::command_buffer_get_handle(render_resource.command_buffer);
 
-      auto frame_info = begin_frame(context, render_context, render_resource.semaphore_image_available);
+      auto frame_info = vulkan::begin_render(context, render_context, render_resource.semaphore_image_available);
       while(!frame_info)
       {
         std::cout << "Recreating render context\n";
         vkDeviceWaitIdle(vulkan::context_get_device(context));
         vulkan::destroy_render_context(context, allocator, render_context);
         render_context = vulkan::create_render_context(context, allocator, render_context_create_info);
-        frame_info = begin_frame(context, render_context, render_resource.semaphore_image_available);
+        frame_info = vulkan::begin_render(context, render_context, render_resource.semaphore_image_available);
       }
 
       static auto start_time = std::chrono::high_resolution_clock::now();
       auto current_time = std::chrono::high_resolution_clock::now();
       float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
 
+      auto extent = vulkan::render_context_get_extent(render_context);
+
       UniformBufferObject ubo = {};
       ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
       ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-      ubo.proj = glm::perspective(glm::radians(45.0f), render_context.extent.width / (float) render_context.extent.height, 0.1f, 10.0f);
+      ubo.proj = glm::perspective(glm::radians(45.0f), (float)extent.width / (float) extent.height, 0.1f, 10.0f);
       ubo.proj[1][1] *= -1;
       vulkan::write_buffer(context, allocator, render_resource.ubo, render_resource.ubo_allocation, &ubo);
 
@@ -430,7 +382,7 @@ int main()
         // Do we actually need multiple render pass?
         begin_render(context, render_context, render_resource, *frame_info);
 
-        vkCmdBindDescriptorSets(command_buffer_handle, VK_PIPELINE_BIND_POINT_GRAPHICS, render_context.pipeline_layout, 0, 1, &descriptor_sets[i], 0, nullptr);
+        vkCmdBindDescriptorSets(command_buffer_handle, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkan::render_context_get_pipeline_layout(render_context), 0, 1, &descriptor_sets[i], 0, nullptr);
 
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(command_buffer_handle, 0, 1, &vbo, offsets);
@@ -439,15 +391,15 @@ int main()
         VkViewport viewport = {};
         viewport.x = 0.0f;
         viewport.y = 0.0f;
-        viewport.width  = render_context.extent.width;
-        viewport.height = render_context.extent.height;
+        viewport.width  = extent.width;
+        viewport.height = extent.height;
         viewport.minDepth = 0.0f;
         viewport.maxDepth = 1.0f;
         vkCmdSetViewport(command_buffer_handle, 0, 1, &viewport);
 
         VkRect2D scissor = {};
         scissor.offset = {0, 0};
-        scissor.extent = render_context.extent;
+        scissor.extent = extent;
         vkCmdSetScissor(command_buffer_handle, 0, 1, &scissor);
 
         vkCmdDrawIndexed(command_buffer_handle, indices.size(), 1, 0, 0, 0);
@@ -455,13 +407,12 @@ int main()
         end_render(context, render_resource);
       }
 
-      if(!end_frame(context, render_context, *frame_info, render_resource.semaphore_render_finished))
+      if(!vulkan::end_render(context, render_context, *frame_info, render_resource.semaphore_render_finished))
       {
         std::cout << "Recreating render context\n";
         vkDeviceWaitIdle(vulkan::context_get_device(context));
         vulkan::destroy_render_context(context, allocator, render_context);
         render_context = vulkan::create_render_context(context, allocator, render_context_create_info);
-        frame_info = begin_frame(context, render_context, render_resource.semaphore_image_available);
       }
 
       ++i;
