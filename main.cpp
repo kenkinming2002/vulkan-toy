@@ -53,71 +53,6 @@ struct Vertex
 };
 
 
-struct RenderResource
-{
-  vulkan::command_buffer_t command_buffer;
-
-  VkSemaphore semaphore_image_available;
-  VkSemaphore semaphore_render_finished;
-
-  vulkan::MemoryAllocation ubo_allocation;
-  VkBuffer                 ubo;
-};
-
-RenderResource create_render_resouce(vulkan::context_t context, vulkan::allocator_t allocator)
-{
-  VkDevice device = vulkan::context_get_device(context);
-
-  RenderResource render_resource = {};
-  render_resource.command_buffer            = vulkan::create_command_buffer(context, true);
-  render_resource.semaphore_image_available = vulkan::create_semaphore(device);
-  render_resource.semaphore_render_finished = vulkan::create_semaphore(device);
-
-  vulkan::BufferCreateInfo info = {};
-  info.usage      = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-  info.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-  info.size       = sizeof(UniformBufferObject);
-  render_resource.ubo = vulkan::create_buffer(context, allocator, info, render_resource.ubo_allocation);
-  return render_resource;
-}
-
-void begin_render(vulkan::context_t context, vulkan::render_context_t render_context, const RenderResource& render_resource, vulkan::RenderInfo info)
-{
-  VkCommandBuffer command_buffer_handle = vulkan::command_buffer_get_handle(render_resource.command_buffer);
-
-  vulkan::command_buffer_wait(context, render_resource.command_buffer);
-  vulkan::command_buffer_begin(render_resource.command_buffer);
-
-  VkRenderPassBeginInfo render_pass_begin_info = {};
-  render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-  render_pass_begin_info.renderPass        = vulkan::render_context_get_render_pass(render_context);
-  render_pass_begin_info.framebuffer       = info.framebuffer;
-  render_pass_begin_info.renderArea.offset = {0, 0};
-  render_pass_begin_info.renderArea.extent = vulkan::render_context_get_extent(render_context);
-
-  VkClearValue clear_values[2] = {};
-  clear_values[0].color        = {{ 0.0f, 0.0f, 0.0f, 1.0f }};
-  clear_values[1].depthStencil = { 1.0f, 0 };
-
-  render_pass_begin_info.clearValueCount = 2;
-  render_pass_begin_info.pClearValues = clear_values;
-
-  vkCmdBeginRenderPass(command_buffer_handle, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
-  vkCmdBindPipeline(command_buffer_handle, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkan::render_context_get_pipeline(render_context));
-}
-
-void end_render(vulkan::context_t context, const RenderResource& render_resource)
-{
-  VkCommandBuffer command_buffer_handle = vulkan::command_buffer_get_handle(render_resource.command_buffer);
-
-  vkCmdEndRenderPass(command_buffer_handle);
-
-  vulkan::command_buffer_end(render_resource.command_buffer);
-  vulkan::command_buffer_submit(context, render_resource.command_buffer,
-      render_resource.semaphore_image_available, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-      render_resource.semaphore_render_finished);
-}
-
 // TODO: Move this outside
 inline std::vector<char> read_file(const char* file_name)
 {
@@ -133,6 +68,8 @@ inline std::vector<char> read_file(const char* file_name)
   file.read(file_content.data(), file_content.size());
   return file_content;
 }
+
+static constexpr size_t MAX_FRAME_IN_FLIGHT = 4;
 
 int main()
 {
@@ -163,6 +100,7 @@ int main()
       }
     }
   };
+  render_context_create_info.max_frame_in_flight = 4;
 
   vulkan::render_context_t render_context = create_render_context(context, allocator, render_context_create_info);
 
@@ -276,11 +214,6 @@ int main()
     VK_CHECK(vkCreateSampler(vulkan::context_get_device(context), &create_info, nullptr, &sampler));
   }
 
-  static constexpr size_t MAX_FRAME_IN_FLIGHT = 4;
-  RenderResource render_resources[MAX_FRAME_IN_FLIGHT];
-  for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
-    render_resources[i] = create_render_resouce(context, allocator);
-
   // Descriptor pool
   VkDescriptorPoolSize pool_sizes[2] = {};
   pool_sizes[0].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -310,10 +243,21 @@ int main()
 
   VK_CHECK(vkAllocateDescriptorSets(vulkan::context_get_device(context), &alloc_info, descriptor_sets));
 
+  VkBuffer                 ubos[MAX_FRAME_IN_FLIGHT];
+  vulkan::MemoryAllocation ubo_allocations[MAX_FRAME_IN_FLIGHT];
+  for (size_t i = 0; i < MAX_FRAME_IN_FLIGHT; i++)
+  {
+    vulkan::BufferCreateInfo create_info = {};
+    create_info.usage      = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    create_info.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    create_info.size       = sizeof(UniformBufferObject);
+    ubos[i] = vulkan::create_buffer(context, allocator, create_info, ubo_allocations[i]);
+  }
+
   for (size_t i = 0; i < MAX_FRAME_IN_FLIGHT; i++)
   {
     VkDescriptorBufferInfo buffer_info = {};
-    buffer_info.buffer = render_resources[i].ubo;
+    buffer_info.buffer = ubos[i];
     buffer_info.offset = 0;
     buffer_info.range  = sizeof(UniformBufferObject);
 
@@ -345,77 +289,68 @@ int main()
 
   while(!vulkan::context_should_destroy(context))
   {
-    size_t i = 0;
-    for(auto& render_resource : render_resources)
+    vulkan::context_handle_events(context);
+
+    auto frame_info = vulkan::begin_render(context, render_context);
+    while(!frame_info)
     {
-      vulkan::context_handle_events(context);
-      VkCommandBuffer command_buffer_handle = vulkan::command_buffer_get_handle(render_resource.command_buffer);
+      std::cout << "Recreating render context\n";
 
-      auto frame_info = vulkan::begin_render(context, render_context, render_resource.semaphore_image_available);
-      while(!frame_info)
-      {
-        std::cout << "Recreating render context\n";
-        vkDeviceWaitIdle(vulkan::context_get_device(context));
-        vulkan::destroy_render_context(context, allocator, render_context);
-        render_context = vulkan::create_render_context(context, allocator, render_context_create_info);
-        frame_info = vulkan::begin_render(context, render_context, render_resource.semaphore_image_available);
-      }
+      vkDeviceWaitIdle(vulkan::context_get_device(context));
+      vulkan::destroy_render_context(context, allocator, render_context);
+      render_context = vulkan::create_render_context(context, allocator, render_context_create_info);
 
-      static auto start_time = std::chrono::high_resolution_clock::now();
-      auto current_time = std::chrono::high_resolution_clock::now();
-      float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
+      frame_info = vulkan::begin_render(context, render_context);
+    }
 
-      auto extent = vulkan::render_context_get_extent(render_context);
+    static auto start_time = std::chrono::high_resolution_clock::now();
+    auto current_time = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
 
-      UniformBufferObject ubo = {};
-      ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-      ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-      ubo.proj = glm::perspective(glm::radians(45.0f), (float)extent.width / (float) extent.height, 0.1f, 10.0f);
-      ubo.proj[1][1] *= -1;
-      vulkan::write_buffer(context, allocator, render_resource.ubo, render_resource.ubo_allocation, &ubo);
+    auto extent = vulkan::render_context_get_extent(render_context);
 
-      {
-        // A single frame to have multiple render pass and each render pass would need multiple pipeline
-        // so we probably should not bind them in begin render
-        // A problem is that to create the framebuffer, we need the render pass
-        // so how to abstract over them?
-        // Do we actually need multiple render pass?
-        begin_render(context, render_context, render_resource, *frame_info);
+    UniformBufferObject ubo = {};
+    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.proj = glm::perspective(glm::radians(45.0f), (float)extent.width / (float) extent.height, 0.1f, 10.0f);
+    ubo.proj[1][1] *= -1;
+    vulkan::write_buffer(context, allocator, ubos[frame_info->frame_index], ubo_allocations[frame_info->frame_index], &ubo);
 
-        vkCmdBindDescriptorSets(command_buffer_handle, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkan::render_context_get_pipeline_layout(render_context), 0, 1, &descriptor_sets[i], 0, nullptr);
+    VkCommandBuffer command_buffer_handle = vulkan::command_buffer_get_handle(frame_info->command_buffer);
+    vkCmdBindDescriptorSets(command_buffer_handle,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        vulkan::render_context_get_pipeline_layout(render_context),
+        0, 1,
+        &descriptor_sets[frame_info->frame_index],
+        0, nullptr);
 
-        VkDeviceSize offsets[] = {0};
-        vkCmdBindVertexBuffers(command_buffer_handle, 0, 1, &vbo, offsets);
-        vkCmdBindIndexBuffer(command_buffer_handle, ibo, 0, VK_INDEX_TYPE_UINT32);
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(command_buffer_handle, 0, 1, &vbo, offsets);
+    vkCmdBindIndexBuffer(command_buffer_handle, ibo, 0, VK_INDEX_TYPE_UINT32);
 
-        VkViewport viewport = {};
-        viewport.x = 0.0f;
-        viewport.y = 0.0f;
-        viewport.width  = extent.width;
-        viewport.height = extent.height;
-        viewport.minDepth = 0.0f;
-        viewport.maxDepth = 1.0f;
-        vkCmdSetViewport(command_buffer_handle, 0, 1, &viewport);
+    VkViewport viewport = {};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width  = extent.width;
+    viewport.height = extent.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(command_buffer_handle, 0, 1, &viewport);
 
-        VkRect2D scissor = {};
-        scissor.offset = {0, 0};
-        scissor.extent = extent;
-        vkCmdSetScissor(command_buffer_handle, 0, 1, &scissor);
+    VkRect2D scissor = {};
+    scissor.offset = {0, 0};
+    scissor.extent = extent;
+    vkCmdSetScissor(command_buffer_handle, 0, 1, &scissor);
 
-        vkCmdDrawIndexed(command_buffer_handle, indices.size(), 1, 0, 0, 0);
+    vkCmdDrawIndexed(command_buffer_handle, indices.size(), 1, 0, 0, 0);
 
-        end_render(context, render_resource);
-      }
+    if(!vulkan::end_render(context, render_context, *frame_info))
+    {
+      std::cout << "Recreating render context\n";
 
-      if(!vulkan::end_render(context, render_context, *frame_info, render_resource.semaphore_render_finished))
-      {
-        std::cout << "Recreating render context\n";
-        vkDeviceWaitIdle(vulkan::context_get_device(context));
-        vulkan::destroy_render_context(context, allocator, render_context);
-        render_context = vulkan::create_render_context(context, allocator, render_context_create_info);
-      }
-
-      ++i;
+      vkDeviceWaitIdle(vulkan::context_get_device(context));
+      vulkan::destroy_render_context(context, allocator, render_context);
+      render_context = vulkan::create_render_context(context, allocator, render_context_create_info);
     }
   }
 

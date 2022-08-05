@@ -41,6 +41,8 @@ namespace vulkan
     VkShaderModule vert_shader_module;
     VkShaderModule frag_shader_module;
     std::vector<VertexBindingDescription> vertex_binding_descriptions;
+
+    uint32_t max_frame_in_flight;
   };
 
   typedef struct RenderContext *render_context_t;
@@ -50,11 +52,16 @@ namespace vulkan
 
   struct RenderInfo
   {
+    uint32_t      frame_index;
     uint32_t      image_index;
-    VkFramebuffer framebuffer;
+
+    command_buffer_t command_buffer;
+    VkSemaphore semaphore_image_available;
+    VkSemaphore semaphore_render_finished;
   };
-  std::optional<RenderInfo> begin_render(context_t context, render_context_t render_context, VkSemaphore semaphore);
-  bool end_render(context_t context, render_context_t render_context, RenderInfo info, VkSemaphore semaphore);
+
+  std::optional<RenderInfo> begin_render(context_t context, render_context_t render_context);
+  bool end_render(context_t context, render_context_t render_context, RenderInfo info);
 
   VkExtent2D render_context_get_extent(render_context_t render_context);
 

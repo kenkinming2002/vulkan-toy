@@ -1,9 +1,11 @@
 #include "render_context.hpp"
 #include "buffer.hpp"
+#include <vulkan/vulkan_core.h>
 
 namespace vulkan
 {
-  struct Frame
+  // We have one frame associated to each swapchain image
+  struct ImageResource
   {
     MemoryAllocation depth_memory_allocation;
 
@@ -14,6 +16,14 @@ namespace vulkan
     VkImageView depth_image_view;
 
     VkFramebuffer framebuffer;
+  };
+
+  struct FrameResource
+  {
+    command_buffer_t command_buffer;
+
+    VkSemaphore semaphore_image_available;
+    VkSemaphore semaphore_render_finished;
   };
 
   struct RenderContext
@@ -34,7 +44,11 @@ namespace vulkan
     VkRenderPass          render_pass;
     VkPipeline            pipeline;
 
-    Frame *frames;
+    ImageResource *image_resources;
+    FrameResource *frame_resources;
+
+    uint32_t frame_count;
+    uint32_t frame_index;
   };
 
   render_context_t create_render_context(context_t context, allocator_t allocator, RenderContextCreateInfo create_info)
@@ -396,13 +410,13 @@ present_mode_selected:
     VkImage *swapchain_images = new VkImage[render_context->image_count];
     VK_CHECK(vkGetSwapchainImagesKHR(device, render_context->swapchain, &render_context->image_count, swapchain_images));
 
-    // 6: Create frame
+    // 5: Create image resources
     {
-      render_context->frames = new Frame[render_context->image_count];
+      render_context->image_resources = new ImageResource[render_context->image_count];
       for(uint32_t i=0; i<render_context->image_count; ++i)
       {
-        Frame frame = {};
-        frame.color_image = swapchain_images[i];
+        ImageResource image_resource = {};
+        image_resource.color_image = swapchain_images[i];
 
         // Depth image
         {
@@ -412,14 +426,14 @@ present_mode_selected:
           create_info.format     = VK_FORMAT_D32_SFLOAT;
           create_info.width      = render_context->extent.width;
           create_info.height     = render_context->extent.height;
-          frame.depth_image = create_image2d(context, allocator, create_info, frame.depth_memory_allocation);
+          image_resource.depth_image = create_image2d(context, allocator, create_info, image_resource.depth_memory_allocation);
         }
 
         // Color image view
         {
           VkImageViewCreateInfo create_info = {};
           create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-          create_info.image                           = frame.color_image;
+          create_info.image                           = image_resource.color_image;
           create_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
           create_info.format                          = render_context->surface_format.format;
           create_info.components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -431,14 +445,14 @@ present_mode_selected:
           create_info.subresourceRange.levelCount     = 1;
           create_info.subresourceRange.baseArrayLayer = 0;
           create_info.subresourceRange.layerCount     = 1;
-          VK_CHECK(vkCreateImageView(device, &create_info, nullptr, &frame.color_image_view));
+          VK_CHECK(vkCreateImageView(device, &create_info, nullptr, &image_resource.color_image_view));
         }
 
         // Depth image view
         {
           VkImageViewCreateInfo create_info = {};
           create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-          create_info.image                           = frame.depth_image;
+          create_info.image                           = image_resource.depth_image;
           create_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
           create_info.format                          = VK_FORMAT_D32_SFLOAT;
           create_info.components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -450,12 +464,12 @@ present_mode_selected:
           create_info.subresourceRange.levelCount     = 1;
           create_info.subresourceRange.baseArrayLayer = 0;
           create_info.subresourceRange.layerCount     = 1;
-          VK_CHECK(vkCreateImageView(device, &create_info, nullptr, &frame.depth_image_view));
+          VK_CHECK(vkCreateImageView(device, &create_info, nullptr, &image_resource.depth_image_view));
         }
 
         // Framebuffer
         {
-          VkImageView attachments[] = { frame.color_image_view, frame.depth_image_view };
+          VkImageView attachments[] = { image_resource.color_image_view, image_resource.depth_image_view };
 
           VkFramebufferCreateInfo create_info = {};
           create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -465,11 +479,26 @@ present_mode_selected:
           create_info.width           = render_context->extent.width;
           create_info.height          = render_context->extent.height;
           create_info.layers          = 1;
-          VK_CHECK(vkCreateFramebuffer(device, &create_info, nullptr, &frame.framebuffer));
+          VK_CHECK(vkCreateFramebuffer(device, &create_info, nullptr, &image_resource.framebuffer));
         }
 
-        render_context->frames[i] = frame;
+        render_context->image_resources[i] = image_resource;
       }
+    }
+
+    // 7: Create frame resources
+    {
+      render_context->frame_resources = new FrameResource[create_info.max_frame_in_flight];
+      for(uint32_t i=0; i<create_info.max_frame_in_flight; ++i)
+      {
+        FrameResource frame_resource = {};
+        frame_resource.command_buffer            = vulkan::create_command_buffer(context, true);
+        frame_resource.semaphore_image_available = vulkan::create_semaphore(device);
+        frame_resource.semaphore_render_finished = vulkan::create_semaphore(device);
+        render_context->frame_resources[i] = frame_resource;
+      }
+      render_context->frame_count = create_info.max_frame_in_flight;
+      render_context->frame_index = 0;
     }
 
     return render_context;
@@ -482,14 +511,14 @@ present_mode_selected:
 
     for(uint32_t i=0; i<render_context->image_count; ++i)
     {
-      Frame frame = render_context->frames[i];
+      ImageResource frame = render_context->image_resources[i];
       vkDestroyFramebuffer(device, frame.framebuffer, nullptr);
       vkDestroyImageView(device, frame.depth_image_view, nullptr);
       vkDestroyImageView(device, frame.color_image_view, nullptr);
       vkDestroyImage    (device, frame.depth_image, nullptr);
       deallocate_memory(context, allocator, frame.depth_memory_allocation);
     }
-    delete[] render_context->frames;
+    delete[] render_context->image_resources;
 
     vkDestroyPipeline           (device, render_context->pipeline,              nullptr);
     vkDestroyPipelineLayout     (device, render_context->pipeline_layout,       nullptr);
@@ -500,33 +529,77 @@ present_mode_selected:
     delete render_context;
   }
 
-  std::optional<RenderInfo> begin_render(context_t context, render_context_t render_context, VkSemaphore semaphore)
+  std::optional<RenderInfo> begin_render(context_t context, render_context_t render_context)
   {
-    VkDevice device = vulkan::context_get_device(context);
+    VkDevice device = context_get_device(context);
 
+    // Render info
     RenderInfo info  = {};
-    auto result = vkAcquireNextImageKHR(device, render_context->swapchain, UINT64_MAX, semaphore, VK_NULL_HANDLE, &info.image_index);
-    if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
-      return std::nullopt;
 
+    // Acquire frame resource
+    info.frame_index = render_context->frame_index;
+    render_context->frame_index = (render_context->frame_index + 1) % render_context->frame_count;
+    FrameResource frame_resource = render_context->frame_resources[info.frame_index];
+
+    // Acquire image resource
+    auto result = vkAcquireNextImageKHR(device, render_context->swapchain, UINT64_MAX, frame_resource.semaphore_image_available, VK_NULL_HANDLE, &info.image_index);
+    if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) return std::nullopt;
     VK_CHECK(result);
-    info.framebuffer = render_context->frames[info.image_index].framebuffer;
+    ImageResource image_resource = render_context->image_resources[info.image_index];
+
+    // Wait and begin commannd buffer recording
+    vulkan::command_buffer_wait(context, frame_resource.command_buffer);
+    vulkan::command_buffer_begin(frame_resource.command_buffer);
+
+    VkRenderPassBeginInfo render_pass_begin_info = {};
+    render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    render_pass_begin_info.renderPass        = render_context->render_pass;
+    render_pass_begin_info.framebuffer       = image_resource.framebuffer;
+    render_pass_begin_info.renderArea.offset = {0, 0};
+    render_pass_begin_info.renderArea.extent = render_context->extent;
+
+    // TODO: Take this as argument
+    VkClearValue clear_values[2] = {};
+    clear_values[0].color        = {{ 0.0f, 0.0f, 0.0f, 1.0f }};
+    clear_values[1].depthStencil = { 1.0f, 0 };
+
+    render_pass_begin_info.clearValueCount = 2;
+    render_pass_begin_info.pClearValues = clear_values;
+
+    VkCommandBuffer command_buffer_handle = vulkan::command_buffer_get_handle(frame_resource.command_buffer);
+    vkCmdBeginRenderPass(command_buffer_handle, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(command_buffer_handle, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkan::render_context_get_pipeline(render_context));
+
+    info.semaphore_image_available = frame_resource.semaphore_image_available;
+    info.semaphore_render_finished = frame_resource.semaphore_render_finished;
+    info.command_buffer            = frame_resource.command_buffer;
     return info;
   }
 
-  bool end_render(context_t context, render_context_t render_context, RenderInfo info, VkSemaphore semaphore)
+  bool end_render(context_t context, render_context_t render_context, RenderInfo info)
   {
-    VkQueue queue = vulkan::context_get_queue(context);
+    FrameResource frame_resource = render_context->frame_resources[info.frame_index];
 
+    VkCommandBuffer command_buffer_handle = command_buffer_get_handle(frame_resource.command_buffer);
+    vkCmdEndRenderPass(command_buffer_handle);
+
+    // End command buffer recording and submit
+    command_buffer_end(frame_resource.command_buffer);
+    command_buffer_submit(context, frame_resource.command_buffer,
+        frame_resource.semaphore_image_available, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        frame_resource.semaphore_render_finished);
+
+    // Present
     VkPresentInfoKHR present_info = {};
     present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     present_info.waitSemaphoreCount = 1;
-    present_info.pWaitSemaphores = &semaphore;
+    present_info.pWaitSemaphores = &frame_resource.semaphore_render_finished;
     present_info.swapchainCount = 1;
     present_info.pSwapchains    = &render_context->swapchain;
     present_info.pImageIndices  = &info.image_index;
     present_info.pResults       = nullptr;
 
+    VkQueue queue = vulkan::context_get_queue(context);
     auto result = vkQueuePresentKHR(queue, &present_info);
     if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
       return false;
