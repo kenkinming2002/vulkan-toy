@@ -71,6 +71,65 @@ inline std::vector<char> read_file(const char* file_name)
 
 static constexpr size_t MAX_FRAME_IN_FLIGHT = 4;
 
+struct Texture
+{
+  vulkan::MemoryAllocation allocation;
+  VkImage     image;
+  VkImageView image_view;
+};
+
+Texture create_texture(vulkan::context_t context, vulkan::allocator_t allocator, const void *data, size_t width, size_t height)
+{
+  VkDevice device = vulkan::context_get_device(context);
+
+  Texture texture = {};
+
+  {
+    vulkan::Image2dCreateInfo info = {};
+    info.usage      = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    info.format     = VK_FORMAT_R8G8B8A8_SRGB;
+    info.width      = width;
+    info.height     = height;
+    texture.image = vulkan::create_image2d(context, allocator, info, texture.allocation);
+    vulkan::write_image2d(context, allocator, texture.image, width, height, texture.allocation, data);
+  }
+
+  {
+    VkImageViewCreateInfo create_info = {};
+    create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    create_info.image                           = texture.image;
+    create_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
+    create_info.format                          = VK_FORMAT_R8G8B8A8_SRGB;
+    create_info.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+    create_info.subresourceRange.baseMipLevel   = 0;
+    create_info.subresourceRange.levelCount     = 1;
+    create_info.subresourceRange.baseArrayLayer = 0;
+    create_info.subresourceRange.layerCount     = 1;
+    VK_CHECK(vkCreateImageView(device, &create_info, nullptr, &texture.image_view));
+  }
+
+  return texture;
+}
+
+void destroy_texture(vulkan::context_t context, vulkan::allocator_t allocator, Texture texture)
+{
+  VkDevice device = vulkan::context_get_device(context);
+  vkDestroyImageView(device, texture.image_view, nullptr);
+  vkDestroyImage(device, texture.image, nullptr);
+  vulkan::deallocate_memory(context, allocator, texture.allocation);
+}
+
+Texture load_texture(vulkan::context_t context, vulkan::allocator_t allocator, const char *file_name)
+{
+  int x, y, n;
+  unsigned char *data = stbi_load(file_name, &x, &y, &n, STBI_rgb_alpha);
+  assert(data);
+  Texture texture = create_texture(context, allocator, data, x, y);
+  stbi_image_free(data);
+  return texture;
+}
+
 int main()
 {
   glfwInit();
@@ -104,24 +163,7 @@ int main()
 
   vulkan::render_context_t render_context = create_render_context(context, allocator, render_context_create_info);
 
-  int x, y, n;
-  unsigned char *data = stbi_load("viking_room.png", &x, &y, &n, STBI_rgb_alpha);
-  assert(data);
-
-  vulkan::MemoryAllocation image_allocation = {};
-  VkImage image = VK_NULL_HANDLE;
-  {
-    vulkan::Image2dCreateInfo info = {};
-    info.usage      = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-    info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    info.format     = VK_FORMAT_R8G8B8A8_SRGB;
-    info.width      = x;
-    info.height     = y;
-    image = vulkan::create_image2d(context, allocator, info, image_allocation);
-    vulkan::write_image2d(context, allocator, image, x, y, image_allocation, data);
-  }
-
-  stbi_image_free(data);
+  Texture texture = load_texture(context, allocator, "viking_room.png");
 
   tinyobj::attrib_t attrib;
   std::vector<tinyobj::shape_t> shapes;
@@ -172,21 +214,6 @@ int main()
     info.size       = indices.size() * sizeof indices[0];
     ibo = vulkan::create_buffer(context, allocator, info, ibo_allocation);
     vulkan::write_buffer(context, allocator, ibo, ibo_allocation, indices.data());
-  }
-
-  VkImageView texture_image_view;
-  {
-    VkImageViewCreateInfo create_info = {};
-    create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    create_info.image                           = image;
-    create_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
-    create_info.format                          = VK_FORMAT_R8G8B8A8_SRGB;
-    create_info.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-    create_info.subresourceRange.baseMipLevel   = 0;
-    create_info.subresourceRange.levelCount     = 1;
-    create_info.subresourceRange.baseArrayLayer = 0;
-    create_info.subresourceRange.layerCount     = 1;
-    VK_CHECK(vkCreateImageView(vulkan::context_get_device(context), &create_info, nullptr, &texture_image_view));
   }
 
   VkSampler sampler;
@@ -263,7 +290,7 @@ int main()
 
     VkDescriptorImageInfo image_info = {};
     image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    image_info.imageView   = texture_image_view;
+    image_info.imageView   = texture.image_view;
     image_info.sampler     = sampler;
 
     VkWriteDescriptorSet write_descriptors[2] = {};
