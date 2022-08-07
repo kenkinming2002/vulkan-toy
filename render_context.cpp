@@ -28,6 +28,8 @@ namespace vulkan
 
   struct RenderContext
   {
+    RenderContextCreateInfo create_info;
+
     uint32_t                      image_count;
     VkExtent2D                    extent;
     VkSurfaceTransformFlagBitsKHR surface_transform;
@@ -51,13 +53,11 @@ namespace vulkan
     uint32_t frame_index;
   };
 
-  render_context_t create_render_context(context_t context, allocator_t allocator, RenderContextCreateInfo create_info)
+  static void init_render_context(context_t context, allocator_t allocator, RenderContext& render_context)
   {
     VkSurfaceKHR     surface         = context_get_surface(context);
     VkPhysicalDevice physical_device = context_get_physical_device(context);
     VkDevice         device          = context_get_device(context);
-
-    render_context_t render_context = new RenderContext{};
 
     // 1: Get information about the surface and select the best
     {
@@ -67,26 +67,26 @@ namespace vulkan
         VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &capabilities));
 
         // Image count
-        render_context->image_count = capabilities.minImageCount + 1;
+        render_context.image_count = capabilities.minImageCount + 1;
         if(capabilities.maxImageCount != 0)
-          render_context->image_count = std::min(render_context->image_count, capabilities.maxImageCount);
+          render_context.image_count = std::min(render_context.image_count, capabilities.maxImageCount);
 
         // Extent
-        render_context->extent = capabilities.currentExtent;
-        if(render_context->extent.height == std::numeric_limits<uint32_t>::max() ||
-           render_context->extent.width  == std::numeric_limits<uint32_t>::max())
+        render_context.extent = capabilities.currentExtent;
+        if(render_context.extent.height == std::numeric_limits<uint32_t>::max() ||
+           render_context.extent.width  == std::numeric_limits<uint32_t>::max())
         {
           // This should never happen in practice since this means we did not
           // speicify the window size when we create the window. Just use some
           // hard-coded value in this case
           fprintf(stderr, "Window size not specified. Using a default value of 1080x720\n");
-          render_context->extent = { 1080, 720 };
+          render_context.extent = { 1080, 720 };
         }
-        render_context->extent.width  = std::clamp(render_context->extent.width , capabilities.minImageExtent.width , capabilities.maxImageExtent.width);
-        render_context->extent.height = std::clamp(render_context->extent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+        render_context.extent.width  = std::clamp(render_context.extent.width , capabilities.minImageExtent.width , capabilities.maxImageExtent.width);
+        render_context.extent.height = std::clamp(render_context.extent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
 
         // Surface transform
-        render_context->surface_transform = capabilities.currentTransform;
+        render_context.surface_transform = capabilities.currentTransform;
       }
 
 
@@ -99,11 +99,11 @@ namespace vulkan
         for(uint32_t i=0; i<count; ++i)
           if(surface_formats[i].format == VK_FORMAT_B8G8R8A8_SRGB && surface_formats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
           {
-            render_context->surface_format = surface_formats[i];
+            render_context.surface_format = surface_formats[i];
             goto surface_format_selected;
           }
 
-        render_context->surface_format = surface_formats[0];
+        render_context.surface_format = surface_formats[0];
 
 surface_format_selected:
         delete[] surface_formats;
@@ -119,11 +119,11 @@ surface_format_selected:
         for(uint32_t i=0; i<count; ++i)
           if(present_modes[i] == VK_PRESENT_MODE_MAILBOX_KHR)
           {
-            render_context->present_mode = present_modes[i];
+            render_context.present_mode = present_modes[i];
             goto present_mode_selected;
           }
 
-        render_context->present_mode = VK_PRESENT_MODE_FIFO_KHR;
+        render_context.present_mode = VK_PRESENT_MODE_FIFO_KHR;
 
 present_mode_selected:
         delete[] present_modes;
@@ -136,28 +136,28 @@ present_mode_selected:
       VkSwapchainCreateInfoKHR create_info = {};
       create_info.sType                 = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
       create_info.surface               = surface;
-      create_info.imageExtent           = render_context->extent;
-      create_info.minImageCount         = render_context->image_count;
-      create_info.imageFormat           = render_context->surface_format.format;
-      create_info.imageColorSpace       = render_context->surface_format.colorSpace;
+      create_info.imageExtent           = render_context.extent;
+      create_info.minImageCount         = render_context.image_count;
+      create_info.imageFormat           = render_context.surface_format.format;
+      create_info.imageColorSpace       = render_context.surface_format.colorSpace;
       create_info.imageArrayLayers      = 1;
       create_info.imageUsage            = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
       create_info.imageSharingMode      = VK_SHARING_MODE_EXCLUSIVE;
       create_info.queueFamilyIndexCount = 0;
       create_info.pQueueFamilyIndices   = nullptr;
-      create_info.preTransform          = render_context->surface_transform;
+      create_info.preTransform          = render_context.surface_transform;
       create_info.compositeAlpha        = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-      create_info.presentMode           = render_context->present_mode;
+      create_info.presentMode           = render_context.present_mode;
       create_info.clipped               = VK_TRUE;
       create_info.oldSwapchain          = VK_NULL_HANDLE;
-      VK_CHECK(vkCreateSwapchainKHR(device, &create_info, nullptr, &render_context->swapchain));
+      VK_CHECK(vkCreateSwapchainKHR(device, &create_info, nullptr, &render_context.swapchain));
     }
 
     // 3: Create Render pass
     {
       // Create render pass
       VkAttachmentDescription color_attachment = {};
-      color_attachment.format         = render_context->surface_format.format;
+      color_attachment.format         = render_context.surface_format.format;
       color_attachment.samples        = VK_SAMPLE_COUNT_1_BIT;
       color_attachment.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
       color_attachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
@@ -210,7 +210,7 @@ present_mode_selected:
       render_pass_create_info.dependencyCount = 1;
       render_pass_create_info.pDependencies   = &subpass_dependency;
 
-      VK_CHECK(vkCreateRenderPass(device, &render_pass_create_info, nullptr, &render_context->render_pass));
+      VK_CHECK(vkCreateRenderPass(device, &render_pass_create_info, nullptr, &render_context.render_pass));
     }
 
     // 4: Create Pipeline
@@ -226,7 +226,7 @@ present_mode_selected:
       std::vector<VkVertexInputAttributeDescription> vertex_input_attribute_descriptions;
       {
         uint32_t binding = 0;
-        for(const auto& vertex_binding_description : create_info.vertex_binding_descriptions)
+        for(const auto& vertex_binding_description : render_context.create_info.vertex_binding_descriptions)
         {
           uint32_t location = 0;
           for(const auto& vertex_attribute_description : vertex_binding_description.attribute_descriptions)
@@ -276,13 +276,13 @@ present_mode_selected:
       VkPipelineShaderStageCreateInfo vert_shader_stage_create_info = {};
       vert_shader_stage_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
       vert_shader_stage_create_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
-      vert_shader_stage_create_info.module = create_info.vert_shader_module;
+      vert_shader_stage_create_info.module = render_context.create_info.vert_shader_module;
       vert_shader_stage_create_info.pName = "main";
 
       VkPipelineShaderStageCreateInfo frag_shader_stage_create_info = {};
       frag_shader_stage_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
       frag_shader_stage_create_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-      frag_shader_stage_create_info.module = create_info.frag_shader_module;
+      frag_shader_stage_create_info.module = render_context.create_info.frag_shader_module;
       frag_shader_stage_create_info.pName = "main";
 
       VkPipelineShaderStageCreateInfo shader_stage_create_infos[] = {
@@ -377,18 +377,18 @@ present_mode_selected:
       descriptor_set_layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
       descriptor_set_layout_create_info.bindingCount = 2;
       descriptor_set_layout_create_info.pBindings    = layout_bindings;
-      VK_CHECK(vkCreateDescriptorSetLayout(device, &descriptor_set_layout_create_info, nullptr, &render_context->descriptor_set_layout));
+      VK_CHECK(vkCreateDescriptorSetLayout(device, &descriptor_set_layout_create_info, nullptr, &render_context.descriptor_set_layout));
 
       VkPipelineLayoutCreateInfo pipeline_layout_create_info = {};
       pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
       pipeline_layout_create_info.setLayoutCount = 1;
-      pipeline_layout_create_info.pSetLayouts    = &render_context->descriptor_set_layout;
-      VK_CHECK(vkCreatePipelineLayout(device, &pipeline_layout_create_info, nullptr, &render_context->pipeline_layout));
+      pipeline_layout_create_info.pSetLayouts    = &render_context.descriptor_set_layout;
+      VK_CHECK(vkCreatePipelineLayout(device, &pipeline_layout_create_info, nullptr, &render_context.pipeline_layout));
 
       VkGraphicsPipelineCreateInfo graphics_pipeline_create_info = {};
       graphics_pipeline_create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-      graphics_pipeline_create_info.stageCount = 2;
-      graphics_pipeline_create_info.pStages    = shader_stage_create_infos;
+      graphics_pipeline_create_info.stageCount          = 2;
+      graphics_pipeline_create_info.pStages             = shader_stage_create_infos;
       graphics_pipeline_create_info.pVertexInputState   = &vertex_input_state_create_info;
       graphics_pipeline_create_info.pInputAssemblyState = &input_assembly_state_create_info;
       graphics_pipeline_create_info.pViewportState      = &pipeline_viewport_state_create_info;
@@ -397,23 +397,23 @@ present_mode_selected:
       graphics_pipeline_create_info.pDepthStencilState  = &depth_stencil_state_create_info;
       graphics_pipeline_create_info.pColorBlendState    = &color_blending_state_create_info;
       graphics_pipeline_create_info.pDynamicState       = &dynamic_state_create_info;
-      graphics_pipeline_create_info.layout              = render_context->pipeline_layout;
-      graphics_pipeline_create_info.renderPass = render_context->render_pass;
-      graphics_pipeline_create_info.subpass    = 0;
+      graphics_pipeline_create_info.layout              = render_context.pipeline_layout;
+      graphics_pipeline_create_info.renderPass          = render_context.render_pass;
+      graphics_pipeline_create_info.subpass             = 0;
       graphics_pipeline_create_info.basePipelineHandle = VK_NULL_HANDLE;
       graphics_pipeline_create_info.basePipelineIndex  = -1;
-      VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &graphics_pipeline_create_info, nullptr, &render_context->pipeline));
+      VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &graphics_pipeline_create_info, nullptr, &render_context.pipeline));
     }
 
     // 5: Get image from swapchain
-    VK_CHECK(vkGetSwapchainImagesKHR(device, render_context->swapchain, &render_context->image_count, nullptr));
-    VkImage *swapchain_images = new VkImage[render_context->image_count];
-    VK_CHECK(vkGetSwapchainImagesKHR(device, render_context->swapchain, &render_context->image_count, swapchain_images));
+    VK_CHECK(vkGetSwapchainImagesKHR(device, render_context.swapchain, &render_context.image_count, nullptr));
+    VkImage *swapchain_images = new VkImage[render_context.image_count];
+    VK_CHECK(vkGetSwapchainImagesKHR(device, render_context.swapchain, &render_context.image_count, swapchain_images));
 
     // 5: Create image resources
     {
-      render_context->image_resources = new ImageResource[render_context->image_count];
-      for(uint32_t i=0; i<render_context->image_count; ++i)
+      render_context.image_resources = new ImageResource[render_context.image_count];
+      for(uint32_t i=0; i<render_context.image_count; ++i)
       {
         ImageResource image_resource = {};
         image_resource.color_image = swapchain_images[i];
@@ -424,8 +424,8 @@ present_mode_selected:
           create_info.usage      = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
           create_info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
           create_info.format     = VK_FORMAT_D32_SFLOAT;
-          create_info.width      = render_context->extent.width;
-          create_info.height     = render_context->extent.height;
+          create_info.width      = render_context.extent.width;
+          create_info.height     = render_context.extent.height;
           image_resource.depth_image = create_image2d(context, allocator, create_info, image_resource.depth_memory_allocation);
         }
 
@@ -435,7 +435,7 @@ present_mode_selected:
           create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
           create_info.image                           = image_resource.color_image;
           create_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
-          create_info.format                          = render_context->surface_format.format;
+          create_info.format                          = render_context.surface_format.format;
           create_info.components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY;
           create_info.components.g                    = VK_COMPONENT_SWIZZLE_IDENTITY;
           create_info.components.b                    = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -473,59 +473,69 @@ present_mode_selected:
 
           VkFramebufferCreateInfo create_info = {};
           create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-          create_info.renderPass      = render_context->render_pass;
+          create_info.renderPass      = render_context.render_pass;
           create_info.attachmentCount = 2;
           create_info.pAttachments    = attachments;
-          create_info.width           = render_context->extent.width;
-          create_info.height          = render_context->extent.height;
+          create_info.width           = render_context.extent.width;
+          create_info.height          = render_context.extent.height;
           create_info.layers          = 1;
           VK_CHECK(vkCreateFramebuffer(device, &create_info, nullptr, &image_resource.framebuffer));
         }
 
-        render_context->image_resources[i] = image_resource;
+        render_context.image_resources[i] = image_resource;
       }
     }
 
     // 7: Create frame resources
     {
-      render_context->frame_resources = new FrameResource[create_info.max_frame_in_flight];
-      for(uint32_t i=0; i<create_info.max_frame_in_flight; ++i)
+      render_context.frame_resources = new FrameResource[render_context.create_info.max_frame_in_flight];
+      for(uint32_t i=0; i<render_context.create_info.max_frame_in_flight; ++i)
       {
         FrameResource frame_resource = {};
         frame_resource.command_buffer            = vulkan::create_command_buffer(context, true);
         frame_resource.semaphore_image_available = vulkan::create_semaphore(device);
         frame_resource.semaphore_render_finished = vulkan::create_semaphore(device);
-        render_context->frame_resources[i] = frame_resource;
+        render_context.frame_resources[i] = frame_resource;
       }
-      render_context->frame_count = create_info.max_frame_in_flight;
-      render_context->frame_index = 0;
+      render_context.frame_count = render_context.create_info.max_frame_in_flight;
+      render_context.frame_index = 0;
     }
-
-    return render_context;
   }
 
-  void destroy_render_context(context_t context, allocator_t allocator, render_context_t render_context)
+  static void deinit_render_context(context_t context, allocator_t allocator, RenderContext& render_context)
   {
     VkDevice device = context_get_device(context);
     (void)allocator;
 
-    for(uint32_t i=0; i<render_context->image_count; ++i)
+    for(uint32_t i=0; i<render_context.image_count; ++i)
     {
-      ImageResource frame = render_context->image_resources[i];
+      ImageResource frame = render_context.image_resources[i];
       vkDestroyFramebuffer(device, frame.framebuffer, nullptr);
       vkDestroyImageView(device, frame.depth_image_view, nullptr);
       vkDestroyImageView(device, frame.color_image_view, nullptr);
       vkDestroyImage    (device, frame.depth_image, nullptr);
       deallocate_memory(context, allocator, frame.depth_memory_allocation);
     }
-    delete[] render_context->image_resources;
+    delete[] render_context.image_resources;
 
-    vkDestroyPipeline           (device, render_context->pipeline,              nullptr);
-    vkDestroyPipelineLayout     (device, render_context->pipeline_layout,       nullptr);
-    vkDestroyDescriptorSetLayout(device, render_context->descriptor_set_layout, nullptr);
-    vkDestroyRenderPass         (device, render_context->render_pass,           nullptr);
-    vkDestroySwapchainKHR       (device, render_context->swapchain,             nullptr);
+    vkDestroyPipeline           (device, render_context.pipeline,              nullptr);
+    vkDestroyPipelineLayout     (device, render_context.pipeline_layout,       nullptr);
+    vkDestroyDescriptorSetLayout(device, render_context.descriptor_set_layout, nullptr);
+    vkDestroyRenderPass         (device, render_context.render_pass,           nullptr);
+    vkDestroySwapchainKHR       (device, render_context.swapchain,             nullptr);
+  }
 
+  render_context_t create_render_context(context_t context, allocator_t allocator, RenderContextCreateInfo create_info)
+  {
+    render_context_t render_context = new RenderContext{};
+    render_context->create_info = create_info;
+    init_render_context(context, allocator, *render_context);
+    return render_context;
+  }
+
+  void destroy_render_context(context_t context, allocator_t allocator, render_context_t render_context)
+  {
+    deinit_render_context(context, allocator, *render_context);
     delete render_context;
   }
 
