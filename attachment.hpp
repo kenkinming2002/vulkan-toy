@@ -41,4 +41,7 @@ namespace vulkan
 
   void init_attachment(const Context& context, allocator_t allocator, AttachmentCreateInfo create_info, Attachment& attachment);
   void deinit_attachment(const Context& context, allocator_t allocator, Attachment& attachment);
+
+  inline VkImage     attachment_get_image(const Attachment& attachment, uint32_t image_index)      { return attachment.images[image_index];      }
+  inline VkImageView attachment_get_image_view(const Attachment& attachment, uint32_t image_index) { return attachment.image_views[image_index]; }
 }
