@@ -11,8 +11,8 @@ srcs = [
   'vulkan.cpp',
   'main.cpp',
   'context.cpp',
+  'swapchain.cpp',
   'render_context.cpp',
-  'render_graph.cpp',
   'command_buffer.cpp',
   'buffer.cpp',
   'impl.cpp'

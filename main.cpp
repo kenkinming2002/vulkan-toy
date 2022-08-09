@@ -3,7 +3,6 @@
 #include "command_buffer.hpp"
 #include "vulkan.hpp"
 #include "buffer.hpp"
-#include "render_graph.hpp"
 
 #include "tiny_obj_loader.h"
 #include "stb_image.h"
@@ -49,77 +48,6 @@ struct Vertex
   glm::vec3 color;
   glm::vec2 uv;
 };
-
-static constexpr rg::binding_index_t VBO_BINDING = 0;
-static constexpr rg::binding_index_t IBO_BINDING = 1;
-static constexpr rg::binding_index_t UBO_BINDING = 2;
-
-static constexpr rg::binding_index_t TEXTURE_BINDING = 0;
-
-// New Render graph API
-const rg::AttachmentDescription attachment_descriptions[] = {
-  { .type = rg::AttachmentType::SWAPCHAIN },
-  { .type = rg::AttachmentType::DEPTH     },
-};
-
-const rg::ShaderDescription shader_descriptions[] = {
-  { .file_name = "shaders/vert.spv" }, // Vertex shader
-  { .file_name = "shaders/frag.spv" }, // Fragment shader
-};
-
-const rg::DescriptorBinding descriptor_bindings[] = {
-  { .type = rg::DescriptorBinding::Type::UNIFORM_BUFFER, .stage = rg::DescriptorBinding::Stage::VERTEX,   .binding_index = UBO_BINDING },
-  { .type = rg::DescriptorBinding::Type::TEXTURE,        .stage = rg::DescriptorBinding::Stage::FRAGMENT, .binding_index = TEXTURE_BINDING },
-};
-
-const rg::DescriptorInput descriptor_input = {
-  .bindings      = descriptor_bindings,
-  .binding_count = std::size(descriptor_bindings),
-};
-
-const rg::VertexAttribute vertex_attributes[] = {
-  { .offset = offsetof(Vertex, pos),   .data_type = rg::DataType::FLOAT3 },
-  { .offset = offsetof(Vertex, color), .data_type = rg::DataType::FLOAT3 },
-  { .offset = offsetof(Vertex, uv),    .data_type = rg::DataType::FLOAT2 },
-};
-
-const rg::VertexBinding vertex_bindings[] = {{
-  .stride = sizeof(Vertex),
-  .attributes      = vertex_attributes,
-  .attribute_count = std::size(vertex_attributes),
-}};
-
-const rg::VertexInput vertex_input = {
-  .bindings      = vertex_bindings,
-  .binding_count = std::size(vertex_bindings),
-};
-
-const rg::binding_index_t attachment_binding_indices[] = { 0, 1 };
-const rg::RenderGraph render_graph = {
-  .resources_description = {
-    .attachment_descriptions      = attachment_descriptions,
-    .attachment_description_count = std::size(attachment_descriptions),
-    .shader_descriptions          = shader_descriptions,
-    .shader_description_count     = std::size(shader_descriptions),
-  },
-  .render_pass_description = {
-    .attachment_binding_indices = attachment_binding_indices,
-    .attachment_binding_count   = std::size(attachment_binding_indices),
-  },
-  .pipeline_description = {
-    .vert_shader_binding_index = 0,
-    .frag_shader_binding_index = 1,
-
-    .descriptor_input            = descriptor_input,
-    .vertex_input                = vertex_input,
-
-    .vertex_buffer_binding_index = VBO_BINDING,
-    .index_buffer_binding_index  = IBO_BINDING,
-  },
-};
-
-// What you do is first compile a render graph
-// and then use it in combination with a list of texture and buffer to bound
 
 // TODO: Move this outside
 inline std::vector<char> read_file(const char* file_name)
@@ -288,8 +216,6 @@ Model load_model(vulkan::context_t context, vulkan::allocator_t allocator, const
 
 int main()
 {
-  rg::debug_print(render_graph);
-
   glfwInit();
 
   // Context
