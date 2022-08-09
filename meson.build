@@ -9,9 +9,11 @@ glm_dep    = dependency('glm')
 
 srcs = [
   'vulkan.cpp',
+  'vk_check.cpp',
   'main.cpp',
   'context.cpp',
   'swapchain.cpp',
+  'attachment.cpp',
   'render_context.cpp',
   'fence.cpp',
   'command_buffer.cpp',

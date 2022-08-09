@@ -349,7 +349,7 @@ namespace vulkan
           VK_CHECK(vkCreateImageView(context.device, &create_info, nullptr, &image_resource.color_image_view));
         }
 
-        // Depth image view
+
         {
           VkImageViewCreateInfo create_info = {};
           create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;

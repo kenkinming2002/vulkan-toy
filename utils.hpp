@@ -1,5 +1,7 @@
+#pragma once
 
 #include <stddef.h>
+#include <assert.h>
 
 // Believe it or not this dynarray, vector and span template would cover 99% of the use case
 template<typename T>
@@ -8,11 +10,14 @@ struct vector
   T* data;
   size_t size;
   size_t capacity;
+
+  T& operator[](size_t i) const { assert(i<size); return data[i]; }
 };
 
 template<typename T> T* begin(vector<T> vector) { return &vector.data[0]; }
 template<typename T> T* end(vector<T> vector)   { return &vector.data[vector.size]; }
 template<typename T> size_t size(vector<T> span) { return span.size; }
+template<typename T> T* data(vector<T> span) { return span.data; }
 
 template<typename T>
 vector<T> create_vector(size_t capacity)
@@ -45,11 +50,14 @@ struct dynarray
 {
   T* data;
   size_t size;
+
+  T& operator[](size_t i) const { assert(i<size); return data[i]; }
 };
 
 template<typename T> T* begin(dynarray<T> dynarray) { return &dynarray.data[0]; }
 template<typename T> T* end(dynarray<T> dynarray)   { return &dynarray.data[dynarray.size]; }
 template<typename T> size_t size(dynarray<T> span) { return span.size; }
+template<typename T> T* data(dynarray<T> span) { return span.data; }
 
 template<typename T>
 dynarray<T> create_dynarray(size_t capacity)
@@ -93,11 +101,14 @@ struct span
 {
   T* data;
   size_t size;
+
+  T& operator[](size_t i) const { assert(i<size); return data[i]; }
 };
 
 template<typename T> T* begin(span<T> span) { return &span.data[0]; }
 template<typename T> T* end(span<T> span)   { return &span.data[span.size]; }
 template<typename T> size_t size(span<T> span) { return span.size; }
+template<typename T> T* data(span<T> span) { return span.data; }
 
 template<typename T, size_t N>
 span<T> create_span(T(&data)[N])
