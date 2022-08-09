@@ -1,5 +1,6 @@
 #include "render_context.hpp"
 #include "buffer.hpp"
+#include "swapchain.hpp"
 #include "vk_check.hpp"
 
 #include <vulkan/vulkan_core.h>
@@ -31,15 +32,7 @@ namespace vulkan
   struct RenderContext
   {
     RenderContextCreateInfo create_info;
-
-    uint32_t                      image_count;
-    VkExtent2D                    extent;
-    VkSurfaceTransformFlagBitsKHR surface_transform;
-
-    VkSurfaceFormatKHR       surface_format;
-    VkPresentModeKHR         present_mode;
-
-    VkSwapchainKHR swapchain;
+    Swapchain swapchain;
 
     VkDescriptorSetLayout descriptor_set_layout;
     VkPipelineLayout      pipeline_layout;
@@ -57,105 +50,13 @@ namespace vulkan
 
   static void init_render_context(const Context& context, allocator_t allocator, RenderContext& render_context)
   {
-    // 1: Get information about the context.surface and select the best
-    {
-      // Capabilities
-      {
-        VkSurfaceCapabilitiesKHR capabilities = {};
-        VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context.physical_device, context.surface, &capabilities));
-
-        // Image count
-        render_context.image_count = capabilities.minImageCount + 1;
-        if(capabilities.maxImageCount != 0)
-          render_context.image_count = std::min(render_context.image_count, capabilities.maxImageCount);
-
-        // Extent
-        render_context.extent = capabilities.currentExtent;
-        if(render_context.extent.height == std::numeric_limits<uint32_t>::max() ||
-           render_context.extent.width  == std::numeric_limits<uint32_t>::max())
-        {
-          // This should never happen in practice since this means we did not
-          // speicify the window size when we create the window. Just use some
-          // hard-coded value in this case
-          fprintf(stderr, "Window size not specified. Using a default value of 1080x720\n");
-          render_context.extent = { 1080, 720 };
-        }
-        render_context.extent.width  = std::clamp(render_context.extent.width , capabilities.minImageExtent.width , capabilities.maxImageExtent.width);
-        render_context.extent.height = std::clamp(render_context.extent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
-
-        // Surface transform
-        render_context.surface_transform = capabilities.currentTransform;
-      }
-
-
-      // Surface format
-      {
-        uint32_t count;
-        VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(context.physical_device, context.surface, &count, nullptr));
-        auto *surface_formats = new VkSurfaceFormatKHR[count];
-        VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(context.physical_device, context.surface, &count, surface_formats));
-        for(uint32_t i=0; i<count; ++i)
-          if(surface_formats[i].format == VK_FORMAT_B8G8R8A8_SRGB && surface_formats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
-          {
-            render_context.surface_format = surface_formats[i];
-            goto surface_format_selected;
-          }
-
-        render_context.surface_format = surface_formats[0];
-
-surface_format_selected:
-        delete[] surface_formats;
-        surface_formats = nullptr;
-      }
-
-      // Present mode
-      {
-        uint32_t count;
-        VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(context.physical_device, context.surface, &count, nullptr));
-        auto *present_modes = new VkPresentModeKHR[count];
-        VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(context.physical_device, context.surface, &count, present_modes));
-        for(uint32_t i=0; i<count; ++i)
-          if(present_modes[i] == VK_PRESENT_MODE_MAILBOX_KHR)
-          {
-            render_context.present_mode = present_modes[i];
-            goto present_mode_selected;
-          }
-
-        render_context.present_mode = VK_PRESENT_MODE_FIFO_KHR;
-
-present_mode_selected:
-        delete[] present_modes;
-        present_modes = nullptr;
-      }
-    }
-
-    // 2: Create Swapchain creation
-    {
-      VkSwapchainCreateInfoKHR create_info = {};
-      create_info.sType                 = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-      create_info.surface               = context.surface;
-      create_info.imageExtent           = render_context.extent;
-      create_info.minImageCount         = render_context.image_count;
-      create_info.imageFormat           = render_context.surface_format.format;
-      create_info.imageColorSpace       = render_context.surface_format.colorSpace;
-      create_info.imageArrayLayers      = 1;
-      create_info.imageUsage            = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-      create_info.imageSharingMode      = VK_SHARING_MODE_EXCLUSIVE;
-      create_info.queueFamilyIndexCount = 0;
-      create_info.pQueueFamilyIndices   = nullptr;
-      create_info.preTransform          = render_context.surface_transform;
-      create_info.compositeAlpha        = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-      create_info.presentMode           = render_context.present_mode;
-      create_info.clipped               = VK_TRUE;
-      create_info.oldSwapchain          = VK_NULL_HANDLE;
-      VK_CHECK(vkCreateSwapchainKHR(context.device, &create_info, nullptr, &render_context.swapchain));
-    }
+    render_context.swapchain = create_swapchain(context);
 
     // 3: Create Render pass
     {
       // Create render pass
       VkAttachmentDescription color_attachment = {};
-      color_attachment.format         = render_context.surface_format.format;
+      color_attachment.format         = render_context.swapchain.surface_format.format;
       color_attachment.samples        = VK_SAMPLE_COUNT_1_BIT;
       color_attachment.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
       color_attachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
@@ -404,14 +305,14 @@ present_mode_selected:
     }
 
     // 5: Get image from swapchain
-    VK_CHECK(vkGetSwapchainImagesKHR(context.device, render_context.swapchain, &render_context.image_count, nullptr));
-    VkImage *swapchain_images = new VkImage[render_context.image_count];
-    VK_CHECK(vkGetSwapchainImagesKHR(context.device, render_context.swapchain, &render_context.image_count, swapchain_images));
+    VK_CHECK(vkGetSwapchainImagesKHR(context.device, render_context.swapchain.handle, &render_context.swapchain.image_count, nullptr));
+    VkImage *swapchain_images = new VkImage[render_context.swapchain.image_count];
+    VK_CHECK(vkGetSwapchainImagesKHR(context.device, render_context.swapchain.handle, &render_context.swapchain.image_count, swapchain_images));
 
     // 5: Create image resources
     {
-      render_context.image_resources = new ImageResource[render_context.image_count];
-      for(uint32_t i=0; i<render_context.image_count; ++i)
+      render_context.image_resources = new ImageResource[render_context.swapchain.image_count];
+      for(uint32_t i=0; i<render_context.swapchain.image_count; ++i)
       {
         ImageResource image_resource = {};
         image_resource.color_image = swapchain_images[i];
@@ -422,8 +323,8 @@ present_mode_selected:
           create_info.usage      = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
           create_info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
           create_info.format     = VK_FORMAT_D32_SFLOAT;
-          create_info.width      = render_context.extent.width;
-          create_info.height     = render_context.extent.height;
+          create_info.width      = render_context.swapchain.extent.width;
+          create_info.height     = render_context.swapchain.extent.height;
           image_resource.depth_image = create_image2d(context, allocator, create_info, image_resource.depth_memory_allocation);
         }
 
@@ -433,7 +334,7 @@ present_mode_selected:
           create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
           create_info.image                           = image_resource.color_image;
           create_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
-          create_info.format                          = render_context.surface_format.format;
+          create_info.format                          = render_context.swapchain.surface_format.format;
           create_info.components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY;
           create_info.components.g                    = VK_COMPONENT_SWIZZLE_IDENTITY;
           create_info.components.b                    = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -474,8 +375,8 @@ present_mode_selected:
           create_info.renderPass      = render_context.render_pass;
           create_info.attachmentCount = 2;
           create_info.pAttachments    = attachments;
-          create_info.width           = render_context.extent.width;
-          create_info.height          = render_context.extent.height;
+          create_info.width           = render_context.swapchain.extent.width;
+          create_info.height          = render_context.swapchain.extent.height;
           create_info.layers          = 1;
           VK_CHECK(vkCreateFramebuffer(context.device, &create_info, nullptr, &image_resource.framebuffer));
         }
@@ -504,7 +405,7 @@ present_mode_selected:
   {
     (void)allocator;
 
-    for(uint32_t i=0; i<render_context.image_count; ++i)
+    for(uint32_t i=0; i<render_context.swapchain.image_count; ++i)
     {
       ImageResource frame = render_context.image_resources[i];
       vkDestroyFramebuffer(context.device, frame.framebuffer, nullptr);
@@ -519,7 +420,7 @@ present_mode_selected:
     vkDestroyPipelineLayout     (context.device, render_context.pipeline_layout,       nullptr);
     vkDestroyDescriptorSetLayout(context.device, render_context.descriptor_set_layout, nullptr);
     vkDestroyRenderPass         (context.device, render_context.render_pass,           nullptr);
-    vkDestroySwapchainKHR       (context.device, render_context.swapchain,             nullptr);
+    vkDestroySwapchainKHR       (context.device, render_context.swapchain.handle,      nullptr);
   }
 
   render_context_t create_render_context(const Context& context, allocator_t allocator, RenderContextCreateInfo create_info)
@@ -547,7 +448,7 @@ present_mode_selected:
     FrameResource frame_resource = render_context->frame_resources[info.frame_index];
 
     // Acquire image resource
-    auto result = vkAcquireNextImageKHR(context.device, render_context->swapchain, UINT64_MAX, frame_resource.semaphore_image_available, VK_NULL_HANDLE, &info.image_index);
+    auto result = vkAcquireNextImageKHR(context.device, render_context->swapchain.handle, UINT64_MAX, frame_resource.semaphore_image_available, VK_NULL_HANDLE, &info.image_index);
     if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) return std::nullopt;
     VK_CHECK(result);
     ImageResource image_resource = render_context->image_resources[info.image_index];
@@ -561,7 +462,7 @@ present_mode_selected:
     render_pass_begin_info.renderPass        = render_context->render_pass;
     render_pass_begin_info.framebuffer       = image_resource.framebuffer;
     render_pass_begin_info.renderArea.offset = {0, 0};
-    render_pass_begin_info.renderArea.extent = render_context->extent;
+    render_pass_begin_info.renderArea.extent = render_context->swapchain.extent;
 
     // TODO: Take this as argument
     VkClearValue clear_values[2] = {};
@@ -600,7 +501,7 @@ present_mode_selected:
     present_info.waitSemaphoreCount = 1;
     present_info.pWaitSemaphores = &frame_resource.semaphore_render_finished;
     present_info.swapchainCount = 1;
-    present_info.pSwapchains    = &render_context->swapchain;
+    present_info.pSwapchains    = &render_context->swapchain.handle;
     present_info.pImageIndices  = &info.image_index;
     present_info.pResults       = nullptr;
 
@@ -612,7 +513,7 @@ present_mode_selected:
     return true;
   }
 
-  VkExtent2D render_context_get_extent(render_context_t render_context) { return render_context->extent; }
+  VkExtent2D render_context_get_extent(render_context_t render_context) { return render_context->swapchain.extent; }
 
   VkDescriptorSetLayout render_context_get_descriptor_set_layout(render_context_t render_context) { return render_context->descriptor_set_layout; }
   VkPipelineLayout render_context_get_pipeline_layout(render_context_t render_context) { return render_context->pipeline_layout; }
