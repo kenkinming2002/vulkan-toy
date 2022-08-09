@@ -14,8 +14,8 @@ namespace vulkan
 {
   typedef struct Allocator *allocator_t;
 
-  allocator_t create_allocator(context_t context);
-  void destroy_allocator(context_t context, allocator_t allocator);
+  allocator_t create_allocator(const Context& context);
+  void destroy_allocator(const Context& context, allocator_t allocator);
 
   struct MemoryAllocationInfo
   {
@@ -31,8 +31,8 @@ namespace vulkan
     VkDeviceSize   size;
   };
 
-  MemoryAllocation allocate_memory(context_t context, allocator_t allocator, MemoryAllocationInfo info);
-  void deallocate_memory(context_t context, allocator_t allocator, MemoryAllocation allocation);
+  MemoryAllocation allocate_memory(const Context& context, allocator_t allocator, MemoryAllocationInfo info);
+  void deallocate_memory(const Context& context, allocator_t allocator, MemoryAllocation allocation);
 
   struct BufferCreateInfo
   {
@@ -40,7 +40,7 @@ namespace vulkan
     VkMemoryPropertyFlags properties;
     size_t size;
   };
-  VkBuffer create_buffer(context_t context, allocator_t allocator, BufferCreateInfo info, MemoryAllocation& allocation);
+  VkBuffer create_buffer(const Context& context, allocator_t allocator, BufferCreateInfo info, MemoryAllocation& allocation);
 
   struct Image2dCreateInfo
   {
@@ -49,8 +49,8 @@ namespace vulkan
     VkFormat format;
     size_t width, height;
   };
-  VkImage create_image2d(context_t context, allocator_t allocator, Image2dCreateInfo info, MemoryAllocation& allocation);
+  VkImage create_image2d(const Context& context, allocator_t allocator, Image2dCreateInfo info, MemoryAllocation& allocation);
 
-  void write_buffer(context_t context, allocator_t allocator, VkBuffer buffer, MemoryAllocation allocation, const void *data);
-  void write_image2d(context_t context, allocator_t allocator, VkImage image, size_t width, size_t height, MemoryAllocation allocation, const void *data);
+  void write_buffer(const Context& context, allocator_t allocator, VkBuffer buffer, MemoryAllocation allocation, const void *data);
+  void write_image2d(const Context& context, allocator_t allocator, VkImage image, size_t width, size_t height, MemoryAllocation allocation, const void *data);
 }

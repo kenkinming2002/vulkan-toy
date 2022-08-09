@@ -11,16 +11,14 @@ namespace vulkan
     VkPhysicalDeviceMemoryProperties memory_properties;
   };
 
-  allocator_t create_allocator(context_t context)
+  allocator_t create_allocator(const Context& context)
   {
-    VkPhysicalDevice physical_device = context_get_physical_device(context);
-
     allocator_t allocator = new Allocator{};
-    vkGetPhysicalDeviceMemoryProperties(physical_device, &allocator->memory_properties);
+    vkGetPhysicalDeviceMemoryProperties(context.physical_device, &allocator->memory_properties);
     return allocator;
   }
 
-  void destroy_allocator(context_t context, allocator_t allocator)
+  void destroy_allocator(const Context& context, allocator_t allocator)
   {
     (void)context;
     delete allocator;
@@ -32,9 +30,8 @@ namespace vulkan
     return (value & flags) == flags;
   }
 
-  MemoryAllocation allocate_memory(context_t context, allocator_t allocator, MemoryAllocationInfo info)
+  MemoryAllocation allocate_memory(const Context& context, allocator_t allocator, MemoryAllocationInfo info)
   {
-    VkDevice device = context_get_device(context);
     for(uint32_t i = 0; i < allocator->memory_properties.memoryTypeCount; i++)
     {
       if(!is_bits_set<uint32_t>(info.type_bits, 1 << i))
@@ -51,7 +48,7 @@ namespace vulkan
       allocate_info.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
       allocate_info.memoryTypeIndex = i;
       allocate_info.allocationSize  = info.size;
-      VK_CHECK(vkAllocateMemory(device, &allocate_info, nullptr, &allocation.memory));
+      VK_CHECK(vkAllocateMemory(context.device, &allocate_info, nullptr, &allocation.memory));
 
       allocation.type_index = i;
       allocation.size       = info.size;
@@ -62,18 +59,14 @@ namespace vulkan
     abort();
   }
 
-  void deallocate_memory(context_t context, allocator_t allocator, MemoryAllocation allocation)
+  void deallocate_memory(const Context& context, allocator_t allocator, MemoryAllocation allocation)
   {
-    VkDevice device = context_get_device(context);
-
     (void)allocator;
-    vkFreeMemory(device, allocation.memory, nullptr);
+    vkFreeMemory(context.device, allocation.memory, nullptr);
   }
 
-  VkBuffer create_buffer(context_t context, allocator_t allocator, BufferCreateInfo info, MemoryAllocation& allocation)
+  VkBuffer create_buffer(const Context& context, allocator_t allocator, BufferCreateInfo info, MemoryAllocation& allocation)
   {
-    VkDevice device = context_get_device(context);
-
     VkBuffer buffer = VK_NULL_HANDLE;
 
     VkBufferCreateInfo create_info = {};
@@ -81,24 +74,22 @@ namespace vulkan
     create_info.size        = info.size;
     create_info.usage       = info.usage;
     create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    VK_CHECK(vkCreateBuffer(device, &create_info, nullptr, &buffer));
+    VK_CHECK(vkCreateBuffer(context.device, &create_info, nullptr, &buffer));
 
     VkMemoryRequirements memory_requirements = {};
-    vkGetBufferMemoryRequirements(device, buffer, &memory_requirements);
+    vkGetBufferMemoryRequirements(context.device, buffer, &memory_requirements);
 
     MemoryAllocationInfo allocation_info = {};
     allocation_info.type_bits = memory_requirements.memoryTypeBits;
     allocation_info.properties = info.properties;
     allocation_info.size       = memory_requirements.size;
     allocation = allocate_memory(context, allocator, allocation_info);
-    VK_CHECK(vkBindBufferMemory(device, buffer, allocation.memory, 0));
+    VK_CHECK(vkBindBufferMemory(context.device, buffer, allocation.memory, 0));
     return buffer;
   }
 
-  VkImage create_image2d(context_t context, allocator_t allocator, Image2dCreateInfo info, MemoryAllocation& allocation)
+  VkImage create_image2d(const Context& context, allocator_t allocator, Image2dCreateInfo info, MemoryAllocation& allocation)
   {
-    VkDevice device = context_get_device(context);
-
     VkImage image = VK_NULL_HANDLE;
 
     VkImageCreateInfo create_info = {};
@@ -116,31 +107,29 @@ namespace vulkan
     create_info.usage         = info.usage;
     create_info.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
     create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    VK_CHECK(vkCreateImage(device, &create_info, nullptr, &image));
+    VK_CHECK(vkCreateImage(context.device, &create_info, nullptr, &image));
 
     VkMemoryRequirements memory_requirements = {};
-    vkGetImageMemoryRequirements(device, image, &memory_requirements);
+    vkGetImageMemoryRequirements(context.device, image, &memory_requirements);
 
     MemoryAllocationInfo allocation_info = {};
     allocation_info.type_bits  = memory_requirements.memoryTypeBits;
     allocation_info.properties = info.properties;
     allocation_info.size       = memory_requirements.size;
     allocation = allocate_memory(context, allocator, allocation_info);
-    VK_CHECK(vkBindImageMemory(device, image, allocation.memory, 0));
+    VK_CHECK(vkBindImageMemory(context.device, image, allocation.memory, 0));
     return image;
   }
 
-  void write_buffer(context_t context, allocator_t allocator, VkBuffer buffer, MemoryAllocation allocation, const void *data)
+  void write_buffer(const Context& context, allocator_t allocator, VkBuffer buffer, MemoryAllocation allocation, const void *data)
   {
-    VkDevice device = context_get_device(context);
-
     VkMemoryPropertyFlags properties = allocator->memory_properties.memoryTypes[allocation.type_index].propertyFlags;
     if(properties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
     {
       void *buffer_data;
-      VK_CHECK(vkMapMemory(device, allocation.memory, 0, allocation.size, 0, &buffer_data));
+      VK_CHECK(vkMapMemory(context.device, allocation.memory, 0, allocation.size, 0, &buffer_data));
       memcpy(buffer_data, data, allocation.size);
-      vkUnmapMemory(device, allocation.memory);
+      vkUnmapMemory(context.device, allocation.memory);
       return;
     }
 
@@ -170,14 +159,12 @@ namespace vulkan
 
       destroy_command_buffer(context, command_buffer);
     }
-    vkDestroyBuffer(device, staging_buffer, nullptr);
+    vkDestroyBuffer(context.device, staging_buffer, nullptr);
     deallocate_memory(context, allocator, staging_allocation);
   }
 
-  void write_image2d(context_t context, allocator_t allocator, VkImage image, size_t width, size_t height, MemoryAllocation allocation, const void *data)
+  void write_image2d(const Context& context, allocator_t allocator, VkImage image, size_t width, size_t height, MemoryAllocation allocation, const void *data)
   {
-    VkDevice device = context_get_device(context);
-
     (void)allocation;
 
     BufferCreateInfo info = {};
@@ -253,7 +240,7 @@ namespace vulkan
 
       destroy_command_buffer(context, command_buffer);
     }
-    vkDestroyBuffer(device, staging_buffer, nullptr);
+    vkDestroyBuffer(context.device, staging_buffer, nullptr);
     deallocate_memory(context, allocator, staging_allocation);
   }
 }

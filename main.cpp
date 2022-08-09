@@ -74,10 +74,8 @@ struct Texture
   VkImageView image_view;
 };
 
-Texture create_texture(vulkan::context_t context, vulkan::allocator_t allocator, const void *data, size_t width, size_t height)
+Texture create_texture(const vulkan::Context& context, vulkan::allocator_t allocator, const void *data, size_t width, size_t height)
 {
-  VkDevice device = vulkan::context_get_device(context);
-
   Texture texture = {};
 
   {
@@ -102,21 +100,20 @@ Texture create_texture(vulkan::context_t context, vulkan::allocator_t allocator,
     create_info.subresourceRange.levelCount     = 1;
     create_info.subresourceRange.baseArrayLayer = 0;
     create_info.subresourceRange.layerCount     = 1;
-    VK_CHECK(vkCreateImageView(device, &create_info, nullptr, &texture.image_view));
+    VK_CHECK(vkCreateImageView(context.device, &create_info, nullptr, &texture.image_view));
   }
 
   return texture;
 }
 
-void destroy_texture(vulkan::context_t context, vulkan::allocator_t allocator, Texture texture)
+void destroy_texture(const vulkan::Context& context, vulkan::allocator_t allocator, Texture texture)
 {
-  VkDevice device = vulkan::context_get_device(context);
-  vkDestroyImageView(device, texture.image_view, nullptr);
-  vkDestroyImage(device, texture.image, nullptr);
+  vkDestroyImageView(context.device, texture.image_view, nullptr);
+  vkDestroyImage(context.device, texture.image, nullptr);
   vulkan::deallocate_memory(context, allocator, texture.allocation);
 }
 
-Texture load_texture(vulkan::context_t context, vulkan::allocator_t allocator, const char *file_name)
+Texture load_texture(const vulkan::Context& context, vulkan::allocator_t allocator, const char *file_name)
 {
   int x, y, n;
   unsigned char *data = stbi_load(file_name, &x, &y, &n, STBI_rgb_alpha);
@@ -139,7 +136,7 @@ struct Model
 
 };
 
-Model create_model(vulkan::context_t context, vulkan::allocator_t allocator, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
+Model create_model(const vulkan::Context& context, vulkan::allocator_t allocator, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
 {
   Model model = {};
   model.vertex_count = vertices.size();
@@ -166,18 +163,16 @@ Model create_model(vulkan::context_t context, vulkan::allocator_t allocator, con
   return model;
 }
 
-void destroy_model(vulkan::context_t context, vulkan::allocator_t allocator, Model model)
+void destroy_model(const vulkan::Context& context, vulkan::allocator_t allocator, Model model)
 {
-  VkDevice device = vulkan::context_get_device(context);
-
-  vkDestroyBuffer(device, model.vbo, nullptr);
-  vkDestroyBuffer(device, model.ibo, nullptr);
+  vkDestroyBuffer(context.device, model.vbo, nullptr);
+  vkDestroyBuffer(context.device, model.ibo, nullptr);
 
   vulkan::deallocate_memory(context, allocator, model.vbo_allocation);
   vulkan::deallocate_memory(context, allocator, model.ibo_allocation);
 }
 
-Model load_model(vulkan::context_t context, vulkan::allocator_t allocator, const char* file_name)
+Model load_model(const vulkan::Context& context, vulkan::allocator_t allocator, const char* file_name)
 {
   tinyobj::attrib_t attrib;
   std::vector<tinyobj::shape_t> shapes;
@@ -219,14 +214,16 @@ int main()
   glfwInit();
 
   // Context
-  vulkan::ContextCreateInfo context_create_info = {};
-  context_create_info.application_name    = "Vulkan";
-  context_create_info.engine_name         = "Engine";
-  context_create_info.window_name         = "Vulkan";
-  context_create_info.width = 1080;
-  context_create_info.height = 720;
-
-  vulkan::context_t   context   = vulkan::create_context(context_create_info);
+  vulkan::Context context = {};
+  {
+    vulkan::ContextCreateInfo context_create_info = {};
+    context_create_info.application_name    = "Vulkan";
+    context_create_info.engine_name         = "Engine";
+    context_create_info.window_name         = "Vulkan";
+    context_create_info.width               = 1080;
+    context_create_info.height              = 720;
+    vulkan::init_context(context_create_info, context);
+  }
   vulkan::allocator_t allocator = vulkan::create_allocator(context);
 
   Texture texture = load_texture(context, allocator, "viking_room.png");
@@ -234,8 +231,8 @@ int main()
 
   // May need to be recreated on window resize
   vulkan::RenderContextCreateInfo render_context_create_info = {};
-  render_context_create_info.vert_shader_module = vulkan::create_shader_module(vulkan::context_get_device(context), read_file("shaders/vert.spv"));
-  render_context_create_info.frag_shader_module = vulkan::create_shader_module(vulkan::context_get_device(context), read_file("shaders/frag.spv"));
+  render_context_create_info.vert_shader_module = vulkan::create_shader_module(context.device, read_file("shaders/vert.spv"));
+  render_context_create_info.frag_shader_module = vulkan::create_shader_module(context.device, read_file("shaders/frag.spv"));
   render_context_create_info.vertex_binding_descriptions = {
     vulkan::VertexBindingDescription{
       .stride = sizeof(Vertex),
@@ -253,7 +250,7 @@ int main()
   VkSampler sampler;
   {
     VkPhysicalDeviceProperties properties;
-    vkGetPhysicalDeviceProperties(vulkan::context_get_physical_device(context), &properties);
+    vkGetPhysicalDeviceProperties(context.physical_device, &properties);
 
     VkSamplerCreateInfo create_info{};
     create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -272,7 +269,7 @@ int main()
     create_info.mipLodBias              = 0.0f;
     create_info.minLod                  = 0.0f;
     create_info.maxLod                  = 0.0f;
-    VK_CHECK(vkCreateSampler(vulkan::context_get_device(context), &create_info, nullptr, &sampler));
+    VK_CHECK(vkCreateSampler(context.device, &create_info, nullptr, &sampler));
   }
 
   // Descriptor pool
@@ -289,7 +286,7 @@ int main()
   pool_create_info.maxSets    = MAX_FRAME_IN_FLIGHT;
 
   VkDescriptorPool descriptor_pool = {};
-  VK_CHECK(vkCreateDescriptorPool(vulkan::context_get_device(context), &pool_create_info, nullptr, &descriptor_pool));
+  VK_CHECK(vkCreateDescriptorPool(context.device, &pool_create_info, nullptr, &descriptor_pool));
 
   VkDescriptorSetLayout descriptor_set_layouts[MAX_FRAME_IN_FLIGHT];
   VkDescriptorSet descriptor_sets[MAX_FRAME_IN_FLIGHT];
@@ -302,7 +299,7 @@ int main()
   alloc_info.descriptorSetCount = MAX_FRAME_IN_FLIGHT;
   alloc_info.pSetLayouts        = descriptor_set_layouts;
 
-  VK_CHECK(vkAllocateDescriptorSets(vulkan::context_get_device(context), &alloc_info, descriptor_sets));
+  VK_CHECK(vkAllocateDescriptorSets(context.device, &alloc_info, descriptor_sets));
 
   VkBuffer                 ubos[MAX_FRAME_IN_FLIGHT];
   vulkan::MemoryAllocation ubo_allocations[MAX_FRAME_IN_FLIGHT];
@@ -344,7 +341,7 @@ int main()
     write_descriptors[1].descriptorCount = 1;
     write_descriptors[1].pImageInfo      = &image_info;
 
-    vkUpdateDescriptorSets(vulkan::context_get_device(context), 2, write_descriptors, 0, nullptr);
+    vkUpdateDescriptorSets(context.device, 2, write_descriptors, 0, nullptr);
   }
 
 
@@ -357,7 +354,7 @@ int main()
     {
       std::cout << "Recreating render context\n";
 
-      vkDeviceWaitIdle(vulkan::context_get_device(context));
+      vkDeviceWaitIdle(context.device);
       vulkan::destroy_render_context(context, allocator, render_context);
       render_context = vulkan::create_render_context(context, allocator, render_context_create_info);
 
@@ -409,16 +406,16 @@ int main()
     {
       std::cout << "Recreating render context\n";
 
-      vkDeviceWaitIdle(vulkan::context_get_device(context));
+      vkDeviceWaitIdle(context.device);
       vulkan::destroy_render_context(context, allocator, render_context);
       render_context = vulkan::create_render_context(context, allocator, render_context_create_info);
     }
   }
 
-  vkDeviceWaitIdle(vulkan::context_get_device(context));
+  vkDeviceWaitIdle(context.device);
 
   vulkan::destroy_render_context(context, allocator, render_context);
   vulkan::destroy_allocator(context, allocator);
-  vulkan::destroy_context(context);
+  vulkan::deinit_context(context);
   glfwTerminate();
 }

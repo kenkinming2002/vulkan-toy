@@ -47,8 +47,8 @@ namespace vulkan
 
   typedef struct RenderContext *render_context_t;
 
-  render_context_t create_render_context(context_t context, allocator_t allocator, RenderContextCreateInfo create_info);
-  void destroy_render_context(context_t context, allocator_t allocator, render_context_t render_context);
+  render_context_t create_render_context(const Context& context, allocator_t allocator, RenderContextCreateInfo create_info);
+  void destroy_render_context(const Context& context, allocator_t allocator, render_context_t render_context);
 
   struct RenderInfo
   {
@@ -60,8 +60,8 @@ namespace vulkan
     VkSemaphore semaphore_render_finished;
   };
 
-  std::optional<RenderInfo> begin_render(context_t context, render_context_t render_context);
-  bool end_render(context_t context, render_context_t render_context, RenderInfo info);
+  std::optional<RenderInfo> begin_render(const Context& context, render_context_t render_context);
+  bool end_render(const Context& context, render_context_t render_context, RenderInfo info);
 
   VkExtent2D render_context_get_extent(render_context_t render_context);
 

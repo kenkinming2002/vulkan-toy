@@ -16,5 +16,5 @@ namespace vulkan
     VkSwapchainKHR handle;
   };
 
-  Swapchain create_swapchain(context_t context);
+  Swapchain create_swapchain(const Context& context);
 }

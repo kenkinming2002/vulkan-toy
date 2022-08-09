@@ -4,9 +4,6 @@
 
 namespace vulkan
 {
-  //  A vulkan context include both a window and a all the related context
-  typedef struct Context *context_t;
-
   struct ContextCreateInfo
   {
     const char *application_name;
@@ -15,19 +12,26 @@ namespace vulkan
     unsigned width, height;
   };
 
-  context_t create_context(ContextCreateInfo create_info);
-  void destroy_context(context_t context);
+  struct Context
+  {
+    VkInstance instance;
 
-  VkSurfaceKHR context_get_surface(context_t context);
+    GLFWwindow*  window;
+    VkSurfaceKHR surface;
 
-  VkPhysicalDevice context_get_physical_device(context_t context);
-  uint32_t context_get_queue_family_index(context_t context);
+    VkPhysicalDevice physical_device;
+    uint32_t         queue_family_index;
 
-  VkDevice context_get_device(context_t context);
+    VkDevice device;
+    VkQueue  queue;
 
-  VkQueue context_get_queue(context_t context);
-  VkCommandPool context_get_command_pool(context_t context);
+    VkCommandPool   command_pool;
+  };
 
-  bool context_should_destroy(context_t context);
-  void context_handle_events(context_t context);
+  // TODO: Error code
+  void init_context(ContextCreateInfo create_info, Context& context);
+  void deinit_context(Context& context);
+
+  bool context_should_destroy(const Context& context);
+  void context_handle_events(const Context& context);
 }

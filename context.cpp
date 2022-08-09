@@ -10,22 +10,6 @@
 
 namespace vulkan
 {
-  struct Context
-  {
-    VkInstance instance;
-
-    GLFWwindow*  window;
-    VkSurfaceKHR surface;
-
-    VkPhysicalDevice physical_device;
-    uint32_t         queue_family_index;
-
-    VkDevice device;
-    VkQueue  queue;
-
-    VkCommandPool   command_pool;
-  };
-
   static std::span<const char*> glfw_get_required_instance_extensions()
   {
     uint32_t instance_extension_count;
@@ -34,10 +18,8 @@ namespace vulkan
     return std::span(instance_extensions, instance_extension_count);
   }
 
-  context_t create_context(ContextCreateInfo create_info)
+  void init_context(ContextCreateInfo create_info, Context& context)
   {
-    context_t context = new Context{};
-
     const auto enabled_layers              = std::array{ "VK_LAYER_KHRONOS_validation" };
     const auto enabled_instance_extensions = glfw_get_required_instance_extensions();
     const auto enabled_device_extensions   = std::array{ VK_KHR_SWAPCHAIN_EXTENSION_NAME };
@@ -60,25 +42,25 @@ namespace vulkan
       instance_create_info.enabledExtensionCount   = enabled_instance_extensions.size();
       instance_create_info.ppEnabledExtensionNames = enabled_instance_extensions.data();
 
-      VK_CHECK(vkCreateInstance(&instance_create_info, nullptr, &context->instance));
+      VK_CHECK(vkCreateInstance(&instance_create_info, nullptr, &context.instance));
     }
 
     // 2: Create window and surface
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    context->window = glfwCreateWindow(create_info.width, create_info.height, create_info.window_name, nullptr, nullptr);
-    VK_CHECK(glfwCreateWindowSurface(context->instance, context->window, nullptr, &context->surface));
+    context.window = glfwCreateWindow(create_info.width, create_info.height, create_info.window_name, nullptr, nullptr);
+    VK_CHECK(glfwCreateWindowSurface(context.instance, context.window, nullptr, &context.surface));
 
     // 3: Select physical device and queue family
     {
       uint32_t count;
-      vkEnumeratePhysicalDevices(context->instance, &count, nullptr);
+      vkEnumeratePhysicalDevices(context.instance, &count, nullptr);
       VkPhysicalDevice *physical_devices = new VkPhysicalDevice[count];
-      vkEnumeratePhysicalDevices(context->instance, &count, physical_devices);
+      vkEnumeratePhysicalDevices(context.instance, &count, physical_devices);
 
       // Select the first for now
       assert(count>=1);
-      context->physical_device    = physical_devices[0];
-      context->queue_family_index = 0;
+      context.physical_device    = physical_devices[0];
+      context.queue_family_index = 0;
 
       delete[] physical_devices;
     }
@@ -89,7 +71,7 @@ namespace vulkan
 
       VkDeviceQueueCreateInfo device_queue_create_info = {};
       device_queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-      device_queue_create_info.queueFamilyIndex = context->queue_family_index;
+      device_queue_create_info.queueFamilyIndex = context.queue_family_index;
       device_queue_create_info.queueCount       = 1;
       device_queue_create_info.pQueuePriorities = &queue_priority;
 
@@ -105,61 +87,48 @@ namespace vulkan
       device_create_info.ppEnabledLayerNames     = enabled_layers.data();
       device_create_info.enabledExtensionCount   = enabled_device_extensions.size();
       device_create_info.ppEnabledExtensionNames = enabled_device_extensions.data();
-      VK_CHECK(vkCreateDevice(context->physical_device, &device_create_info, nullptr, &context->device));
+      VK_CHECK(vkCreateDevice(context.physical_device, &device_create_info, nullptr, &context.device));
     }
 
     // 4: Queue
-    vkGetDeviceQueue(context->device, context->queue_family_index, 0, &context->queue);
+    vkGetDeviceQueue(context.device, context.queue_family_index, 0, &context.queue);
 
     // 5: Command pool
     {
       VkCommandPoolCreateInfo command_pool_create_info = {};
       command_pool_create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
       command_pool_create_info.flags            = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-      command_pool_create_info.queueFamilyIndex = context->queue_family_index;
-      VK_CHECK(vkCreateCommandPool(context->device, &command_pool_create_info, nullptr, &context->command_pool));
+      command_pool_create_info.queueFamilyIndex = context.queue_family_index;
+      VK_CHECK(vkCreateCommandPool(context.device, &command_pool_create_info, nullptr, &context.command_pool));
     }
-
-    return context;
   }
 
-  void destroy_context(context_t context)
+  void deinit_context(Context& context)
   {
-    vkDestroyCommandPool(context->device, context->command_pool, nullptr);
-    context->command_pool = VK_NULL_HANDLE;
+    vkDestroyCommandPool(context.device, context.command_pool, nullptr);
+    context.command_pool = VK_NULL_HANDLE;
 
-    context->queue = VK_NULL_HANDLE;
+    context.queue = VK_NULL_HANDLE;
 
-    vkDestroyDevice(context->device, nullptr);
-    context->device = VK_NULL_HANDLE;
+    vkDestroyDevice(context.device, nullptr);
+    context.device = VK_NULL_HANDLE;
 
-    vkDestroySurfaceKHR(context->instance, context->surface, nullptr);
-    context->instance = VK_NULL_HANDLE;
+    vkDestroySurfaceKHR(context.instance, context.surface, nullptr);
+    context.instance = VK_NULL_HANDLE;
 
-    glfwDestroyWindow(context->window);
-    context->window = nullptr;
+    glfwDestroyWindow(context.window);
+    context.window = nullptr;
 
-    vkDestroyInstance(context->instance, nullptr);
-    context->instance = VK_NULL_HANDLE;
-
-    delete context;
+    vkDestroyInstance(context.instance, nullptr);
+    context.instance = VK_NULL_HANDLE;
   }
 
-  VkSurfaceKHR context_get_surface(context_t context) { return context->surface; }
-
-  VkPhysicalDevice context_get_physical_device(context_t context) { return context->physical_device; }
-  uint32_t context_get_queue_family_index(context_t context) { return context->queue_family_index; }
-
-  VkDevice context_get_device(context_t context) { return context->device; }
-  VkQueue context_get_queue(context_t context) { return context->queue; }
-  VkCommandPool context_get_command_pool(context_t context) { return context->command_pool; }
-
-  bool context_should_destroy(context_t context)
+  bool context_should_destroy(const Context& context)
   {
-    return glfwWindowShouldClose(context->window);
+    return glfwWindowShouldClose(context.window);
   }
 
-  void context_handle_events(context_t context)
+  void context_handle_events(const Context& context)
   {
     (void)context;
     glfwPollEvents();

@@ -40,18 +40,14 @@ namespace vulkan
     return present_modes[0];
   }
 
-  Swapchain create_swapchain(context_t context)
+  Swapchain create_swapchain(const Context& context)
   {
-    VkSurfaceKHR     surface         = context_get_surface(context);
-    VkPhysicalDevice physical_device = context_get_physical_device(context);
-    VkDevice         device          = context_get_device(context);
-
     Swapchain swapchain = {};
 
     // Capabilities
     {
       VkSurfaceCapabilitiesKHR capabilities = {};
-      VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &capabilities));
+      VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context.physical_device, context.surface, &capabilities));
 
       // Image count
       swapchain.image_count = capabilities.minImageCount + 1;
@@ -77,9 +73,9 @@ namespace vulkan
     // Surface format
     {
       uint32_t count;
-      VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &count, nullptr));
+      VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(context.physical_device, context.surface, &count, nullptr));
       VkSurfaceFormatKHR *surface_formats = new VkSurfaceFormatKHR[count] {};
-      VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &count, surface_formats));
+      VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(context.physical_device, context.surface, &count, surface_formats));
       swapchain.surface_format = swapchain_select_surface_format(surface_formats, count);
       delete[] surface_formats;
     }
@@ -87,9 +83,9 @@ namespace vulkan
     // Present mode
     {
       uint32_t count;
-      VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &count, nullptr));
+      VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(context.physical_device, context.surface, &count, nullptr));
       VkPresentModeKHR *present_modes = new VkPresentModeKHR[count];
-      VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &count, present_modes));
+      VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(context.physical_device, context.surface, &count, present_modes));
       swapchain.present_mode = swapchain_select_present_mode(present_modes, count);
       delete[] present_modes;
     }
@@ -98,7 +94,7 @@ namespace vulkan
     {
       VkSwapchainCreateInfoKHR create_info = {};
       create_info.sType                 = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-      create_info.surface               = surface;
+      create_info.surface               = context.surface;
       create_info.imageExtent           = swapchain.extent;
       create_info.minImageCount         = swapchain.image_count;
       create_info.imageFormat           = swapchain.surface_format.format;
@@ -113,11 +109,11 @@ namespace vulkan
       create_info.presentMode           = swapchain.present_mode;
       create_info.clipped               = VK_TRUE;
       create_info.oldSwapchain          = VK_NULL_HANDLE;
-      VK_CHECK(vkCreateSwapchainKHR(device, &create_info, nullptr, &swapchain.handle));
+      VK_CHECK(vkCreateSwapchainKHR(context.device, &create_info, nullptr, &swapchain.handle));
     }
 
     // 3: Update the image count
-    vkGetSwapchainImagesKHR(device, swapchain.handle, &swapchain.image_count, nullptr);
+    vkGetSwapchainImagesKHR(context.device, swapchain.handle, &swapchain.image_count, nullptr);
     return swapchain;
   }
 }

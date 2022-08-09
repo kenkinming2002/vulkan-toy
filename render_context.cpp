@@ -53,18 +53,14 @@ namespace vulkan
     uint32_t frame_index;
   };
 
-  static void init_render_context(context_t context, allocator_t allocator, RenderContext& render_context)
+  static void init_render_context(const Context& context, allocator_t allocator, RenderContext& render_context)
   {
-    VkSurfaceKHR     surface         = context_get_surface(context);
-    VkPhysicalDevice physical_device = context_get_physical_device(context);
-    VkDevice         device          = context_get_device(context);
-
-    // 1: Get information about the surface and select the best
+    // 1: Get information about the context.surface and select the best
     {
       // Capabilities
       {
         VkSurfaceCapabilitiesKHR capabilities = {};
-        VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &capabilities));
+        VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context.physical_device, context.surface, &capabilities));
 
         // Image count
         render_context.image_count = capabilities.minImageCount + 1;
@@ -93,9 +89,9 @@ namespace vulkan
       // Surface format
       {
         uint32_t count;
-        VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &count, nullptr));
+        VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(context.physical_device, context.surface, &count, nullptr));
         auto *surface_formats = new VkSurfaceFormatKHR[count];
-        VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &count, surface_formats));
+        VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(context.physical_device, context.surface, &count, surface_formats));
         for(uint32_t i=0; i<count; ++i)
           if(surface_formats[i].format == VK_FORMAT_B8G8R8A8_SRGB && surface_formats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
           {
@@ -113,9 +109,9 @@ surface_format_selected:
       // Present mode
       {
         uint32_t count;
-        VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &count, nullptr));
+        VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(context.physical_device, context.surface, &count, nullptr));
         auto *present_modes = new VkPresentModeKHR[count];
-        VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &count, present_modes));
+        VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(context.physical_device, context.surface, &count, present_modes));
         for(uint32_t i=0; i<count; ++i)
           if(present_modes[i] == VK_PRESENT_MODE_MAILBOX_KHR)
           {
@@ -135,7 +131,7 @@ present_mode_selected:
     {
       VkSwapchainCreateInfoKHR create_info = {};
       create_info.sType                 = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-      create_info.surface               = surface;
+      create_info.surface               = context.surface;
       create_info.imageExtent           = render_context.extent;
       create_info.minImageCount         = render_context.image_count;
       create_info.imageFormat           = render_context.surface_format.format;
@@ -150,7 +146,7 @@ present_mode_selected:
       create_info.presentMode           = render_context.present_mode;
       create_info.clipped               = VK_TRUE;
       create_info.oldSwapchain          = VK_NULL_HANDLE;
-      VK_CHECK(vkCreateSwapchainKHR(device, &create_info, nullptr, &render_context.swapchain));
+      VK_CHECK(vkCreateSwapchainKHR(context.device, &create_info, nullptr, &render_context.swapchain));
     }
 
     // 3: Create Render pass
@@ -210,7 +206,7 @@ present_mode_selected:
       render_pass_create_info.dependencyCount = 1;
       render_pass_create_info.pDependencies   = &subpass_dependency;
 
-      VK_CHECK(vkCreateRenderPass(device, &render_pass_create_info, nullptr, &render_context.render_pass));
+      VK_CHECK(vkCreateRenderPass(context.device, &render_pass_create_info, nullptr, &render_context.render_pass));
     }
 
     // 4: Create Pipeline
@@ -377,13 +373,13 @@ present_mode_selected:
       descriptor_set_layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
       descriptor_set_layout_create_info.bindingCount = 2;
       descriptor_set_layout_create_info.pBindings    = layout_bindings;
-      VK_CHECK(vkCreateDescriptorSetLayout(device, &descriptor_set_layout_create_info, nullptr, &render_context.descriptor_set_layout));
+      VK_CHECK(vkCreateDescriptorSetLayout(context.device, &descriptor_set_layout_create_info, nullptr, &render_context.descriptor_set_layout));
 
       VkPipelineLayoutCreateInfo pipeline_layout_create_info = {};
       pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
       pipeline_layout_create_info.setLayoutCount = 1;
       pipeline_layout_create_info.pSetLayouts    = &render_context.descriptor_set_layout;
-      VK_CHECK(vkCreatePipelineLayout(device, &pipeline_layout_create_info, nullptr, &render_context.pipeline_layout));
+      VK_CHECK(vkCreatePipelineLayout(context.device, &pipeline_layout_create_info, nullptr, &render_context.pipeline_layout));
 
       VkGraphicsPipelineCreateInfo graphics_pipeline_create_info = {};
       graphics_pipeline_create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -402,13 +398,13 @@ present_mode_selected:
       graphics_pipeline_create_info.subpass             = 0;
       graphics_pipeline_create_info.basePipelineHandle = VK_NULL_HANDLE;
       graphics_pipeline_create_info.basePipelineIndex  = -1;
-      VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &graphics_pipeline_create_info, nullptr, &render_context.pipeline));
+      VK_CHECK(vkCreateGraphicsPipelines(context.device, VK_NULL_HANDLE, 1, &graphics_pipeline_create_info, nullptr, &render_context.pipeline));
     }
 
     // 5: Get image from swapchain
-    VK_CHECK(vkGetSwapchainImagesKHR(device, render_context.swapchain, &render_context.image_count, nullptr));
+    VK_CHECK(vkGetSwapchainImagesKHR(context.device, render_context.swapchain, &render_context.image_count, nullptr));
     VkImage *swapchain_images = new VkImage[render_context.image_count];
-    VK_CHECK(vkGetSwapchainImagesKHR(device, render_context.swapchain, &render_context.image_count, swapchain_images));
+    VK_CHECK(vkGetSwapchainImagesKHR(context.device, render_context.swapchain, &render_context.image_count, swapchain_images));
 
     // 5: Create image resources
     {
@@ -445,7 +441,7 @@ present_mode_selected:
           create_info.subresourceRange.levelCount     = 1;
           create_info.subresourceRange.baseArrayLayer = 0;
           create_info.subresourceRange.layerCount     = 1;
-          VK_CHECK(vkCreateImageView(device, &create_info, nullptr, &image_resource.color_image_view));
+          VK_CHECK(vkCreateImageView(context.device, &create_info, nullptr, &image_resource.color_image_view));
         }
 
         // Depth image view
@@ -464,7 +460,7 @@ present_mode_selected:
           create_info.subresourceRange.levelCount     = 1;
           create_info.subresourceRange.baseArrayLayer = 0;
           create_info.subresourceRange.layerCount     = 1;
-          VK_CHECK(vkCreateImageView(device, &create_info, nullptr, &image_resource.depth_image_view));
+          VK_CHECK(vkCreateImageView(context.device, &create_info, nullptr, &image_resource.depth_image_view));
         }
 
         // Framebuffer
@@ -479,7 +475,7 @@ present_mode_selected:
           create_info.width           = render_context.extent.width;
           create_info.height          = render_context.extent.height;
           create_info.layers          = 1;
-          VK_CHECK(vkCreateFramebuffer(device, &create_info, nullptr, &image_resource.framebuffer));
+          VK_CHECK(vkCreateFramebuffer(context.device, &create_info, nullptr, &image_resource.framebuffer));
         }
 
         render_context.image_resources[i] = image_resource;
@@ -493,8 +489,8 @@ present_mode_selected:
       {
         FrameResource frame_resource = {};
         frame_resource.command_buffer            = vulkan::create_command_buffer(context, true);
-        frame_resource.semaphore_image_available = vulkan::create_semaphore(device);
-        frame_resource.semaphore_render_finished = vulkan::create_semaphore(device);
+        frame_resource.semaphore_image_available = vulkan::create_semaphore(context.device);
+        frame_resource.semaphore_render_finished = vulkan::create_semaphore(context.device);
         render_context.frame_resources[i] = frame_resource;
       }
       render_context.frame_count = render_context.create_info.max_frame_in_flight;
@@ -502,30 +498,29 @@ present_mode_selected:
     }
   }
 
-  static void deinit_render_context(context_t context, allocator_t allocator, RenderContext& render_context)
+  static void deinit_render_context(const Context& context, allocator_t allocator, RenderContext& render_context)
   {
-    VkDevice device = context_get_device(context);
     (void)allocator;
 
     for(uint32_t i=0; i<render_context.image_count; ++i)
     {
       ImageResource frame = render_context.image_resources[i];
-      vkDestroyFramebuffer(device, frame.framebuffer, nullptr);
-      vkDestroyImageView(device, frame.depth_image_view, nullptr);
-      vkDestroyImageView(device, frame.color_image_view, nullptr);
-      vkDestroyImage    (device, frame.depth_image, nullptr);
+      vkDestroyFramebuffer(context.device, frame.framebuffer, nullptr);
+      vkDestroyImageView(context.device, frame.depth_image_view, nullptr);
+      vkDestroyImageView(context.device, frame.color_image_view, nullptr);
+      vkDestroyImage    (context.device, frame.depth_image, nullptr);
       deallocate_memory(context, allocator, frame.depth_memory_allocation);
     }
     delete[] render_context.image_resources;
 
-    vkDestroyPipeline           (device, render_context.pipeline,              nullptr);
-    vkDestroyPipelineLayout     (device, render_context.pipeline_layout,       nullptr);
-    vkDestroyDescriptorSetLayout(device, render_context.descriptor_set_layout, nullptr);
-    vkDestroyRenderPass         (device, render_context.render_pass,           nullptr);
-    vkDestroySwapchainKHR       (device, render_context.swapchain,             nullptr);
+    vkDestroyPipeline           (context.device, render_context.pipeline,              nullptr);
+    vkDestroyPipelineLayout     (context.device, render_context.pipeline_layout,       nullptr);
+    vkDestroyDescriptorSetLayout(context.device, render_context.descriptor_set_layout, nullptr);
+    vkDestroyRenderPass         (context.device, render_context.render_pass,           nullptr);
+    vkDestroySwapchainKHR       (context.device, render_context.swapchain,             nullptr);
   }
 
-  render_context_t create_render_context(context_t context, allocator_t allocator, RenderContextCreateInfo create_info)
+  render_context_t create_render_context(const Context& context, allocator_t allocator, RenderContextCreateInfo create_info)
   {
     render_context_t render_context = new RenderContext{};
     render_context->create_info = create_info;
@@ -533,16 +528,14 @@ present_mode_selected:
     return render_context;
   }
 
-  void destroy_render_context(context_t context, allocator_t allocator, render_context_t render_context)
+  void destroy_render_context(const Context& context, allocator_t allocator, render_context_t render_context)
   {
     deinit_render_context(context, allocator, *render_context);
     delete render_context;
   }
 
-  std::optional<RenderInfo> begin_render(context_t context, render_context_t render_context)
+  std::optional<RenderInfo> begin_render(const Context& context, render_context_t render_context)
   {
-    VkDevice device = context_get_device(context);
-
     // Render info
     RenderInfo info  = {};
 
@@ -552,7 +545,7 @@ present_mode_selected:
     FrameResource frame_resource = render_context->frame_resources[info.frame_index];
 
     // Acquire image resource
-    auto result = vkAcquireNextImageKHR(device, render_context->swapchain, UINT64_MAX, frame_resource.semaphore_image_available, VK_NULL_HANDLE, &info.image_index);
+    auto result = vkAcquireNextImageKHR(context.device, render_context->swapchain, UINT64_MAX, frame_resource.semaphore_image_available, VK_NULL_HANDLE, &info.image_index);
     if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) return std::nullopt;
     VK_CHECK(result);
     ImageResource image_resource = render_context->image_resources[info.image_index];
@@ -586,7 +579,7 @@ present_mode_selected:
     return info;
   }
 
-  bool end_render(context_t context, render_context_t render_context, RenderInfo info)
+  bool end_render(const Context& context, render_context_t render_context, RenderInfo info)
   {
     FrameResource frame_resource = render_context->frame_resources[info.frame_index];
 
@@ -609,8 +602,7 @@ present_mode_selected:
     present_info.pImageIndices  = &info.image_index;
     present_info.pResults       = nullptr;
 
-    VkQueue queue = vulkan::context_get_queue(context);
-    auto result = vkQueuePresentKHR(queue, &present_info);
+    auto result = vkQueuePresentKHR(context.queue, &present_info);
     if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
       return false;
 

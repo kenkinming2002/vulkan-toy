@@ -9,39 +9,33 @@ namespace vulkan
     VkFence fence;
   };
 
-  command_buffer_t create_command_buffer(context_t context, bool async)
+  command_buffer_t create_command_buffer(const Context& context, bool async)
   {
-    VkDevice      device       = context_get_device(context);
-    VkCommandPool command_pool = context_get_command_pool(context);
-
     command_buffer_t command_buffer = new CommandBuffer{};
 
     VkCommandBufferAllocateInfo allocate_info = {};
     allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocate_info.commandPool        = command_pool;
+    allocate_info.commandPool        = context.command_pool;
     allocate_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocate_info.commandBufferCount = 1;
-    VK_CHECK(vkAllocateCommandBuffers(device, &allocate_info, &command_buffer->handle));
+    VK_CHECK(vkAllocateCommandBuffers(context.device, &allocate_info, &command_buffer->handle));
 
     VkFenceCreateInfo create_info = {};
     create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     if(async)
       create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-    VK_CHECK(vkCreateFence(device, &create_info, nullptr, &command_buffer->fence));
+    VK_CHECK(vkCreateFence(context.device, &create_info, nullptr, &command_buffer->fence));
 
     return command_buffer;
   }
 
-  void destroy_command_buffer(context_t context, command_buffer_t command_buffer)
+  void destroy_command_buffer(const Context& context, command_buffer_t command_buffer)
   {
-    VkDevice device = context_get_device(context);
-    VkCommandPool command_pool = context_get_command_pool(context);
-
-    vkDestroyFence(device, command_buffer->fence, nullptr);
+    vkDestroyFence(context.device, command_buffer->fence, nullptr);
     command_buffer->fence = VK_NULL_HANDLE;
 
-    vkFreeCommandBuffers(device, command_pool, 1, &command_buffer->handle);
+    vkFreeCommandBuffers(context.device, context.command_pool, 1, &command_buffer->handle);
     command_buffer->handle = VK_NULL_HANDLE;
 
     delete command_buffer;
@@ -63,31 +57,25 @@ namespace vulkan
     VK_CHECK(vkEndCommandBuffer(command_buffer->handle));
   }
 
-  void command_buffer_wait(context_t context, command_buffer_t command_buffer)
+  void command_buffer_wait(const Context& context, command_buffer_t command_buffer)
   {
-    VkDevice device = context_get_device(context);
-
-    vkWaitForFences(device, 1, &command_buffer->fence, VK_TRUE, UINT64_MAX);
-    vkResetFences(device, 1, &command_buffer->fence);
+    vkWaitForFences(context.device, 1, &command_buffer->fence, VK_TRUE, UINT64_MAX);
+    vkResetFences(context.device, 1, &command_buffer->fence);
   }
 
-  void command_buffer_submit(context_t context, command_buffer_t command_buffer)
+  void command_buffer_submit(const Context& context, command_buffer_t command_buffer)
   {
-    VkQueue queue = context_get_queue(context);
-
     VkSubmitInfo submit_info = {};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit_info.commandBufferCount = 1;
     submit_info.pCommandBuffers    = &command_buffer->handle;
-    VK_CHECK(vkQueueSubmit(queue, 1, &submit_info, command_buffer->fence));
+    VK_CHECK(vkQueueSubmit(context.queue, 1, &submit_info, command_buffer->fence));
   }
 
-  void command_buffer_submit(context_t context, command_buffer_t command_buffer,
+  void command_buffer_submit(const Context& context, command_buffer_t command_buffer,
       VkSemaphore wait_semaphore, VkPipelineStageFlags wait_stage,
       VkSemaphore signal_semaphore)
   {
-    VkQueue queue = context_get_queue(context);
-
     VkSubmitInfo submit_info = {};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -101,6 +89,6 @@ namespace vulkan
     submit_info.commandBufferCount = 1;
     submit_info.pCommandBuffers    = &command_buffer->handle;
 
-    VK_CHECK(vkQueueSubmit(queue, 1, &submit_info, command_buffer->fence));
+    VK_CHECK(vkQueueSubmit(context.queue, 1, &submit_info, command_buffer->fence));
   }
 }
