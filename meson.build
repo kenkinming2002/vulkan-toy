@@ -13,6 +13,7 @@ srcs = [
   'context.cpp',
   'swapchain.cpp',
   'render_context.cpp',
+  'fence.cpp',
   'command_buffer.cpp',
   'buffer.cpp',
   'impl.cpp'
