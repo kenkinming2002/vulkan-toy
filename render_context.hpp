@@ -55,7 +55,7 @@ namespace vulkan
     uint32_t      frame_index;
     uint32_t      image_index;
 
-    command_buffer_t command_buffer;
+    CommandBuffer command_buffer;
     VkSemaphore semaphore_image_available;
     VkSemaphore semaphore_render_finished;
   };

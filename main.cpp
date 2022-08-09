@@ -373,8 +373,7 @@ int main()
     ubo.proj[1][1] *= -1;
     vulkan::write_buffer(context, allocator, ubos[frame_info->frame_index], ubo_allocations[frame_info->frame_index], &ubo);
 
-    VkCommandBuffer command_buffer_handle = vulkan::command_buffer_get_handle(frame_info->command_buffer);
-    vkCmdBindDescriptorSets(command_buffer_handle,
+    vkCmdBindDescriptorSets(frame_info->command_buffer.handle,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
         vulkan::render_context_get_pipeline_layout(render_context),
         0, 1,
@@ -382,8 +381,8 @@ int main()
         0, nullptr);
 
     VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(command_buffer_handle, 0, 1, &model.vbo, offsets);
-    vkCmdBindIndexBuffer(command_buffer_handle, model.ibo, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindVertexBuffers(frame_info->command_buffer.handle, 0, 1, &model.vbo, offsets);
+    vkCmdBindIndexBuffer(frame_info->command_buffer.handle, model.ibo, 0, VK_INDEX_TYPE_UINT32);
 
     VkViewport viewport = {};
     viewport.x = 0.0f;
@@ -392,14 +391,14 @@ int main()
     viewport.height = extent.height;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(command_buffer_handle, 0, 1, &viewport);
+    vkCmdSetViewport(frame_info->command_buffer.handle, 0, 1, &viewport);
 
     VkRect2D scissor = {};
     scissor.offset = {0, 0};
     scissor.extent = extent;
-    vkCmdSetScissor(command_buffer_handle, 0, 1, &scissor);
+    vkCmdSetScissor(frame_info->command_buffer.handle, 0, 1, &scissor);
 
-    vkCmdDrawIndexed(command_buffer_handle, model.index_count, 1, 0, 0, 0);
+    vkCmdDrawIndexed(frame_info->command_buffer.handle, model.index_count, 1, 0, 0, 0);
 
     if(!vulkan::end_render(context, render_context, *frame_info))
     {

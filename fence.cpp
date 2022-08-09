@@ -1,6 +1,7 @@
 #include "fence.hpp"
 
 #include "vk_check.hpp"
+#include <vulkan/vulkan_core.h>
 
 namespace vulkan
 {
@@ -18,5 +19,11 @@ namespace vulkan
   {
     vkDestroyFence(context.device, fence.handle, nullptr);
     fence.handle = VK_NULL_HANDLE;
+  }
+
+  void fence_wait_and_reset(const Context& context, const Fence& fence)
+  {
+    VK_CHECK(vkWaitForFences(context.device, 1, &fence.handle, VK_TRUE, UINT64_MAX));
+    VK_CHECK(vkResetFences(context.device, 1, &fence.handle));
   }
 }

@@ -1,5 +1,6 @@
 #include "buffer.hpp"
 #include "command_buffer.hpp"
+#include "fence.hpp"
 #include "vk_check.hpp"
 
 #include <assert.h>
@@ -143,22 +144,27 @@ namespace vulkan
     MemoryAllocation staging_allocation;
     VkBuffer staging_buffer = create_buffer(context, allocator, info, staging_allocation);
     {
-      command_buffer_t command_buffer = create_command_buffer(context, false);
-      VkCommandBuffer command_buffer_handle = command_buffer_get_handle(command_buffer);
+      CommandBuffer command_buffer = {};
+      Fence fence = {};
 
-      vulkan::command_buffer_begin(command_buffer);
+      init_command_buffer(context, command_buffer);
+      init_fence(context, fence, false);
+
+      command_buffer_begin(command_buffer);
 
       VkBufferCopy buffer_copy = {};
       buffer_copy.srcOffset = 0;
       buffer_copy.dstOffset = 0;
       buffer_copy.size      = allocation.size;
-      vkCmdCopyBuffer(command_buffer_handle, staging_buffer, buffer, 1, &buffer_copy);
+      vkCmdCopyBuffer(command_buffer.handle, staging_buffer, buffer, 1, &buffer_copy);
 
-      vulkan::command_buffer_end(command_buffer);
-      vulkan::command_buffer_submit(context, command_buffer);
-      vulkan::command_buffer_wait(context, command_buffer);
+      command_buffer_end(command_buffer);
 
-      destroy_command_buffer(context, command_buffer);
+      command_buffer_submit(context, command_buffer, fence);
+      fence_wait_and_reset(context, fence);
+
+      deinit_fence(context, fence);
+      deinit_command_buffer(context, command_buffer);
     }
     vkDestroyBuffer(context.device, staging_buffer, nullptr);
     deallocate_memory(context, allocator, staging_allocation);
@@ -177,10 +183,13 @@ namespace vulkan
     VkBuffer staging_buffer = create_buffer(context, allocator, info, staging_allocation);
     write_buffer(context, allocator, staging_buffer, staging_allocation, data);
     {
-      command_buffer_t command_buffer = create_command_buffer(context, false);
-      VkCommandBuffer command_buffer_handle = command_buffer_get_handle(command_buffer);
+      CommandBuffer command_buffer = {};
+      Fence fence = {};
 
-      vulkan::command_buffer_begin(command_buffer);
+      init_command_buffer(context, command_buffer);
+      init_fence(context, fence, false);
+
+      command_buffer_begin(command_buffer);
 
       // Barrier
       {
@@ -198,7 +207,7 @@ namespace vulkan
         barrier.subresourceRange.levelCount     = 1;
         barrier.subresourceRange.baseArrayLayer = 0;
         barrier.subresourceRange.layerCount     = 1;
-        vkCmdPipelineBarrier(command_buffer_handle, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+        vkCmdPipelineBarrier(command_buffer.handle, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
       }
 
       // Copy
@@ -213,7 +222,7 @@ namespace vulkan
         buffer_image_copy.imageSubresource.layerCount     = 1;
         buffer_image_copy.imageOffset                     = {0, 0, 0};
         buffer_image_copy.imageExtent                     = { static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1};
-        vkCmdCopyBufferToImage(command_buffer_handle, staging_buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &buffer_image_copy);
+        vkCmdCopyBufferToImage(command_buffer.handle, staging_buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &buffer_image_copy);
       }
 
       // Barrier
@@ -232,14 +241,16 @@ namespace vulkan
         barrier.subresourceRange.levelCount     = 1;
         barrier.subresourceRange.baseArrayLayer = 0;
         barrier.subresourceRange.layerCount     = 1;
-        vkCmdPipelineBarrier(command_buffer_handle, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+        vkCmdPipelineBarrier(command_buffer.handle, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
       }
 
-      vulkan::command_buffer_end(command_buffer);
-      vulkan::command_buffer_submit(context, command_buffer);
-      vulkan::command_buffer_wait(context, command_buffer);
+      command_buffer_end(command_buffer);
 
-      destroy_command_buffer(context, command_buffer);
+      command_buffer_submit(context, command_buffer, fence);
+      fence_wait_and_reset(context, fence);
+
+      deinit_fence(context, fence);
+      deinit_command_buffer(context, command_buffer);
     }
     vkDestroyBuffer(context.device, staging_buffer, nullptr);
     deallocate_memory(context, allocator, staging_allocation);

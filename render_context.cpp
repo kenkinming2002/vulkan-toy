@@ -1,5 +1,6 @@
 #include "render_context.hpp"
 #include "buffer.hpp"
+#include "command_buffer.hpp"
 #include "swapchain.hpp"
 #include "vk_check.hpp"
 
@@ -23,7 +24,8 @@ namespace vulkan
 
   struct FrameResource
   {
-    command_buffer_t command_buffer;
+    CommandBuffer command_buffer;
+    Fence fence;
 
     VkSemaphore semaphore_image_available;
     VkSemaphore semaphore_render_finished;
@@ -391,7 +393,8 @@ namespace vulkan
       for(uint32_t i=0; i<render_context.create_info.max_frame_in_flight; ++i)
       {
         FrameResource frame_resource = {};
-        frame_resource.command_buffer            = vulkan::create_command_buffer(context, true);
+        init_command_buffer(context, frame_resource.command_buffer);
+        init_fence(context, frame_resource.fence, true);
         frame_resource.semaphore_image_available = vulkan::create_semaphore(context.device);
         frame_resource.semaphore_render_finished = vulkan::create_semaphore(context.device);
         render_context.frame_resources[i] = frame_resource;
@@ -454,8 +457,8 @@ namespace vulkan
     ImageResource image_resource = render_context->image_resources[info.image_index];
 
     // Wait and begin commannd buffer recording
-    vulkan::command_buffer_wait(context, frame_resource.command_buffer);
-    vulkan::command_buffer_begin(frame_resource.command_buffer);
+    fence_wait_and_reset(context, frame_resource.fence);
+    command_buffer_begin(frame_resource.command_buffer);
 
     VkRenderPassBeginInfo render_pass_begin_info = {};
     render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -472,9 +475,8 @@ namespace vulkan
     render_pass_begin_info.clearValueCount = 2;
     render_pass_begin_info.pClearValues = clear_values;
 
-    VkCommandBuffer command_buffer_handle = vulkan::command_buffer_get_handle(frame_resource.command_buffer);
-    vkCmdBeginRenderPass(command_buffer_handle, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(command_buffer_handle, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkan::render_context_get_pipeline(render_context));
+    vkCmdBeginRenderPass(frame_resource.command_buffer.handle, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(frame_resource.command_buffer.handle, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkan::render_context_get_pipeline(render_context));
 
     info.semaphore_image_available = frame_resource.semaphore_image_available;
     info.semaphore_render_finished = frame_resource.semaphore_render_finished;
@@ -486,12 +488,11 @@ namespace vulkan
   {
     FrameResource frame_resource = render_context->frame_resources[info.frame_index];
 
-    VkCommandBuffer command_buffer_handle = command_buffer_get_handle(frame_resource.command_buffer);
-    vkCmdEndRenderPass(command_buffer_handle);
+    vkCmdEndRenderPass(frame_resource.command_buffer.handle);
 
     // End command buffer recording and submit
     command_buffer_end(frame_resource.command_buffer);
-    command_buffer_submit(context, frame_resource.command_buffer,
+    command_buffer_submit(context, frame_resource.command_buffer, frame_resource.fence,
         frame_resource.semaphore_image_available, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
         frame_resource.semaphore_render_finished);
 
