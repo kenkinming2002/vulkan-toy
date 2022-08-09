@@ -50,7 +50,7 @@ namespace vulkan
 
   static void init_render_context(const Context& context, allocator_t allocator, RenderContext& render_context)
   {
-    render_context.swapchain = create_swapchain(context);
+    init_swapchain(context, render_context.swapchain);
 
     // 3: Create Render pass
     {
@@ -420,7 +420,7 @@ namespace vulkan
     vkDestroyPipelineLayout     (context.device, render_context.pipeline_layout,       nullptr);
     vkDestroyDescriptorSetLayout(context.device, render_context.descriptor_set_layout, nullptr);
     vkDestroyRenderPass         (context.device, render_context.render_pass,           nullptr);
-    vkDestroySwapchainKHR       (context.device, render_context.swapchain.handle,      nullptr);
+    deinit_swapchain(context, render_context.swapchain);
   }
 
   render_context_t create_render_context(const Context& context, allocator_t allocator, RenderContextCreateInfo create_info)

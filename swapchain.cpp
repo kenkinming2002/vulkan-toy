@@ -41,10 +41,8 @@ namespace vulkan
     return present_modes[0];
   }
 
-  Swapchain create_swapchain(const Context& context)
+  void init_swapchain(const Context& context, Swapchain& swapchain)
   {
-    Swapchain swapchain = {};
-
     // Capabilities
     {
       VkSurfaceCapabilitiesKHR capabilities = {};
@@ -115,6 +113,12 @@ namespace vulkan
 
     // 3: Update the image count
     vkGetSwapchainImagesKHR(context.device, swapchain.handle, &swapchain.image_count, nullptr);
-    return swapchain;
+  }
+
+  void deinit_swapchain(const Context& context, Swapchain& swapchain)
+  {
+    vkDestroySwapchainKHR(context.device, swapchain.handle, nullptr);
+    swapchain.handle = nullptr;
+    swapchain = {};
   }
 }
