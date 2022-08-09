@@ -1,11 +1,14 @@
 #include "context.hpp"
 
+#include "vk_check.hpp"
+
 #include <GLFW/glfw3.h>
 
 #include <array>
 #include <span>
 
 #include <assert.h>
+
 #include <vulkan/vulkan_core.h>
 
 namespace vulkan

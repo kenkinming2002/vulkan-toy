@@ -2,6 +2,7 @@
 #include "render_context.hpp"
 #include "command_buffer.hpp"
 #include "vulkan.hpp"
+#include "vk_check.hpp"
 #include "buffer.hpp"
 
 #include "tiny_obj_loader.h"
@@ -31,8 +32,6 @@
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
-
-#define VK_CHECK(expr) do { if(expr != VK_SUCCESS) { fprintf(stderr, "Vulkan pooped itself:%s\n", #expr); abort(); } } while(0)
 
 // TODO: Move this outside
 struct UniformBufferObject

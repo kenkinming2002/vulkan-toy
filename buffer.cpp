@@ -1,5 +1,6 @@
 #include "buffer.hpp"
 #include "command_buffer.hpp"
+#include "vk_check.hpp"
 
 #include <assert.h>
 #include <vulkan/vulkan_core.h>

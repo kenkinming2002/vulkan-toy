@@ -1,4 +1,7 @@
 #include "command_buffer.hpp"
+
+#include "vk_check.hpp"
+
 #include <vulkan/vulkan_core.h>
 
 namespace vulkan

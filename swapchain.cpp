@@ -1,4 +1,5 @@
 #include "swapchain.hpp"
+#include "vk_check.hpp"
 
 #include <algorithm>
 #include <limits>

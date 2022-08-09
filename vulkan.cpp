@@ -1,4 +1,5 @@
 #include "vulkan.hpp"
+#include "vk_check.hpp"
 
 #include <stdio.h>
 #include <stdlib.h>

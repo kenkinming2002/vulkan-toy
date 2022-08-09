@@ -1,5 +1,7 @@
 #include "render_context.hpp"
 #include "buffer.hpp"
+#include "vk_check.hpp"
+
 #include <vulkan/vulkan_core.h>
 
 namespace vulkan
