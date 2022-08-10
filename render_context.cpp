@@ -62,8 +62,8 @@ namespace vulkan
     // Create pipeline layout
     {
       const DescriptorInfo descriptor_infos[] = {
-        {.type = DescriptorType::UNIFORM_BUFFER, .stage = PipelineStage::VERTEX },
-        {.type = DescriptorType::SAMPLER,        .stage = PipelineStage::FRAGMENT },
+        {.type = DescriptorType::UNIFORM_BUFFER, .stage = ShaderStage::VERTEX },
+        {.type = DescriptorType::SAMPLER,        .stage = ShaderStage::FRAGMENT },
       };
 
       PipelineLayoutCreateInfo create_info = {};

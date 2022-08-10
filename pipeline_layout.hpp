@@ -1,25 +1,25 @@
 #pragma once
 
 #include "context.hpp"
+#include "shader_stage.hpp"
 
 #include <vulkan/vulkan.h>
 
 namespace vulkan
 {
-  enum class PipelineStage { VERTEX, FRAGMENT };
   enum class DescriptorType { UNIFORM_BUFFER, SAMPLER };
 
   struct DescriptorInfo
   {
     DescriptorType type;
-    PipelineStage stage;
+    ShaderStage stage;
   };
 
   struct PushConstantInfo
   {
     uint32_t offset;
     uint32_t size;
-    PipelineStage stage;
+    ShaderStage stage;
   };
 
   struct PipelineLayoutCreateInfo

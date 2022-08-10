@@ -15,12 +15,12 @@ namespace vulkan
     }
   }
 
-  static VkShaderStageFlags to_vulkan_stage_flags(PipelineStage stage)
+  static VkShaderStageFlags to_vulkan_stage_flags(ShaderStage stage)
   {
     switch(stage)
     {
-    case PipelineStage::VERTEX:   return VK_SHADER_STAGE_VERTEX_BIT;
-    case PipelineStage::FRAGMENT: return VK_SHADER_STAGE_FRAGMENT_BIT;
+    case ShaderStage::VERTEX:   return VK_SHADER_STAGE_VERTEX_BIT;
+    case ShaderStage::FRAGMENT: return VK_SHADER_STAGE_FRAGMENT_BIT;
     default: assert(false && "Unreachable");
     }
   }
