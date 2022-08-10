@@ -5,25 +5,18 @@
 
 namespace vulkan
 {
-  struct FramebufferInfo
-  {
-    uint32_t   count;
-    VkExtent2D extent;
-  };
-
   struct FramebufferCreateInfo
   {
-    FramebufferInfo framebuffer_info;
-
     VkRenderPass      render_pass;
+
+    VkExtent2D        extent;
     const Attachment *attachments;
     uint32_t          attachment_count;
   };
 
   struct Framebuffer
   {
-    FramebufferInfo info;
-    VkFramebuffer *handles;
+    VkFramebuffer handle;
   };
 
   void init_framebuffer(const Context& context, Framebuffer& framebuffer, const Attachment *attachments, uint32_t attachment_count);
