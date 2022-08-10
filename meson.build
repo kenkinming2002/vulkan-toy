@@ -15,6 +15,7 @@ srcs = [
   'swapchain.cpp',
   'attachment.cpp',
   'framebuffer.cpp',
+  'render_pass.cpp',
   'render_context.cpp',
   'fence.cpp',
   'command_buffer.cpp',

@@ -1,6 +1,8 @@
 #include "render_context.hpp"
+
 #include "buffer.hpp"
 #include "command_buffer.hpp"
+#include "render_pass.hpp"
 #include "swapchain.hpp"
 #include "attachment.hpp"
 #include "framebuffer.hpp"
@@ -36,8 +38,8 @@ namespace vulkan
     VkPipelineLayout      pipeline_layout;
 
     // TODO: How to support multiple render pass
-    VkRenderPass          render_pass;
-    VkPipeline            pipeline;
+    RenderPass render_pass;
+    VkPipeline pipeline;
 
     ImageResource *image_resources;
     FrameResource *frame_resources;
@@ -50,65 +52,13 @@ namespace vulkan
   {
     init_swapchain(context, render_context.swapchain);
 
-    // 3: Create Render pass
     {
-      // Create render pass
-      VkAttachmentDescription color_attachment = {};
-      color_attachment.format         = render_context.swapchain.surface_format.format;
-      color_attachment.samples        = VK_SAMPLE_COUNT_1_BIT;
-      color_attachment.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
-      color_attachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
-      color_attachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-      color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-      color_attachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
-      color_attachment.finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-      VkAttachmentDescription depth_attachment = {};
-      depth_attachment.format         = VK_FORMAT_D32_SFLOAT;
-      depth_attachment.samples        = VK_SAMPLE_COUNT_1_BIT;
-      depth_attachment.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
-      depth_attachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
-      depth_attachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-      depth_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-      depth_attachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
-      depth_attachment.finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-      VkAttachmentDescription attachments[] = { color_attachment, depth_attachment };
-
-      VkAttachmentReference color_attachment_reference = {};
-      color_attachment_reference.attachment = 0;
-      color_attachment_reference.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-      VkAttachmentReference depth_attachment_reference = {};
-      depth_attachment_reference.attachment = 1;
-      depth_attachment_reference.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-      VkSubpassDescription subpass_description = {};
-      subpass_description.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-      subpass_description.colorAttachmentCount    = 1;
-      subpass_description.pColorAttachments       = &color_attachment_reference;
-      subpass_description.pDepthStencilAttachment = &depth_attachment_reference;
-
-      VkRenderPassCreateInfo render_pass_create_info = {};
-      render_pass_create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-      render_pass_create_info.attachmentCount = sizeof attachments / sizeof attachments[0];
-      render_pass_create_info.pAttachments    = attachments;
-      render_pass_create_info.subpassCount    = 1;
-      render_pass_create_info.pSubpasses      = &subpass_description;
-
-      VkSubpassDependency subpass_dependency = {};
-      subpass_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-      subpass_dependency.dstSubpass = 0;
-      subpass_dependency.srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-      subpass_dependency.srcAccessMask = 0;
-      subpass_dependency.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-      subpass_dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-      render_pass_create_info.dependencyCount = 1;
-      render_pass_create_info.pDependencies   = &subpass_dependency;
-
-      VK_CHECK(vkCreateRenderPass(context.device, &render_pass_create_info, nullptr, &render_context.render_pass));
+      RenderPassCreateInfoSimple create_info = {};
+      create_info.color_format = render_context.swapchain.surface_format.format;
+      create_info.depth_format = VK_FORMAT_D32_SFLOAT;
+      init_render_pass_simple(context, create_info, render_context.render_pass);
     }
+
 
     // 4: Create Pipeline
     {
@@ -295,7 +245,7 @@ namespace vulkan
       graphics_pipeline_create_info.pColorBlendState    = &color_blending_state_create_info;
       graphics_pipeline_create_info.pDynamicState       = &dynamic_state_create_info;
       graphics_pipeline_create_info.layout              = render_context.pipeline_layout;
-      graphics_pipeline_create_info.renderPass          = render_context.render_pass;
+      graphics_pipeline_create_info.renderPass          = render_context.render_pass.handle;
       graphics_pipeline_create_info.subpass             = 0;
       graphics_pipeline_create_info.basePipelineHandle = VK_NULL_HANDLE;
       graphics_pipeline_create_info.basePipelineIndex  = -1;
@@ -335,7 +285,7 @@ namespace vulkan
             to_attachment(image_resource.depth_attachment),
           };
           FramebufferCreateInfo create_info = {};
-          create_info.render_pass      = render_context.render_pass;
+          create_info.render_pass      = render_context.render_pass.handle;
           create_info.extent           = render_context.swapchain.extent;
           create_info.attachments      = attachments;
           create_info.attachment_count = std::size(attachments);
@@ -379,7 +329,7 @@ namespace vulkan
     vkDestroyPipeline           (context.device, render_context.pipeline,              nullptr);
     vkDestroyPipelineLayout     (context.device, render_context.pipeline_layout,       nullptr);
     vkDestroyDescriptorSetLayout(context.device, render_context.descriptor_set_layout, nullptr);
-    vkDestroyRenderPass         (context.device, render_context.render_pass,           nullptr);
+    deinit_render_pass(context, render_context.render_pass);
     deinit_swapchain(context, render_context.swapchain);
   }
 
@@ -419,7 +369,7 @@ namespace vulkan
 
     VkRenderPassBeginInfo render_pass_begin_info = {};
     render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    render_pass_begin_info.renderPass        = render_context->render_pass;
+    render_pass_begin_info.renderPass        = render_context->render_pass.handle;
     render_pass_begin_info.framebuffer       = image_resource.framebuffer.handle;
     render_pass_begin_info.renderArea.offset = {0, 0};
     render_pass_begin_info.renderArea.extent = render_context->swapchain.extent;
@@ -476,6 +426,6 @@ namespace vulkan
   VkDescriptorSetLayout render_context_get_descriptor_set_layout(render_context_t render_context) { return render_context->descriptor_set_layout; }
   VkPipelineLayout render_context_get_pipeline_layout(render_context_t render_context) { return render_context->pipeline_layout; }
 
-  VkRenderPass render_context_get_render_pass(render_context_t render_context) { return render_context->render_pass; }
+  VkRenderPass render_context_get_render_pass(render_context_t render_context) { return render_context->render_pass.handle; }
   VkPipeline render_context_get_pipeline(render_context_t render_context) { return render_context->pipeline; }
 }

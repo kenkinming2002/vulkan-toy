@@ -17,7 +17,7 @@ namespace vulkan
     color_attachment_description.finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
     VkAttachmentDescription depth_attachment_description = {};
-    color_attachment_description.format         = create_info.depth_format;
+    depth_attachment_description.format         = create_info.depth_format;
     depth_attachment_description.samples        = VK_SAMPLE_COUNT_1_BIT;
     depth_attachment_description.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depth_attachment_description.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
