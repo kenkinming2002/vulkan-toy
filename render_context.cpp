@@ -1,55 +1,12 @@
 #include "render_context.hpp"
 
-#include "buffer.hpp"
-#include "command_buffer.hpp"
-#include "pipeline.hpp"
-#include "render_pass.hpp"
-#include "swapchain.hpp"
-#include "attachment.hpp"
-#include "framebuffer.hpp"
-#include "pipeline_layout.hpp"
 #include "vk_check.hpp"
 
 #include <vulkan/vulkan_core.h>
 
 namespace vulkan
 {
-  // We have one frame associated to each swapchain image
-  struct ImageResource
-  {
-    SwapchainAttachment color_attachment;
-    ManagedAttachment   depth_attachment;
-    Framebuffer         framebuffer;
-  };
-
-  struct FrameResource
-  {
-    CommandBuffer command_buffer;
-    Fence fence;
-
-    VkSemaphore semaphore_image_available;
-    VkSemaphore semaphore_render_finished;
-  };
-
-  struct RenderContext
-  {
-    RenderContextCreateInfo create_info;
-
-    Swapchain      swapchain;
-    PipelineLayout pipeline_layout;
-
-    // TODO: How to support multiple render pass
-    RenderPass render_pass;
-    Pipeline   pipeline;
-
-    ImageResource *image_resources;
-    FrameResource *frame_resources;
-
-    uint32_t frame_count;
-    uint32_t frame_index;
-  };
-
-  static void init_render_context(const Context& context, allocator_t allocator, RenderContext& render_context)
+  void init_render_context(const Context& context, allocator_t allocator, RenderContextCreateInfo create_info, RenderContext& render_context)
   {
     init_swapchain(context, render_context.swapchain);
 
@@ -79,9 +36,9 @@ namespace vulkan
     // 4: Create Pipeline
     {
       PipelineCreateInfo pipeline_create_info = {};
-      pipeline_create_info.vertex_shader   = render_context.create_info.vertex_shader;
-      pipeline_create_info.fragment_shader = render_context.create_info.fragment_shader;
-      pipeline_create_info.vertex_input    = render_context.create_info.vertex_input;
+      pipeline_create_info.vertex_shader   = create_info.vertex_shader;
+      pipeline_create_info.fragment_shader = create_info.fragment_shader;
+      pipeline_create_info.vertex_input    = create_info.vertex_input;
       pipeline_create_info.pipeline_layout = render_context.pipeline_layout;
       pipeline_create_info.render_pass     = render_context.render_pass;
       init_pipeline(context, pipeline_create_info, render_context.pipeline);
@@ -128,8 +85,8 @@ namespace vulkan
 
     // 7: Create frame resources
     {
-      render_context.frame_resources = new FrameResource[render_context.create_info.max_frame_in_flight];
-      for(uint32_t i=0; i<render_context.create_info.max_frame_in_flight; ++i)
+      render_context.frame_resources = new FrameResource[create_info.max_frame_in_flight];
+      for(uint32_t i=0; i<create_info.max_frame_in_flight; ++i)
       {
         FrameResource frame_resource = {};
         init_command_buffer(context, frame_resource.command_buffer);
@@ -138,12 +95,12 @@ namespace vulkan
         frame_resource.semaphore_render_finished = vulkan::create_semaphore(context.device);
         render_context.frame_resources[i] = frame_resource;
       }
-      render_context.frame_count = render_context.create_info.max_frame_in_flight;
+      render_context.frame_count = create_info.max_frame_in_flight;
       render_context.frame_index = 0;
     }
   }
 
-  static void deinit_render_context(const Context& context, allocator_t allocator, RenderContext& render_context)
+  void deinit_render_context(const Context& context, allocator_t allocator, RenderContext& render_context)
   {
     (void)allocator;
 
@@ -162,35 +119,21 @@ namespace vulkan
     deinit_swapchain(context, render_context.swapchain);
   }
 
-  render_context_t create_render_context(const Context& context, allocator_t allocator, RenderContextCreateInfo create_info)
-  {
-    render_context_t render_context = new RenderContext{};
-    render_context->create_info = create_info;
-    init_render_context(context, allocator, *render_context);
-    return render_context;
-  }
-
-  void destroy_render_context(const Context& context, allocator_t allocator, render_context_t render_context)
-  {
-    deinit_render_context(context, allocator, *render_context);
-    delete render_context;
-  }
-
-  std::optional<RenderInfo> begin_render(const Context& context, render_context_t render_context)
+  std::optional<RenderInfo> begin_render(const Context& context, RenderContext& render_context)
   {
     // Render info
     RenderInfo info  = {};
 
     // Acquire frame resource
-    info.frame_index = render_context->frame_index;
-    render_context->frame_index = (render_context->frame_index + 1) % render_context->frame_count;
-    FrameResource frame_resource = render_context->frame_resources[info.frame_index];
+    info.frame_index = render_context.frame_index;
+    render_context.frame_index = (render_context.frame_index + 1) % render_context.frame_count;
+    FrameResource frame_resource = render_context.frame_resources[info.frame_index];
 
     // Acquire image resource
-    auto result = vkAcquireNextImageKHR(context.device, render_context->swapchain.handle, UINT64_MAX, frame_resource.semaphore_image_available, VK_NULL_HANDLE, &info.image_index);
+    auto result = vkAcquireNextImageKHR(context.device, render_context.swapchain.handle, UINT64_MAX, frame_resource.semaphore_image_available, VK_NULL_HANDLE, &info.image_index);
     if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) return std::nullopt;
     VK_CHECK(result);
-    ImageResource image_resource = render_context->image_resources[info.image_index];
+    ImageResource image_resource = render_context.image_resources[info.image_index];
 
     // Wait and begin commannd buffer recording
     fence_wait_and_reset(context, frame_resource.fence);
@@ -198,10 +141,10 @@ namespace vulkan
 
     VkRenderPassBeginInfo render_pass_begin_info = {};
     render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    render_pass_begin_info.renderPass        = render_context->render_pass.handle;
+    render_pass_begin_info.renderPass        = render_context.render_pass.handle;
     render_pass_begin_info.framebuffer       = image_resource.framebuffer.handle;
     render_pass_begin_info.renderArea.offset = {0, 0};
-    render_pass_begin_info.renderArea.extent = render_context->swapchain.extent;
+    render_pass_begin_info.renderArea.extent = render_context.swapchain.extent;
 
     // TODO: Take this as argument
     VkClearValue clear_values[2] = {};
@@ -212,7 +155,7 @@ namespace vulkan
     render_pass_begin_info.pClearValues = clear_values;
 
     vkCmdBeginRenderPass(frame_resource.command_buffer.handle, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(frame_resource.command_buffer.handle, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkan::render_context_get_pipeline(render_context));
+    vkCmdBindPipeline(frame_resource.command_buffer.handle, VK_PIPELINE_BIND_POINT_GRAPHICS, render_context.pipeline.handle);
 
     info.semaphore_image_available = frame_resource.semaphore_image_available;
     info.semaphore_render_finished = frame_resource.semaphore_render_finished;
@@ -220,9 +163,9 @@ namespace vulkan
     return info;
   }
 
-  bool end_render(const Context& context, render_context_t render_context, RenderInfo info)
+  bool end_render(const Context& context, RenderContext& render_context, RenderInfo info)
   {
-    FrameResource frame_resource = render_context->frame_resources[info.frame_index];
+    FrameResource frame_resource = render_context.frame_resources[info.frame_index];
 
     vkCmdEndRenderPass(frame_resource.command_buffer.handle);
 
@@ -238,7 +181,7 @@ namespace vulkan
     present_info.waitSemaphoreCount = 1;
     present_info.pWaitSemaphores = &frame_resource.semaphore_render_finished;
     present_info.swapchainCount = 1;
-    present_info.pSwapchains    = &render_context->swapchain.handle;
+    present_info.pSwapchains    = &render_context.swapchain.handle;
     present_info.pImageIndices  = &info.image_index;
     present_info.pResults       = nullptr;
 
@@ -249,12 +192,4 @@ namespace vulkan
     VK_CHECK(result);
     return true;
   }
-
-  VkExtent2D render_context_get_extent(render_context_t render_context) { return render_context->swapchain.extent; }
-
-  VkDescriptorSetLayout render_context_get_descriptor_set_layout(render_context_t render_context) { return render_context->pipeline_layout.descriptor_set_layout; }
-  VkPipelineLayout render_context_get_pipeline_layout(render_context_t render_context) { return render_context->pipeline_layout.pipeline_layout; }
-
-  VkRenderPass render_context_get_render_pass(render_context_t render_context) { return render_context->render_pass.handle; }
-  VkPipeline render_context_get_pipeline(render_context_t render_context) { return render_context->pipeline.handle; }
 }

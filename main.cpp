@@ -247,16 +247,15 @@ int main()
     .binding_count = std::size(vertex_bindings),
   };
 
+  vulkan::RenderContext render_context = {};
+
   const vulkan::RenderContextCreateInfo render_context_create_info{
     .vertex_shader   = vertex_shader,
     .fragment_shader = fragment_shader,
     .vertex_input    = vertex_input,
     .max_frame_in_flight = 4,
   };
-  vulkan::render_context_t render_context = create_render_context(context, allocator, render_context_create_info);
-
-  vulkan::deinit_shader(context, vertex_shader);
-  vulkan::deinit_shader(context, fragment_shader);
+  vulkan::init_render_context(context, allocator, render_context_create_info, render_context);
 
   VkSampler sampler;
   {
@@ -302,7 +301,7 @@ int main()
   VkDescriptorSetLayout descriptor_set_layouts[MAX_FRAME_IN_FLIGHT];
   VkDescriptorSet descriptor_sets[MAX_FRAME_IN_FLIGHT];
 
-  std::fill(std::begin(descriptor_set_layouts), std::end(descriptor_set_layouts), vulkan::render_context_get_descriptor_set_layout(render_context));
+  std::fill(std::begin(descriptor_set_layouts), std::end(descriptor_set_layouts), render_context.pipeline_layout.descriptor_set_layout);
 
   VkDescriptorSetAllocateInfo alloc_info = {};
   alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -366,9 +365,8 @@ int main()
       std::cout << "Recreating render context\n";
 
       vkDeviceWaitIdle(context.device);
-      vulkan::destroy_render_context(context, allocator, render_context);
-      render_context = vulkan::create_render_context(context, allocator, render_context_create_info);
-
+      vulkan::deinit_render_context(context, allocator, render_context);
+      vulkan::init_render_context(context, allocator, render_context_create_info, render_context);
       frame_info = vulkan::begin_render(context, render_context);
     }
 
@@ -376,7 +374,7 @@ int main()
     auto current_time = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
 
-    auto extent = vulkan::render_context_get_extent(render_context);
+    auto extent = render_context.swapchain.extent;
 
     UniformBufferObject ubo = {};
     ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
@@ -387,7 +385,7 @@ int main()
 
     vkCmdBindDescriptorSets(frame_info->command_buffer.handle,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
-        vulkan::render_context_get_pipeline_layout(render_context),
+        render_context.pipeline_layout.pipeline_layout,
         0, 1,
         &descriptor_sets[frame_info->frame_index],
         0, nullptr);
@@ -417,14 +415,14 @@ int main()
       std::cout << "Recreating render context\n";
 
       vkDeviceWaitIdle(context.device);
-      vulkan::destroy_render_context(context, allocator, render_context);
-      render_context = vulkan::create_render_context(context, allocator, render_context_create_info);
+      vulkan::deinit_render_context(context, allocator, render_context);
+      vulkan::init_render_context(context, allocator, render_context_create_info, render_context);
     }
   }
 
   vkDeviceWaitIdle(context.device);
 
-  vulkan::destroy_render_context(context, allocator, render_context);
+  vulkan::deinit_render_context(context, allocator, render_context);
   vulkan::destroy_allocator(context, allocator);
   vulkan::deinit_context(context);
   glfwTerminate();
