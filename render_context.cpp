@@ -6,6 +6,7 @@
 #include "swapchain.hpp"
 #include "attachment.hpp"
 #include "framebuffer.hpp"
+#include "pipeline_layout.hpp"
 #include "vk_check.hpp"
 
 #include <vulkan/vulkan_core.h>
@@ -32,10 +33,9 @@ namespace vulkan
   struct RenderContext
   {
     RenderContextCreateInfo create_info;
-    Swapchain swapchain;
 
-    VkDescriptorSetLayout descriptor_set_layout;
-    VkPipelineLayout      pipeline_layout;
+    Swapchain      swapchain;
+    PipelineLayout pipeline_layout;
 
     // TODO: How to support multiple render pass
     RenderPass render_pass;
@@ -57,6 +57,21 @@ namespace vulkan
       create_info.color_format = render_context.swapchain.surface_format.format;
       create_info.depth_format = VK_FORMAT_D32_SFLOAT;
       init_render_pass_simple(context, create_info, render_context.render_pass);
+    }
+
+    // Create pipeline layout
+    {
+      const DescriptorInfo descriptor_infos[] = {
+        {.type = DescriptorType::UNIFORM_BUFFER, .stage = PipelineStage::VERTEX },
+        {.type = DescriptorType::SAMPLER,        .stage = PipelineStage::FRAGMENT },
+      };
+
+      PipelineLayoutCreateInfo create_info = {};
+      create_info.descriptors      = descriptor_infos;
+      create_info.descriptor_count = std::size(descriptor_infos);
+      create_info.push_constants      = nullptr;
+      create_info.push_constant_count = 0;
+      init_pipeline_layout(context, create_info, render_context.pipeline_layout);
     }
 
 
@@ -203,35 +218,6 @@ namespace vulkan
       dynamic_state_create_info.dynamicStateCount = dynamic_states.size();
       dynamic_state_create_info.pDynamicStates    = dynamic_states.data();
 
-      // We no longer have empty pipeline layout
-      VkDescriptorSetLayoutBinding ubo_layout_binding = {};
-      ubo_layout_binding.binding = 0;
-      ubo_layout_binding.descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-      ubo_layout_binding.descriptorCount    = 1;
-      ubo_layout_binding.stageFlags         = VK_SHADER_STAGE_VERTEX_BIT;
-      ubo_layout_binding.pImmutableSamplers = nullptr;
-
-      VkDescriptorSetLayoutBinding sampler_layout_binding = {};
-      sampler_layout_binding.binding = 1;
-      sampler_layout_binding.descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-      sampler_layout_binding.descriptorCount    = 1;
-      sampler_layout_binding.stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT;
-      sampler_layout_binding.pImmutableSamplers = nullptr;
-
-      VkDescriptorSetLayoutBinding layout_bindings[] = { ubo_layout_binding, sampler_layout_binding };
-
-      VkDescriptorSetLayoutCreateInfo descriptor_set_layout_create_info = {};
-      descriptor_set_layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-      descriptor_set_layout_create_info.bindingCount = 2;
-      descriptor_set_layout_create_info.pBindings    = layout_bindings;
-      VK_CHECK(vkCreateDescriptorSetLayout(context.device, &descriptor_set_layout_create_info, nullptr, &render_context.descriptor_set_layout));
-
-      VkPipelineLayoutCreateInfo pipeline_layout_create_info = {};
-      pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-      pipeline_layout_create_info.setLayoutCount = 1;
-      pipeline_layout_create_info.pSetLayouts    = &render_context.descriptor_set_layout;
-      VK_CHECK(vkCreatePipelineLayout(context.device, &pipeline_layout_create_info, nullptr, &render_context.pipeline_layout));
-
       VkGraphicsPipelineCreateInfo graphics_pipeline_create_info = {};
       graphics_pipeline_create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
       graphics_pipeline_create_info.stageCount          = 2;
@@ -244,7 +230,7 @@ namespace vulkan
       graphics_pipeline_create_info.pDepthStencilState  = &depth_stencil_state_create_info;
       graphics_pipeline_create_info.pColorBlendState    = &color_blending_state_create_info;
       graphics_pipeline_create_info.pDynamicState       = &dynamic_state_create_info;
-      graphics_pipeline_create_info.layout              = render_context.pipeline_layout;
+      graphics_pipeline_create_info.layout              = render_context.pipeline_layout.pipeline_layout;
       graphics_pipeline_create_info.renderPass          = render_context.render_pass.handle;
       graphics_pipeline_create_info.subpass             = 0;
       graphics_pipeline_create_info.basePipelineHandle = VK_NULL_HANDLE;
@@ -326,9 +312,8 @@ namespace vulkan
     }
     delete[] render_context.image_resources;
 
-    vkDestroyPipeline           (context.device, render_context.pipeline,              nullptr);
-    vkDestroyPipelineLayout     (context.device, render_context.pipeline_layout,       nullptr);
-    vkDestroyDescriptorSetLayout(context.device, render_context.descriptor_set_layout, nullptr);
+    vkDestroyPipeline(context.device, render_context.pipeline, nullptr);
+    deinit_pipeline_layout(context, render_context.pipeline_layout);
     deinit_render_pass(context, render_context.render_pass);
     deinit_swapchain(context, render_context.swapchain);
   }
@@ -423,8 +408,8 @@ namespace vulkan
 
   VkExtent2D render_context_get_extent(render_context_t render_context) { return render_context->swapchain.extent; }
 
-  VkDescriptorSetLayout render_context_get_descriptor_set_layout(render_context_t render_context) { return render_context->descriptor_set_layout; }
-  VkPipelineLayout render_context_get_pipeline_layout(render_context_t render_context) { return render_context->pipeline_layout; }
+  VkDescriptorSetLayout render_context_get_descriptor_set_layout(render_context_t render_context) { return render_context->pipeline_layout.descriptor_set_layout; }
+  VkPipelineLayout render_context_get_pipeline_layout(render_context_t render_context) { return render_context->pipeline_layout.pipeline_layout; }
 
   VkRenderPass render_context_get_render_pass(render_context_t render_context) { return render_context->render_pass.handle; }
   VkPipeline render_context_get_pipeline(render_context_t render_context) { return render_context->pipeline; }
