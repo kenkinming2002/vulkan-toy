@@ -7,7 +7,7 @@
 
 namespace vulkan
 {
-  struct ShaderCreateInfo
+  struct ShaderLoadInfo
   {
     const char *file_name;
     ShaderStage stage;
@@ -15,9 +15,9 @@ namespace vulkan
 
   struct Shader
   {
-    VkShaderModule module;
+    VkShaderModule handle;
   };
 
-  void load_shader(const Context& context, ShaderCreateInfo create_info, Shader& shader);
+  void load_shader(const Context& context, ShaderLoadInfo load_info, Shader& shader);
   void deinit_shader(const Context& context, Shader& shader);
 }

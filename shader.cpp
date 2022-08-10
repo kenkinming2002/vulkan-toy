@@ -5,14 +5,36 @@
 
 #include <stdio.h>
 
-#define LIBC_CHECK(expr) do { if(expr == -1) { perror(#expr); abort(); } } while(0)
+
+template<typename T>
+static T *libc_check(const char* expr_str, T *ptr)
+{
+  if(!ptr)
+  {
+    perror(expr_str);
+    abort();
+  }
+  return ptr;
+}
+
+template<typename T>
+static T libc_check(const char* expr_str, T value) requires(std::is_integral_v<T> && std::is_signed_v<T>)
+{
+  if(value < 0)
+  {
+    perror(expr_str);
+    abort();
+  }
+  return value;
+}
+
+#define LIBC_CHECK(expr) libc_check(#expr, expr)
 
 namespace vulkan
 {
   static inline dynarray<char> read_file(const char *file_name)
   {
-    FILE *file = fopen(file_name, "rb");
-
+    FILE *file = LIBC_CHECK(fopen(file_name, "rb"));
     const long begin = ftell(file);
     LIBC_CHECK(fseek(file, 0, SEEK_END));
     const long end = ftell(file);
@@ -27,22 +49,22 @@ namespace vulkan
     return content;
   }
 
-  void load_shader(const Context& context, ShaderCreateInfo create_info, Shader& shader)
+  void load_shader(const Context& context, ShaderLoadInfo load_info, Shader& shader)
   {
-    dynarray<char> code = read_file(create_info.file_name);
+    dynarray<char> code = read_file(load_info.file_name);
 
     VkShaderModuleCreateInfo shader_module_create_info = {};
     shader_module_create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     shader_module_create_info.codeSize = size(code);
     shader_module_create_info.pCode    = reinterpret_cast<const uint32_t*>(data(code));
-    VK_CHECK(vkCreateShaderModule(context.device, &shader_module_create_info, nullptr, &shader.module));
+    VK_CHECK(vkCreateShaderModule(context.device, &shader_module_create_info, nullptr, &shader.handle));
 
     destroy_dynarray(code);
   }
 
   void deinit_shader(const Context& context, Shader& shader)
   {
-    vkDestroyShaderModule(context.device, shader.module, nullptr);
+    vkDestroyShaderModule(context.device, shader.handle, nullptr);
     shader = {};
   }
 }

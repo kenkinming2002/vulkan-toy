@@ -2,7 +2,9 @@
 
 #include "context.hpp"
 #include "vulkan.hpp"
+#include "shader.hpp"
 #include "buffer.hpp"
+#include "pipeline.hpp"
 
 #include <glm/glm.hpp>
 
@@ -18,29 +20,13 @@
 namespace vulkan
 {
   // Describe layout of vertex attribute in a single buffer
-  struct VertexAttributeDescription
-  {
-    enum class Type
-    {
-      FLOAT1, FLOAT2, FLOAT3, FLOAT4 // Which maniac who not use float as vertex input anyway?
-    };
-
-    size_t offset;
-    Type type;
-  };
-
-  // You need multiple binding description if you use multiple buffer
-  struct VertexBindingDescription
-  {
-    size_t stride;
-    std::vector<VertexAttributeDescription> attribute_descriptions;
-  };
 
   struct RenderContextCreateInfo
   {
-    VkShaderModule vert_shader_module;
-    VkShaderModule frag_shader_module;
-    std::vector<VertexBindingDescription> vertex_binding_descriptions;
+    Shader vertex_shader;
+    Shader fragment_shader;
+
+    VertexInput    vertex_input;
 
     uint32_t max_frame_in_flight;
   };

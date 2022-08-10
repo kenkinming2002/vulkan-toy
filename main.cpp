@@ -1,6 +1,7 @@
 #include "context.hpp"
 #include "render_context.hpp"
 #include "command_buffer.hpp"
+#include "shader.hpp"
 #include "vulkan.hpp"
 #include "vk_check.hpp"
 #include "buffer.hpp"
@@ -47,22 +48,6 @@ struct Vertex
   glm::vec3 color;
   glm::vec2 uv;
 };
-
-// TODO: Move this outside
-inline std::vector<char> read_file(const char* file_name)
-{
-  std::ifstream file(file_name, std::ios::ate | std::ios::binary);
-  assert(file.is_open());
-
-  auto end = file.tellg();
-  file.seekg(0);
-  auto begin = file.tellg();
-
-  const size_t file_size = end - begin;
-  auto file_content = std::vector<char>(file_size);
-  file.read(file_content.data(), file_content.size());
-  return file_content;
-}
 
 static constexpr size_t MAX_FRAME_IN_FLIGHT = 4;
 
@@ -228,23 +213,50 @@ int main()
   Texture texture = load_texture(context, allocator, "viking_room.png");
   Model model = load_model(context, allocator, "viking_room.obj");
 
-  // May need to be recreated on window resize
-  vulkan::RenderContextCreateInfo render_context_create_info = {};
-  render_context_create_info.vert_shader_module = vulkan::create_shader_module(context.device, read_file("shaders/vert.spv"));
-  render_context_create_info.frag_shader_module = vulkan::create_shader_module(context.device, read_file("shaders/frag.spv"));
-  render_context_create_info.vertex_binding_descriptions = {
-    vulkan::VertexBindingDescription{
-      .stride = sizeof(Vertex),
-      .attribute_descriptions = {
-        vulkan::VertexAttributeDescription{ .offset = offsetof(Vertex, pos),   .type = vulkan::VertexAttributeDescription::Type::FLOAT3 },
-        vulkan::VertexAttributeDescription{ .offset = offsetof(Vertex, color), .type = vulkan::VertexAttributeDescription::Type::FLOAT3 },
-        vulkan::VertexAttributeDescription{ .offset = offsetof(Vertex, uv),    .type = vulkan::VertexAttributeDescription::Type::FLOAT2 },
-      }
-    }
-  };
-  render_context_create_info.max_frame_in_flight = 4;
+  vulkan::Shader vertex_shader = {};
+  {
+    vulkan::ShaderLoadInfo shader_load_info = {};
+    shader_load_info.file_name = "shaders/vert.spv";
+    shader_load_info.stage     = vulkan::ShaderStage::VERTEX;
+    vulkan::load_shader(context, shader_load_info, vertex_shader);
+  }
 
+  vulkan::Shader fragment_shader = {};
+  {
+    vulkan::ShaderLoadInfo shader_load_info = {};
+    shader_load_info.file_name = "shaders/frag.spv";
+    shader_load_info.stage     = vulkan::ShaderStage::FRAGMENT;
+    vulkan::load_shader(context, shader_load_info, fragment_shader);
+  }
+
+  // May need to be recreated on window resize
+  const vulkan::VertexAttribute vertex_attributes[] = {
+    { .offset = offsetof(Vertex, pos),   .type = vulkan::VertexAttribute::Type::FLOAT3 },
+    { .offset = offsetof(Vertex, color), .type = vulkan::VertexAttribute::Type::FLOAT3 },
+    { .offset = offsetof(Vertex, uv),    .type = vulkan::VertexAttribute::Type::FLOAT2 },
+  };
+
+  const vulkan::VertexBinding vertex_bindings[] = {{
+    .stride          = sizeof(Vertex),
+    .attributes      = vertex_attributes,
+    .attribute_count = std::size(vertex_attributes),
+  }};
+
+  const vulkan::VertexInput vertex_input = {
+    .bindings      = vertex_bindings,
+    .binding_count = std::size(vertex_bindings),
+  };
+
+  const vulkan::RenderContextCreateInfo render_context_create_info{
+    .vertex_shader   = vertex_shader,
+    .fragment_shader = fragment_shader,
+    .vertex_input    = vertex_input,
+    .max_frame_in_flight = 4,
+  };
   vulkan::render_context_t render_context = create_render_context(context, allocator, render_context_create_info);
+
+  vulkan::deinit_shader(context, vertex_shader);
+  vulkan::deinit_shader(context, fragment_shader);
 
   VkSampler sampler;
   {
