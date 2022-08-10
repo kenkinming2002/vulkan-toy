@@ -87,11 +87,6 @@ namespace vulkan
       init_pipeline(context, pipeline_create_info, render_context.pipeline);
     }
 
-    // 5: Get image from swapchain
-    VK_CHECK(vkGetSwapchainImagesKHR(context.device, render_context.swapchain.handle, &render_context.swapchain.image_count, nullptr));
-    VkImage *swapchain_images = new VkImage[render_context.swapchain.image_count];
-    VK_CHECK(vkGetSwapchainImagesKHR(context.device, render_context.swapchain.handle, &render_context.swapchain.image_count, swapchain_images));
-
     // 5: Create image resources
     {
       render_context.image_resources = new ImageResource[render_context.swapchain.image_count];
