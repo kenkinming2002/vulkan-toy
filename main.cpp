@@ -58,7 +58,7 @@ struct Texture
   VkImageView image_view;
 };
 
-Texture create_texture(const vulkan::Context& context, vulkan::allocator_t allocator, const void *data, size_t width, size_t height)
+Texture create_texture(const vulkan::Context& context, vulkan::Allocator& allocator, const void *data, size_t width, size_t height)
 {
   Texture texture = {};
 
@@ -90,14 +90,14 @@ Texture create_texture(const vulkan::Context& context, vulkan::allocator_t alloc
   return texture;
 }
 
-void destroy_texture(const vulkan::Context& context, vulkan::allocator_t allocator, Texture texture)
+void destroy_texture(const vulkan::Context& context, vulkan::Allocator& allocator, Texture texture)
 {
   vkDestroyImageView(context.device, texture.image_view, nullptr);
   vkDestroyImage(context.device, texture.image, nullptr);
   vulkan::deallocate_memory(context, allocator, texture.allocation);
 }
 
-Texture load_texture(const vulkan::Context& context, vulkan::allocator_t allocator, const char *file_name)
+Texture load_texture(const vulkan::Context& context, vulkan::Allocator& allocator, const char *file_name)
 {
   int x, y, n;
   unsigned char *data = stbi_load(file_name, &x, &y, &n, STBI_rgb_alpha);
@@ -120,7 +120,7 @@ struct Model
 
 };
 
-Model create_model(const vulkan::Context& context, vulkan::allocator_t allocator, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
+Model create_model(const vulkan::Context& context, vulkan::Allocator& allocator, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
 {
   Model model = {};
   model.vertex_count = vertices.size();
@@ -147,7 +147,7 @@ Model create_model(const vulkan::Context& context, vulkan::allocator_t allocator
   return model;
 }
 
-void destroy_model(const vulkan::Context& context, vulkan::allocator_t allocator, Model model)
+void destroy_model(const vulkan::Context& context, vulkan::Allocator& allocator, Model model)
 {
   vkDestroyBuffer(context.device, model.vbo, nullptr);
   vkDestroyBuffer(context.device, model.ibo, nullptr);
@@ -156,7 +156,7 @@ void destroy_model(const vulkan::Context& context, vulkan::allocator_t allocator
   vulkan::deallocate_memory(context, allocator, model.ibo_allocation);
 }
 
-Model load_model(const vulkan::Context& context, vulkan::allocator_t allocator, const char* file_name)
+Model load_model(const vulkan::Context& context, vulkan::Allocator& allocator, const char* file_name)
 {
   tinyobj::attrib_t attrib;
   std::vector<tinyobj::shape_t> shapes;
@@ -208,7 +208,8 @@ int main()
   vulkan::Context context = {};
   vulkan::init_context(context_create_info, context);
 
-  vulkan::allocator_t allocator = vulkan::create_allocator(context);
+  vulkan::Allocator allocator = {};
+  vulkan::init_allocator(context, allocator);
 
   Texture texture = load_texture(context, allocator, "viking_room.png");
   Model   model   = load_model(context, allocator, "viking_room.obj");
@@ -420,7 +421,7 @@ int main()
   vkDeviceWaitIdle(context.device);
 
   vulkan::deinit_render_context(context, allocator, render_context);
-  vulkan::destroy_allocator(context, allocator);
+  vulkan::deinit_allocator(context, allocator);
   vulkan::deinit_context(context);
   glfwTerminate();
 }

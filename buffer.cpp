@@ -8,66 +8,7 @@
 
 namespace vulkan
 {
-  struct Allocator
-  {
-    VkPhysicalDeviceMemoryProperties memory_properties;
-  };
-
-  allocator_t create_allocator(const Context& context)
-  {
-    allocator_t allocator = new Allocator{};
-    vkGetPhysicalDeviceMemoryProperties(context.physical_device, &allocator->memory_properties);
-    return allocator;
-  }
-
-  void destroy_allocator(const Context& context, allocator_t allocator)
-  {
-    (void)context;
-    delete allocator;
-  }
-
-  template<typename T>
-  static inline bool is_bits_set(T value, T flags)
-  {
-    return (value & flags) == flags;
-  }
-
-  MemoryAllocation allocate_memory(const Context& context, allocator_t allocator, MemoryAllocationInfo info)
-  {
-    for(uint32_t i = 0; i < allocator->memory_properties.memoryTypeCount; i++)
-    {
-      if(!is_bits_set<uint32_t>(info.type_bits, 1 << i))
-        continue;
-
-      VkMemoryType memory_type = allocator->memory_properties.memoryTypes[i];
-      if(!is_bits_set(memory_type.propertyFlags, info.properties))
-        continue;
-
-      MemoryAllocation allocation = {};
-      allocation.size = info.size;
-
-      VkMemoryAllocateInfo allocate_info = {};
-      allocate_info.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-      allocate_info.memoryTypeIndex = i;
-      allocate_info.allocationSize  = info.size;
-      VK_CHECK(vkAllocateMemory(context.device, &allocate_info, nullptr, &allocation.memory));
-
-      allocation.type_index = i;
-      allocation.size       = info.size;
-      return allocation;
-    }
-
-    fprintf(stderr, "No memory type while allocating device memory");
-    abort();
-  }
-
-  void deallocate_memory(const Context& context, allocator_t allocator, MemoryAllocation allocation)
-  {
-    (void)allocator;
-    vkFreeMemory(context.device, allocation.memory, nullptr);
-  }
-
-  VkBuffer create_buffer(const Context& context, allocator_t allocator, BufferCreateInfo info, MemoryAllocation& allocation)
+  VkBuffer create_buffer(const Context& context, Allocator& allocator, BufferCreateInfo info, MemoryAllocation& allocation)
   {
     VkBuffer buffer = VK_NULL_HANDLE;
 
@@ -85,12 +26,12 @@ namespace vulkan
     allocation_info.type_bits = memory_requirements.memoryTypeBits;
     allocation_info.properties = info.properties;
     allocation_info.size       = memory_requirements.size;
-    allocation = allocate_memory(context, allocator, allocation_info);
+    allocate_memory(context, allocator, allocation_info, allocation);
     VK_CHECK(vkBindBufferMemory(context.device, buffer, allocation.memory, 0));
     return buffer;
   }
 
-  VkImage create_image2d(const Context& context, allocator_t allocator, Image2dCreateInfo info, MemoryAllocation& allocation)
+  VkImage create_image2d(const Context& context, Allocator& allocator, Image2dCreateInfo info, MemoryAllocation& allocation)
   {
     VkImage image = VK_NULL_HANDLE;
 
@@ -118,14 +59,14 @@ namespace vulkan
     allocation_info.type_bits  = memory_requirements.memoryTypeBits;
     allocation_info.properties = info.properties;
     allocation_info.size       = memory_requirements.size;
-    allocation = allocate_memory(context, allocator, allocation_info);
+    allocate_memory(context, allocator, allocation_info, allocation);
     VK_CHECK(vkBindImageMemory(context.device, image, allocation.memory, 0));
     return image;
   }
 
-  void write_buffer(const Context& context, allocator_t allocator, VkBuffer buffer, MemoryAllocation allocation, const void *data)
+  void write_buffer(const Context& context, Allocator& allocator, VkBuffer buffer, MemoryAllocation allocation, const void *data)
   {
-    VkMemoryPropertyFlags properties = allocator->memory_properties.memoryTypes[allocation.type_index].propertyFlags;
+    VkMemoryPropertyFlags properties = allocator.memory_properties.memoryTypes[allocation.type_index].propertyFlags;
     if(properties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
     {
       void *buffer_data;
@@ -170,7 +111,7 @@ namespace vulkan
     deallocate_memory(context, allocator, staging_allocation);
   }
 
-  void write_image2d(const Context& context, allocator_t allocator, VkImage image, size_t width, size_t height, MemoryAllocation allocation, const void *data)
+  void write_image2d(const Context& context, Allocator& allocator, VkImage image, size_t width, size_t height, MemoryAllocation allocation, const void *data)
   {
     (void)allocation;
 

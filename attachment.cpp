@@ -6,7 +6,7 @@
 
 namespace vulkan
 {
-  void init_attachment_managed(const Context& context, allocator_t allocator, ManagedAttachmentCreateInfo create_info, ManagedAttachment& attachment)
+  void init_attachment_managed(const Context& context, Allocator& allocator, ManagedAttachmentCreateInfo create_info, ManagedAttachment& attachment)
   {
     attachment = {};
 
@@ -51,7 +51,7 @@ namespace vulkan
     VK_CHECK(vkCreateImageView(context.device, &image_view_create_info, nullptr, &attachment.image_view));
   }
 
-  void deinit_attachment_managed(const Context& context, allocator_t allocator, ManagedAttachment& attachment)
+  void deinit_attachment_managed(const Context& context, Allocator& allocator, ManagedAttachment& attachment)
   {
     vkDestroyImageView(context.device, attachment.image_view, nullptr);
     vkDestroyImage(context.device, attachment.image, nullptr);

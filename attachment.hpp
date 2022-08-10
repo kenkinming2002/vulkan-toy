@@ -22,8 +22,8 @@ namespace vulkan
     MemoryAllocation memory_allocation;
   };
 
-  void init_attachment_managed(const Context& context, allocator_t allocator, ManagedAttachmentCreateInfo create_info, ManagedAttachment& attachment);
-  void deinit_attachment_managed(const Context& context, allocator_t allocator, ManagedAttachment& attachment);
+  void init_attachment_managed(const Context& context, Allocator& allocator, ManagedAttachmentCreateInfo create_info, ManagedAttachment& attachment);
+  void deinit_attachment_managed(const Context& context, Allocator& allocator, ManagedAttachment& attachment);
 
   struct SwapchainAttachmentCreateInfo
   {

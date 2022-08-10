@@ -66,8 +66,8 @@ namespace vulkan
     uint32_t frame_index;
   };
 
-  void init_render_context(const Context& context, allocator_t allocator, RenderContextCreateInfo create_info, RenderContext& render_context);
-  void deinit_render_context(const Context& context, allocator_t allocator, RenderContext& render_context);
+  void init_render_context(const Context& context, Allocator& allocator, RenderContextCreateInfo create_info, RenderContext& render_context);
+  void deinit_render_context(const Context& context, Allocator& allocator, RenderContext& render_context);
 
   struct RenderInfo
   {
