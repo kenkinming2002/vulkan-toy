@@ -16,6 +16,7 @@ srcs = [
   'attachment.cpp',
   'framebuffer.cpp',
   'render_pass.cpp',
+  'pipeline_layout.cpp',
   'render_context.cpp',
   'fence.cpp',
   'command_buffer.cpp',
