@@ -198,36 +198,34 @@ int main()
   glfwInit();
 
   // Context
+  const vulkan::ContextCreateInfo context_create_info = {
+    .application_name = "Vulkan",
+    .engine_name      = "Engine",
+    .window_name      = "Vulkan",
+    .width            = 1080,
+    .height           = 720,
+  };
   vulkan::Context context = {};
-  {
-    vulkan::ContextCreateInfo context_create_info = {};
-    context_create_info.application_name    = "Vulkan";
-    context_create_info.engine_name         = "Engine";
-    context_create_info.window_name         = "Vulkan";
-    context_create_info.width               = 1080;
-    context_create_info.height              = 720;
-    vulkan::init_context(context_create_info, context);
-  }
+  vulkan::init_context(context_create_info, context);
+
   vulkan::allocator_t allocator = vulkan::create_allocator(context);
 
   Texture texture = load_texture(context, allocator, "viking_room.png");
-  Model model = load_model(context, allocator, "viking_room.obj");
+  Model   model   = load_model(context, allocator, "viking_room.obj");
 
+  const vulkan::ShaderLoadInfo vertex_shader_load_info = {
+    .file_name = "shaders/vert.spv",
+    .stage     = vulkan::ShaderStage::VERTEX,
+  };
   vulkan::Shader vertex_shader = {};
-  {
-    vulkan::ShaderLoadInfo shader_load_info = {};
-    shader_load_info.file_name = "shaders/vert.spv";
-    shader_load_info.stage     = vulkan::ShaderStage::VERTEX;
-    vulkan::load_shader(context, shader_load_info, vertex_shader);
-  }
+  vulkan::load_shader(context, vertex_shader_load_info, vertex_shader);
 
+  const vulkan::ShaderLoadInfo fragment_shader_load_info = {
+    .file_name = "shaders/frag.spv",
+    .stage     = vulkan::ShaderStage::FRAGMENT,
+  };
   vulkan::Shader fragment_shader = {};
-  {
-    vulkan::ShaderLoadInfo shader_load_info = {};
-    shader_load_info.file_name = "shaders/frag.spv";
-    shader_load_info.stage     = vulkan::ShaderStage::FRAGMENT;
-    vulkan::load_shader(context, shader_load_info, fragment_shader);
-  }
+  vulkan::load_shader(context, fragment_shader_load_info, fragment_shader);
 
   // May need to be recreated on window resize
   const vulkan::VertexAttribute vertex_attributes[] = {
@@ -247,14 +245,13 @@ int main()
     .binding_count = std::size(vertex_bindings),
   };
 
-  vulkan::RenderContext render_context = {};
-
   const vulkan::RenderContextCreateInfo render_context_create_info{
     .vertex_shader   = vertex_shader,
     .fragment_shader = fragment_shader,
     .vertex_input    = vertex_input,
     .max_frame_in_flight = 4,
   };
+  vulkan::RenderContext render_context = {};
   vulkan::init_render_context(context, allocator, render_context_create_info, render_context);
 
   VkSampler sampler;
