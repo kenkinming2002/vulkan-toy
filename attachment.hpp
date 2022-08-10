@@ -3,7 +3,6 @@
 #include "context.hpp"
 #include "buffer.hpp"
 #include "swapchain.hpp"
-#include "utils.hpp"
 
 namespace vulkan
 {
