@@ -59,7 +59,7 @@ namespace vulkan
     attachment = {};
   }
 
-  void init_attachments_swapchain(const Context& context, SwapchainAttachmentCreateInfo create_info, SwapchainAttachment& attachment)
+  void init_attachment_swapchain(const Context& context, SwapchainAttachmentCreateInfo create_info, SwapchainAttachment& attachment)
   {
     attachment = {};
 
