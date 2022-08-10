@@ -12,6 +12,7 @@ srcs = [
   'vk_check.cpp',
   'main.cpp',
   'context.cpp',
+  'shader.cpp',
   'swapchain.cpp',
   'attachment.cpp',
   'framebuffer.cpp',
