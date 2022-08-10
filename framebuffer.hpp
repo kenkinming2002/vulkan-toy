@@ -19,6 +19,6 @@ namespace vulkan
     VkFramebuffer handle;
   };
 
-  void init_framebuffer(const Context& context, Framebuffer& framebuffer, const Attachment *attachments, uint32_t attachment_count);
+  void init_framebuffer(const Context& context, FramebufferCreateInfo create_info, Framebuffer& framebuffer);
   void deinit_framebuffer(const Context& context, Framebuffer& framebuffer);
 }

@@ -2,6 +2,8 @@
 #include "buffer.hpp"
 #include "command_buffer.hpp"
 #include "swapchain.hpp"
+#include "attachment.hpp"
+#include "framebuffer.hpp"
 #include "vk_check.hpp"
 
 #include <vulkan/vulkan_core.h>
@@ -11,15 +13,9 @@ namespace vulkan
   // We have one frame associated to each swapchain image
   struct ImageResource
   {
-    MemoryAllocation depth_memory_allocation;
-
-    VkImage color_image;
-    VkImage depth_image;
-
-    VkImageView color_image_view;
-    VkImageView depth_image_view;
-
-    VkFramebuffer framebuffer;
+    SwapchainAttachment color_attachment;
+    ManagedAttachment   depth_attachment;
+    Framebuffer         framebuffer;
   };
 
   struct FrameResource
@@ -317,70 +313,33 @@ namespace vulkan
       for(uint32_t i=0; i<render_context.swapchain.image_count; ++i)
       {
         ImageResource image_resource = {};
-        image_resource.color_image = swapchain_images[i];
 
-        // Depth image
         {
-          Image2dCreateInfo create_info = {};
-          create_info.usage      = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-          create_info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-          create_info.format     = VK_FORMAT_D32_SFLOAT;
-          create_info.width      = render_context.swapchain.extent.width;
-          create_info.height     = render_context.swapchain.extent.height;
-          image_resource.depth_image = create_image2d(context, allocator, create_info, image_resource.depth_memory_allocation);
+          SwapchainAttachmentCreateInfo create_info = {};
+          create_info.swapchain = render_context.swapchain;
+          create_info.index     = i;
+          init_attachment_swapchain(context, create_info, image_resource.color_attachment);
         }
 
-        // Color image view
         {
-          VkImageViewCreateInfo create_info = {};
-          create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-          create_info.image                           = image_resource.color_image;
-          create_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
-          create_info.format                          = render_context.swapchain.surface_format.format;
-          create_info.components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-          create_info.components.g                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-          create_info.components.b                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-          create_info.components.a                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-          create_info.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-          create_info.subresourceRange.baseMipLevel   = 0;
-          create_info.subresourceRange.levelCount     = 1;
-          create_info.subresourceRange.baseArrayLayer = 0;
-          create_info.subresourceRange.layerCount     = 1;
-          VK_CHECK(vkCreateImageView(context.device, &create_info, nullptr, &image_resource.color_image_view));
+          ManagedAttachmentCreateInfo create_info = {};
+          create_info.type   = AttachmentType::DEPTH;
+          create_info.extent = render_context.swapchain.extent;
+          create_info.format = VK_FORMAT_D32_SFLOAT;
+          init_attachment_managed(context, allocator, create_info, image_resource.depth_attachment);
         }
 
-
         {
-          VkImageViewCreateInfo create_info = {};
-          create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-          create_info.image                           = image_resource.depth_image;
-          create_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
-          create_info.format                          = VK_FORMAT_D32_SFLOAT;
-          create_info.components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-          create_info.components.g                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-          create_info.components.b                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-          create_info.components.a                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-          create_info.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_DEPTH_BIT;
-          create_info.subresourceRange.baseMipLevel   = 0;
-          create_info.subresourceRange.levelCount     = 1;
-          create_info.subresourceRange.baseArrayLayer = 0;
-          create_info.subresourceRange.layerCount     = 1;
-          VK_CHECK(vkCreateImageView(context.device, &create_info, nullptr, &image_resource.depth_image_view));
-        }
-
-        // Framebuffer
-        {
-          VkImageView attachments[] = { image_resource.color_image_view, image_resource.depth_image_view };
-
-          VkFramebufferCreateInfo create_info = {};
-          create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-          create_info.renderPass      = render_context.render_pass;
-          create_info.attachmentCount = 2;
-          create_info.pAttachments    = attachments;
-          create_info.width           = render_context.swapchain.extent.width;
-          create_info.height          = render_context.swapchain.extent.height;
-          create_info.layers          = 1;
-          VK_CHECK(vkCreateFramebuffer(context.device, &create_info, nullptr, &image_resource.framebuffer));
+          const Attachment attachments[] = {
+            to_attachment(image_resource.color_attachment),
+            to_attachment(image_resource.depth_attachment),
+          };
+          FramebufferCreateInfo create_info = {};
+          create_info.render_pass      = render_context.render_pass;
+          create_info.extent           = render_context.swapchain.extent;
+          create_info.attachments      = attachments;
+          create_info.attachment_count = std::size(attachments);
+          init_framebuffer(context, create_info, image_resource.framebuffer);
         }
 
         render_context.image_resources[i] = image_resource;
@@ -410,12 +369,10 @@ namespace vulkan
 
     for(uint32_t i=0; i<render_context.swapchain.image_count; ++i)
     {
-      ImageResource frame = render_context.image_resources[i];
-      vkDestroyFramebuffer(context.device, frame.framebuffer, nullptr);
-      vkDestroyImageView(context.device, frame.depth_image_view, nullptr);
-      vkDestroyImageView(context.device, frame.color_image_view, nullptr);
-      vkDestroyImage    (context.device, frame.depth_image, nullptr);
-      deallocate_memory(context, allocator, frame.depth_memory_allocation);
+      ImageResource& frame = render_context.image_resources[i];
+      deinit_framebuffer(context, frame.framebuffer);
+      deinit_attachment_swapchain(context, frame.color_attachment);
+      deinit_attachment_managed(context, allocator, frame.depth_attachment);
     }
     delete[] render_context.image_resources;
 
@@ -463,7 +420,7 @@ namespace vulkan
     VkRenderPassBeginInfo render_pass_begin_info = {};
     render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     render_pass_begin_info.renderPass        = render_context->render_pass;
-    render_pass_begin_info.framebuffer       = image_resource.framebuffer;
+    render_pass_begin_info.framebuffer       = image_resource.framebuffer.handle;
     render_pass_begin_info.renderArea.offset = {0, 0};
     render_pass_begin_info.renderArea.extent = render_context->swapchain.extent;
 
