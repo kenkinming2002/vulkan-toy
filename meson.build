@@ -15,6 +15,7 @@ srcs = [
   'src/context.cpp',
   'src/fence.cpp',
   'src/framebuffer.cpp',
+  'src/image_view.cpp',
   'src/impl.cpp',
   'src/main.cpp',
   'src/pipeline.cpp',
