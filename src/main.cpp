@@ -311,34 +311,14 @@ int main()
 
   for (size_t i = 0; i < MAX_FRAME_IN_FLIGHT; i++)
   {
-    VkDescriptorBufferInfo buffer_info = {};
-    buffer_info.buffer = ubos[i];
-    buffer_info.offset = 0;
-    buffer_info.range  = sizeof(UniformBufferObject);
-
-    VkDescriptorImageInfo image_info = {};
-    image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    image_info.imageView   = texture.image_view;
-    image_info.sampler     = sampler;
-
-    VkWriteDescriptorSet write_descriptors[2] = {};
-    write_descriptors[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write_descriptors[0].dstSet          = descriptor_sets[i].handle;
-    write_descriptors[0].dstBinding      = 0;
-    write_descriptors[0].dstArrayElement = 0;
-    write_descriptors[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    write_descriptors[0].descriptorCount = 1;
-    write_descriptors[0].pBufferInfo     = &buffer_info;
-
-    write_descriptors[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write_descriptors[1].dstSet          = descriptor_sets[i].handle;
-    write_descriptors[1].dstBinding      = 1;
-    write_descriptors[1].dstArrayElement = 0;
-    write_descriptors[1].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    write_descriptors[1].descriptorCount = 1;
-    write_descriptors[1].pImageInfo      = &image_info;
-
-    vkUpdateDescriptorSets(context.device, 2, write_descriptors, 0, nullptr);
+    const vulkan::Descriptor descriptors[] = {
+      {.type = vulkan::DescriptorType::UNIFORM_BUFFER, .uniform_buffer         = { .buffer = ubos[i], .size = sizeof(UniformBufferObject), }},
+      {.type = vulkan::DescriptorType::SAMPLER,        .combined_image_sampler = { .image_view = texture.image_view, .sampler = sampler, }}
+    };
+    vulkan::write_descriptor_set(context, descriptor_sets[i], vulkan::DescriptorSetWriteInfo{
+      .descriptors      = descriptors,
+      .descriptor_count = std::size(descriptors),
+    });
   }
 
 

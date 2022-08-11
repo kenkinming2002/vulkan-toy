@@ -29,7 +29,6 @@ namespace vulkan
   struct ImageView
   {
     VkImageView      handle;
-    MemoryAllocation allocation;
   };
 
   void init_image_view(const Context& context, ImageViewCreateInfo create_info, ImageView& image_view);
