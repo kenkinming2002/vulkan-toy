@@ -19,16 +19,23 @@ namespace vulkan
       init_render_pass_simple(context, create_info, render_context.render_pass);
     }
 
-    // Create pipeline layout
+    // Create desciptor set layout
     {
       const DescriptorInfo descriptor_infos[] = {
         {.type = DescriptorType::UNIFORM_BUFFER, .stage = ShaderStage::VERTEX },
         {.type = DescriptorType::SAMPLER,        .stage = ShaderStage::FRAGMENT },
       };
 
-      PipelineLayoutCreateInfo create_info = {};
+      DescriptorSetLayoutCreateInfo create_info = {};
       create_info.descriptors      = descriptor_infos;
       create_info.descriptor_count = std::size(descriptor_infos);
+      init_descriptor_set_layout(context, create_info, render_context.descriptor_set_layout);
+    }
+
+    // Create pipeline layout
+    {
+      PipelineLayoutCreateInfo create_info = {};
+      create_info.descriptor_set_layout = render_context.descriptor_set_layout;
       create_info.push_constants      = nullptr;
       create_info.push_constant_count = 0;
       init_pipeline_layout(context, create_info, render_context.pipeline_layout);
@@ -119,6 +126,7 @@ namespace vulkan
 
     deinit_pipeline(context, render_context.pipeline);
     deinit_pipeline_layout(context, render_context.pipeline_layout);
+    deinit_descriptor_set_layout(context, render_context.descriptor_set_layout);
     deinit_render_pass(context, render_context.render_pass);
     deinit_swapchain(context, render_context.swapchain);
   }

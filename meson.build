@@ -19,6 +19,7 @@ srcs = [
   'src/impl.cpp',
   'src/main.cpp',
   'src/pipeline.cpp',
+  'src/descriptor_set_layout.cpp',
   'src/pipeline_layout.cpp',
   'src/render_context.cpp',
   'src/render_pass.cpp',

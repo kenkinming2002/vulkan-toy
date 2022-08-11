@@ -161,7 +161,7 @@ namespace vulkan
     graphics_pipeline_create_info.pDepthStencilState  = &depth_stencil_state_create_info;
     graphics_pipeline_create_info.pColorBlendState    = &color_blending_state_create_info;
     graphics_pipeline_create_info.pDynamicState       = &dynamic_state_create_info;
-    graphics_pipeline_create_info.layout              = create_info.pipeline_layout.pipeline_layout;
+    graphics_pipeline_create_info.layout              = create_info.pipeline_layout.handle;
     graphics_pipeline_create_info.renderPass          = create_info.render_pass.handle;
     graphics_pipeline_create_info.subpass             = 0;
     graphics_pipeline_create_info.basePipelineHandle = VK_NULL_HANDLE;

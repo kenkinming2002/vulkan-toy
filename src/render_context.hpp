@@ -54,8 +54,9 @@ namespace vulkan
 
   struct RenderContext
   {
-    Swapchain      swapchain;
-    PipelineLayout pipeline_layout;
+    Swapchain           swapchain;
+    DescriptorSetLayout descriptor_set_layout;
+    PipelineLayout      pipeline_layout;
 
     // TODO: How to support multiple render pass
     RenderPass render_pass;

@@ -2,19 +2,12 @@
 
 #include "context.hpp"
 #include "shader_stage.hpp"
+#include "descriptor_set_layout.hpp"
 
 #include <vulkan/vulkan.h>
 
 namespace vulkan
 {
-  enum class DescriptorType { UNIFORM_BUFFER, SAMPLER };
-
-  struct DescriptorInfo
-  {
-    DescriptorType type;
-    ShaderStage stage;
-  };
-
   struct PushConstantInfo
   {
     uint32_t offset;
@@ -24,8 +17,7 @@ namespace vulkan
 
   struct PipelineLayoutCreateInfo
   {
-    const DescriptorInfo *descriptors;
-    uint32_t              descriptor_count;
+    DescriptorSetLayout descriptor_set_layout;
 
     const PushConstantInfo *push_constants;
     uint32_t                push_constant_count;
@@ -33,8 +25,7 @@ namespace vulkan
 
   struct PipelineLayout
   {
-    VkDescriptorSetLayout descriptor_set_layout;
-    VkPipelineLayout      pipeline_layout;
+    VkPipelineLayout handle;
   };
 
   void init_pipeline_layout(const Context& context, PipelineLayoutCreateInfo create_info, PipelineLayout& pipeline_layout);

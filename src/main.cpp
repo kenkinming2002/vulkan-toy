@@ -299,7 +299,7 @@ int main()
   VkDescriptorSetLayout descriptor_set_layouts[MAX_FRAME_IN_FLIGHT];
   VkDescriptorSet descriptor_sets[MAX_FRAME_IN_FLIGHT];
 
-  std::fill(std::begin(descriptor_set_layouts), std::end(descriptor_set_layouts), render_context.pipeline_layout.descriptor_set_layout);
+  std::fill(std::begin(descriptor_set_layouts), std::end(descriptor_set_layouts), render_context.descriptor_set_layout.handle);
 
   VkDescriptorSetAllocateInfo alloc_info = {};
   alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -383,7 +383,7 @@ int main()
 
     vkCmdBindDescriptorSets(frame_info->command_buffer.handle,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
-        render_context.pipeline_layout.pipeline_layout,
+        render_context.pipeline_layout.handle,
         0, 1,
         &descriptor_sets[frame_info->frame_index],
         0, nullptr);
