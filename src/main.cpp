@@ -1,6 +1,7 @@
 #include "context.hpp"
 #include "render_context.hpp"
 #include "command_buffer.hpp"
+#include "descriptor_set.hpp"
 #include "shader.hpp"
 #include "vulkan.hpp"
 #include "vk_check.hpp"
@@ -281,28 +282,23 @@ int main()
   }
 
   // Descriptor pool
-  VkDescriptorPoolSize pool_sizes[2] = {};
-  pool_sizes[0].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  pool_sizes[0].descriptorCount = MAX_FRAME_IN_FLIGHT;
-  pool_sizes[1].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  pool_sizes[1].descriptorCount = MAX_FRAME_IN_FLIGHT;
-
-  VkDescriptorPoolCreateInfo pool_create_info = {};
-  pool_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-  pool_create_info.poolSizeCount = 2;
-  pool_create_info.pPoolSizes = pool_sizes;
-  pool_create_info.maxSets    = MAX_FRAME_IN_FLIGHT;
-
-  VkDescriptorPool descriptor_pool = {};
-  VK_CHECK(vkCreateDescriptorPool(context.device, &pool_create_info, nullptr, &descriptor_pool));
+  const vulkan::DescriptorInfo descriptor_infos[] = {
+    {.type = vulkan::DescriptorType::UNIFORM_BUFFER, .stage = vulkan::ShaderStage::VERTEX },
+    {.type = vulkan::DescriptorType::SAMPLER,        .stage = vulkan::ShaderStage::FRAGMENT },
+  };
+  vulkan::DescriptorPool descriptor_pool = {};
+  vulkan::init_descriptor_pool(context, vulkan::DescriptorPoolCreateInfo{
+    .descriptors      = descriptor_infos,
+    .descriptor_count = std::size(descriptor_infos),
+    .count            = MAX_FRAME_IN_FLIGHT,
+  }, descriptor_pool);
 
   VkDescriptorSet descriptor_sets[MAX_FRAME_IN_FLIGHT];
-
   for (size_t i = 0; i < MAX_FRAME_IN_FLIGHT; i++)
   {
     VkDescriptorSetAllocateInfo alloc_info = {};
     alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    alloc_info.descriptorPool     = descriptor_pool;
+    alloc_info.descriptorPool     = descriptor_pool.handle;
     alloc_info.descriptorSetCount = 1;
     alloc_info.pSetLayouts        = &render_context.descriptor_set_layout.handle;
     VK_CHECK(vkAllocateDescriptorSets(context.device, &alloc_info, &descriptor_sets[i]));
