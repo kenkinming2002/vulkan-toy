@@ -26,9 +26,9 @@ namespace vulkan
 {
   struct ImageResource
   {
-    SwapchainAttachment color_attachment;
-    ManagedAttachment   depth_attachment;
-    Framebuffer         framebuffer;
+    Attachment  color_attachment;
+    Attachment  depth_attachment;
+    Framebuffer framebuffer;
   };
 
   struct FrameResource

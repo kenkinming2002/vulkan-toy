@@ -52,24 +52,26 @@ namespace vulkan
         ImageResource image_resource = {};
 
         {
-          SwapchainAttachmentCreateInfo create_info = {};
-          create_info.swapchain = render_context.swapchain;
-          create_info.index     = i;
-          init_attachment_swapchain(context, create_info, image_resource.color_attachment);
+          AttachmentCreateInfo create_info = {};
+          create_info.source              = AttachmentSource::SWAPCHAIN;
+          create_info.swapchain.swapchain = render_context.swapchain;
+          create_info.swapchain.index     = i;
+          init_attachment(context, allocator, create_info, image_resource.color_attachment);
         }
 
         {
-          ManagedAttachmentCreateInfo create_info = {};
-          create_info.type   = AttachmentType::DEPTH;
-          create_info.extent = render_context.swapchain.extent;
-          create_info.format = VK_FORMAT_D32_SFLOAT;
-          init_attachment_managed(context, allocator, create_info, image_resource.depth_attachment);
+          AttachmentCreateInfo create_info = {};
+          create_info.source         = AttachmentSource::MANAGED;
+          create_info.managed.type   = AttachmentType::DEPTH;
+          create_info.managed.extent = render_context.swapchain.extent;
+          create_info.managed.format = VK_FORMAT_D32_SFLOAT;
+          init_attachment(context, allocator, create_info, image_resource.depth_attachment);
         }
 
         {
           const Attachment attachments[] = {
-            to_attachment(image_resource.color_attachment),
-            to_attachment(image_resource.depth_attachment),
+            image_resource.color_attachment,
+            image_resource.depth_attachment,
           };
           FramebufferCreateInfo create_info = {};
           create_info.render_pass      = render_context.render_pass.handle;
@@ -108,8 +110,8 @@ namespace vulkan
     {
       ImageResource& frame = render_context.image_resources[i];
       deinit_framebuffer(context, frame.framebuffer);
-      deinit_attachment_swapchain(context, frame.color_attachment);
-      deinit_attachment_managed(context, allocator, frame.depth_attachment);
+      deinit_attachment(context, allocator, frame.color_attachment);
+      deinit_attachment(context, allocator, frame.depth_attachment);
     }
     delete[] render_context.image_resources;
 

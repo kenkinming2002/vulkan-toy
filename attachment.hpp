@@ -6,24 +6,15 @@
 
 namespace vulkan
 {
+  enum class AttachmentSource { SWAPCHAIN, MANAGED };
+
   enum class AttachmentType   { COLOR, DEPTH, STENCIL };
-  struct ManagedAttachmentCreateInfo
+  struct ManagedAttachmentCreatInfo
   {
     AttachmentType type;
     VkExtent2D     extent;
     VkFormat       format;
   };
-
-  struct ManagedAttachment
-  {
-    VkImage          image;
-    VkImageView      image_view;
-
-    MemoryAllocation memory_allocation;
-  };
-
-  void init_attachment_managed(const Context& context, Allocator& allocator, ManagedAttachmentCreateInfo create_info, ManagedAttachment& attachment);
-  void deinit_attachment_managed(const Context& context, Allocator& allocator, ManagedAttachment& attachment);
 
   struct SwapchainAttachmentCreateInfo
   {
@@ -31,34 +22,24 @@ namespace vulkan
     uint32_t index;
   };
 
-  struct SwapchainAttachment
+  struct AttachmentCreateInfo
   {
-    VkImage     image;
-    VkImageView image_view;
+    AttachmentSource source;
+    union
+    {
+      ManagedAttachmentCreatInfo    managed;
+      SwapchainAttachmentCreateInfo swapchain;
+    };
   };
-
-  void init_attachment_swapchain(const Context& context, SwapchainAttachmentCreateInfo create_info, SwapchainAttachment& attachment);
-  void deinit_attachment_swapchain(const Context& context, SwapchainAttachment& attachment);
 
   struct Attachment
   {
-    VkImage     image;
-    VkImageView image_view;
+    AttachmentSource source;
+    VkImage          image;
+    VkImageView      image_view;
+    MemoryAllocation memory_allocation;
   };
 
-  inline Attachment to_attachment(const ManagedAttachment& attachment)
-  {
-    return Attachment{
-      .image      = attachment.image,
-      .image_view = attachment.image_view,
-    };
-  }
-
-  inline Attachment to_attachment(const SwapchainAttachment& attachment)
-  {
-    return Attachment{
-      .image      = attachment.image,
-      .image_view = attachment.image_view,
-    };
-  }
+  void init_attachment(const Context& context, Allocator& allocator, AttachmentCreateInfo create_info, Attachment& attachment);
+  void deinit_attachment(const Context& context, Allocator& allocator, Attachment& attachment);
 }
