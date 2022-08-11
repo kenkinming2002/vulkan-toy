@@ -54,7 +54,7 @@ namespace vulkan
         ImageResource image_resource = {};
 
         init_image(context, allocator, ImageCreateInfo{
-          .type   = ImageType::DEPTH,
+          .type   = ImageType::DEPTH_ATTACHMENT,
           .format = VK_FORMAT_D32_SFLOAT,
           .extent = render_context.swapchain.extent,
         }, image_resource.depth_image);

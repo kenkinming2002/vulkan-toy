@@ -13,13 +13,16 @@ namespace vulkan
     Image2dCreateInfo image_create_info = {};
     switch(create_info.type)
     {
-      case ImageType::COLOR:
-        image_create_info.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-        break;
-      case ImageType::DEPTH:
-      case ImageType::STENCIL:
-        image_create_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-        break;
+    case ImageType::TEXTURE:
+      image_create_info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+      break;
+    case ImageType::COLOR_ATTACHMENT:
+      image_create_info.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+      break;
+    case ImageType::DEPTH_ATTACHMENT:
+    case ImageType::STENCIL_ATTACHMENT:
+      image_create_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+      break;
     }
     image_create_info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
     image_create_info.format     = create_info.format;

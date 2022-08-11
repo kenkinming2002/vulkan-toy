@@ -6,7 +6,13 @@
 
 namespace vulkan
 {
-  enum class ImageType { COLOR, DEPTH, STENCIL };
+  enum class ImageType
+  {
+    TEXTURE,
+    COLOR_ATTACHMENT,
+    DEPTH_ATTACHMENT,
+    STENCIL_ATTACHMENT,
+  };
 
   struct ImageCreateInfo
   {
