@@ -1,18 +1,10 @@
 #pragma once
 
 #include "context.hpp"
-#include "shader_stage.hpp"
+#include "descriptor_info.hpp"
 
 namespace vulkan
 {
-  enum class DescriptorType { UNIFORM_BUFFER, SAMPLER };
-
-  struct DescriptorInfo
-  {
-    DescriptorType type;
-    ShaderStage stage;
-  };
-
   struct DescriptorSetLayoutCreateInfo
   {
     const DescriptorInfo *descriptors;
