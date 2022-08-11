@@ -56,10 +56,7 @@ namespace vulkan
       break;
     case AttachmentSource::SWAPCHAIN:
       {
-        uint32_t image_count = create_info.swapchain.swapchain.image_count;
-        VkImage *images = new VkImage[image_count];
-        VK_CHECK(vkGetSwapchainImagesKHR(context.device, create_info.swapchain.swapchain.handle, &image_count, images));
-        attachment.image = images[create_info.swapchain.index];
+        attachment.image = create_info.swapchain.swapchain.images[create_info.swapchain.index];
 
         VkImageViewCreateInfo image_view_create_info = {};
         image_view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;

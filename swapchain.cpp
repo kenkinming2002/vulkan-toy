@@ -1,4 +1,5 @@
 #include "swapchain.hpp"
+#include "utils.hpp"
 #include "vk_check.hpp"
 
 #include <algorithm>
@@ -44,14 +45,15 @@ namespace vulkan
   void init_swapchain(const Context& context, Swapchain& swapchain)
   {
     // Capabilities
+    uint32_t min_image_count;
     {
       VkSurfaceCapabilitiesKHR capabilities = {};
       VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context.physical_device, context.surface, &capabilities));
 
       // Image count
-      swapchain.image_count = capabilities.minImageCount + 1;
+      min_image_count = capabilities.minImageCount + 1;
       if(capabilities.maxImageCount != 0)
-        swapchain.image_count = std::min(swapchain.image_count, capabilities.maxImageCount);
+        min_image_count = std::min(min_image_count, capabilities.maxImageCount);
 
       // Extent
       swapchain.extent = capabilities.currentExtent;
@@ -95,7 +97,7 @@ namespace vulkan
       create_info.sType                 = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
       create_info.surface               = context.surface;
       create_info.imageExtent           = swapchain.extent;
-      create_info.minImageCount         = swapchain.image_count;
+      create_info.minImageCount         = min_image_count;
       create_info.imageFormat           = swapchain.surface_format.format;
       create_info.imageColorSpace       = swapchain.surface_format.colorSpace;
       create_info.imageArrayLayers      = 1;
@@ -111,12 +113,18 @@ namespace vulkan
       VK_CHECK(vkCreateSwapchainKHR(context.device, &create_info, nullptr, &swapchain.handle));
     }
 
-    // 3: Update the image count
+    // 3: Retrive images
     vkGetSwapchainImagesKHR(context.device, swapchain.handle, &swapchain.image_count, nullptr);
+    swapchain.images = new VkImage[swapchain.image_count];
+    vkGetSwapchainImagesKHR(context.device, swapchain.handle, &swapchain.image_count, swapchain.images);
   }
 
   void deinit_swapchain(const Context& context, Swapchain& swapchain)
   {
+    delete[] swapchain.images;
+    swapchain.image_count = 0;
+    swapchain.images      = nullptr;
+
     vkDestroySwapchainKHR(context.device, swapchain.handle, nullptr);
     swapchain.handle = nullptr;
     swapchain = {};
