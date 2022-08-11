@@ -296,18 +296,17 @@ int main()
   VkDescriptorPool descriptor_pool = {};
   VK_CHECK(vkCreateDescriptorPool(context.device, &pool_create_info, nullptr, &descriptor_pool));
 
-  VkDescriptorSetLayout descriptor_set_layouts[MAX_FRAME_IN_FLIGHT];
   VkDescriptorSet descriptor_sets[MAX_FRAME_IN_FLIGHT];
 
-  std::fill(std::begin(descriptor_set_layouts), std::end(descriptor_set_layouts), render_context.descriptor_set_layout.handle);
-
-  VkDescriptorSetAllocateInfo alloc_info = {};
-  alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-  alloc_info.descriptorPool     = descriptor_pool;
-  alloc_info.descriptorSetCount = MAX_FRAME_IN_FLIGHT;
-  alloc_info.pSetLayouts        = descriptor_set_layouts;
-
-  VK_CHECK(vkAllocateDescriptorSets(context.device, &alloc_info, descriptor_sets));
+  for (size_t i = 0; i < MAX_FRAME_IN_FLIGHT; i++)
+  {
+    VkDescriptorSetAllocateInfo alloc_info = {};
+    alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    alloc_info.descriptorPool     = descriptor_pool;
+    alloc_info.descriptorSetCount = 1;
+    alloc_info.pSetLayouts        = &render_context.descriptor_set_layout.handle;
+    VK_CHECK(vkAllocateDescriptorSets(context.device, &alloc_info, &descriptor_sets[i]));
+  }
 
   VkBuffer                 ubos[MAX_FRAME_IN_FLIGHT];
   vulkan::MemoryAllocation ubo_allocations[MAX_FRAME_IN_FLIGHT];
