@@ -6,11 +6,18 @@
 
 namespace vulkan
 {
+  enum class ImageViewType
+  {
+    COLOR,
+    DEPTH,
+    STENCIL
+  };
+
   struct ImageViewCreateInfo
   {
-    ImageType  type;
-    VkFormat   format;
-    Image      image;
+    ImageViewType type;
+    VkFormat      format;
+    Image         image;
   };
 
   struct ImageViewCreateInfoSwapchain

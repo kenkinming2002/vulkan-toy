@@ -65,7 +65,7 @@ namespace vulkan
         }, image_resource.color_view);
 
         init_image_view(context, ImageViewCreateInfo{
-          .type   = ImageType::DEPTH,
+          .type   = ImageViewType::DEPTH,
           .format = VK_FORMAT_D32_SFLOAT,
           .image  = image_resource.depth_image,
         }, image_resource.depth_view);

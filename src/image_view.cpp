@@ -17,9 +17,9 @@ namespace vulkan
     image_view_create_info.components.a                    = VK_COMPONENT_SWIZZLE_IDENTITY;
     switch(create_info.type)
     {
-    case ImageType::COLOR:   image_view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; break;
-    case ImageType::DEPTH:   image_view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT; break;
-    case ImageType::STENCIL: image_view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_STENCIL_BIT; break;
+    case ImageViewType::COLOR:   image_view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; break;
+    case ImageViewType::DEPTH:   image_view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT; break;
+    case ImageViewType::STENCIL: image_view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_STENCIL_BIT; break;
     }
     image_view_create_info.subresourceRange.baseMipLevel   = 0;
     image_view_create_info.subresourceRange.levelCount     = 1;
