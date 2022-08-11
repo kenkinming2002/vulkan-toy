@@ -40,4 +40,14 @@ namespace vulkan
   {
     vkDestroyDescriptorPool(context.device, descriptor_pool.handle, nullptr);
   }
+
+  void allocate_descriptor_set(const Context& context, DescriptorPool descriptor_pool, DescriptorSetLayout descriptor_set_layout, DescriptorSet& descriptor_set)
+  {
+    VkDescriptorSetAllocateInfo alloc_info = {};
+    alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    alloc_info.descriptorPool     = descriptor_pool.handle;
+    alloc_info.descriptorSetCount = 1;
+    alloc_info.pSetLayouts        = &descriptor_set_layout.handle;
+    VK_CHECK(vkAllocateDescriptorSets(context.device, &alloc_info, &descriptor_set.handle));
+  }
 }

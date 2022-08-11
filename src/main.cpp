@@ -194,18 +194,19 @@ Model load_model(const vulkan::Context& context, vulkan::Allocator& allocator, c
   return create_model(context, allocator, vertices, indices);
 }
 
+const vulkan::ContextCreateInfo context_create_info = {
+  .application_name = "Vulkan",
+  .engine_name      = "Engine",
+  .window_name      = "Vulkan",
+  .width            = 1080,
+  .height           = 720,
+};
+
 int main()
 {
   glfwInit();
 
   // Context
-  const vulkan::ContextCreateInfo context_create_info = {
-    .application_name = "Vulkan",
-    .engine_name      = "Engine",
-    .window_name      = "Vulkan",
-    .width            = 1080,
-    .height           = 720,
-  };
   vulkan::Context context = {};
   vulkan::init_context(context_create_info, context);
 
@@ -293,16 +294,9 @@ int main()
     .count            = MAX_FRAME_IN_FLIGHT,
   }, descriptor_pool);
 
-  VkDescriptorSet descriptor_sets[MAX_FRAME_IN_FLIGHT];
+  vulkan::DescriptorSet descriptor_sets[MAX_FRAME_IN_FLIGHT];
   for (size_t i = 0; i < MAX_FRAME_IN_FLIGHT; i++)
-  {
-    VkDescriptorSetAllocateInfo alloc_info = {};
-    alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    alloc_info.descriptorPool     = descriptor_pool.handle;
-    alloc_info.descriptorSetCount = 1;
-    alloc_info.pSetLayouts        = &render_context.descriptor_set_layout.handle;
-    VK_CHECK(vkAllocateDescriptorSets(context.device, &alloc_info, &descriptor_sets[i]));
-  }
+    vulkan::allocate_descriptor_set(context, descriptor_pool, render_context.descriptor_set_layout, descriptor_sets[i]);
 
   VkBuffer                 ubos[MAX_FRAME_IN_FLIGHT];
   vulkan::MemoryAllocation ubo_allocations[MAX_FRAME_IN_FLIGHT];
@@ -329,7 +323,7 @@ int main()
 
     VkWriteDescriptorSet write_descriptors[2] = {};
     write_descriptors[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write_descriptors[0].dstSet          = descriptor_sets[i];
+    write_descriptors[0].dstSet          = descriptor_sets[i].handle;
     write_descriptors[0].dstBinding      = 0;
     write_descriptors[0].dstArrayElement = 0;
     write_descriptors[0].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -337,7 +331,7 @@ int main()
     write_descriptors[0].pBufferInfo     = &buffer_info;
 
     write_descriptors[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write_descriptors[1].dstSet          = descriptor_sets[i];
+    write_descriptors[1].dstSet          = descriptor_sets[i].handle;
     write_descriptors[1].dstBinding      = 1;
     write_descriptors[1].dstArrayElement = 0;
     write_descriptors[1].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -380,7 +374,7 @@ int main()
         VK_PIPELINE_BIND_POINT_GRAPHICS,
         render_context.pipeline_layout.handle,
         0, 1,
-        &descriptor_sets[frame_info->frame_index],
+        &descriptor_sets[frame_info->frame_index].handle,
         0, nullptr);
 
     VkDeviceSize offsets[] = {0};
