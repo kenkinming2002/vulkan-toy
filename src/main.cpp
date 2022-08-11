@@ -282,6 +282,17 @@ int main()
     VK_CHECK(vkCreateSampler(context.device, &create_info, nullptr, &sampler));
   }
 
+  VkBuffer                 ubos[MAX_FRAME_IN_FLIGHT];
+  vulkan::MemoryAllocation ubo_allocations[MAX_FRAME_IN_FLIGHT];
+  for (size_t i = 0; i < MAX_FRAME_IN_FLIGHT; i++)
+  {
+    vulkan::BufferCreateInfo create_info = {};
+    create_info.usage      = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    create_info.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    create_info.size       = sizeof(UniformBufferObject);
+    ubos[i] = vulkan::create_buffer(context, allocator, create_info, ubo_allocations[i]);
+  }
+
   // Descriptor pool
   const vulkan::DescriptorInfo descriptor_infos[] = {
     {.type = vulkan::DescriptorType::UNIFORM_BUFFER, .stage = vulkan::ShaderStage::VERTEX },
@@ -296,31 +307,18 @@ int main()
 
   vulkan::DescriptorSet descriptor_sets[MAX_FRAME_IN_FLIGHT];
   for (size_t i = 0; i < MAX_FRAME_IN_FLIGHT; i++)
-    vulkan::allocate_descriptor_set(context, descriptor_pool, render_context.descriptor_set_layout, descriptor_sets[i]);
-
-  VkBuffer                 ubos[MAX_FRAME_IN_FLIGHT];
-  vulkan::MemoryAllocation ubo_allocations[MAX_FRAME_IN_FLIGHT];
-  for (size_t i = 0; i < MAX_FRAME_IN_FLIGHT; i++)
-  {
-    vulkan::BufferCreateInfo create_info = {};
-    create_info.usage      = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-    create_info.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    create_info.size       = sizeof(UniformBufferObject);
-    ubos[i] = vulkan::create_buffer(context, allocator, create_info, ubo_allocations[i]);
-  }
-
-  for (size_t i = 0; i < MAX_FRAME_IN_FLIGHT; i++)
   {
     const vulkan::Descriptor descriptors[] = {
       {.type = vulkan::DescriptorType::UNIFORM_BUFFER, .uniform_buffer         = { .buffer = ubos[i], .size = sizeof(UniformBufferObject), }},
       {.type = vulkan::DescriptorType::SAMPLER,        .combined_image_sampler = { .image_view = texture.image_view, .sampler = sampler, }}
     };
+
+    vulkan::allocate_descriptor_set(context, descriptor_pool, render_context.descriptor_set_layout, descriptor_sets[i]);
     vulkan::write_descriptor_set(context, descriptor_sets[i], vulkan::DescriptorSetWriteInfo{
       .descriptors      = descriptors,
       .descriptor_count = std::size(descriptors),
     });
   }
-
 
   while(!vulkan::context_should_destroy(context))
   {
