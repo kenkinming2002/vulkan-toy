@@ -5,13 +5,13 @@
 #include "command_buffer.hpp"
 #include "context.hpp"
 #include "framebuffer.hpp"
+#include "image_view.hpp"
 #include "pipeline.hpp"
 #include "pipeline_layout.hpp"
 #include "render_pass.hpp"
 #include "shader.hpp"
 #include "swapchain.hpp"
 #include "vulkan.hpp"
-
 #include <glm/glm.hpp>
 
 #include <algorithm>
@@ -19,15 +19,18 @@
 #include <limits>
 #include <optional>
 
-#include <stdio.h>
 #include <assert.h>
+#include <stdio.h>
 
 namespace vulkan
 {
   struct ImageResource
   {
-    Attachment  color_attachment;
-    Attachment  depth_attachment;
+    Image     depth_image;
+
+    ImageView color_view;
+    ImageView depth_view;
+
     Framebuffer framebuffer;
   };
 

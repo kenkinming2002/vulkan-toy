@@ -11,8 +11,8 @@ namespace vulkan
   struct ImageCreateInfo
   {
     ImageType  type;
-    VkExtent2D extent;
     VkFormat   format;
+    VkExtent2D extent;
   };
 
   struct Image

@@ -1,5 +1,7 @@
 #include "render_context.hpp"
 
+#include "src/image.hpp"
+#include "src/image_view.hpp"
 #include "vk_check.hpp"
 
 #include <vulkan/vulkan_core.h>
@@ -51,35 +53,34 @@ namespace vulkan
       {
         ImageResource image_resource = {};
 
-        {
-          AttachmentCreateInfo create_info = {};
-          create_info.source              = AttachmentSource::SWAPCHAIN;
-          create_info.swapchain.swapchain = render_context.swapchain;
-          create_info.swapchain.index     = i;
-          init_attachment(context, allocator, create_info, image_resource.color_attachment);
-        }
+        init_image(context, allocator, ImageCreateInfo{
+          .type   = ImageType::DEPTH,
+          .format = VK_FORMAT_D32_SFLOAT,
+          .extent = render_context.swapchain.extent,
+        }, image_resource.depth_image);
 
-        {
-          AttachmentCreateInfo create_info = {};
-          create_info.source         = AttachmentSource::MANAGED;
-          create_info.managed.type   = AttachmentType::DEPTH;
-          create_info.managed.extent = render_context.swapchain.extent;
-          create_info.managed.format = VK_FORMAT_D32_SFLOAT;
-          init_attachment(context, allocator, create_info, image_resource.depth_attachment);
-        }
+        init_image_view(context, ImageViewCreateInfoSwapchain{
+          .swapchain = render_context.swapchain,
+          .index     = i,
+        }, image_resource.color_view);
 
-        {
-          const Attachment attachments[] = {
-            image_resource.color_attachment,
-            image_resource.depth_attachment,
-          };
-          FramebufferCreateInfo create_info = {};
-          create_info.render_pass      = render_context.render_pass.handle;
-          create_info.extent           = render_context.swapchain.extent;
-          create_info.attachments      = attachments;
-          create_info.attachment_count = std::size(attachments);
-          init_framebuffer(context, create_info, image_resource.framebuffer);
-        }
+        init_image_view(context, ImageViewCreateInfo{
+          .type   = ImageType::DEPTH,
+          .format = VK_FORMAT_D32_SFLOAT,
+          .image  = image_resource.depth_image,
+        }, image_resource.depth_view);
+
+        const ImageView image_views[] = {
+          image_resource.color_view,
+          image_resource.depth_view,
+        };
+
+        init_framebuffer(context, FramebufferCreateInfo{
+          .render_pass      = render_context.render_pass.handle,
+          .extent           = render_context.swapchain.extent,
+          .image_views      = image_views,
+          .image_view_count = std::size(image_views),
+        }, image_resource.framebuffer);
 
         render_context.image_resources[i] = image_resource;
       }
@@ -110,8 +111,9 @@ namespace vulkan
     {
       ImageResource& frame = render_context.image_resources[i];
       deinit_framebuffer(context, frame.framebuffer);
-      deinit_attachment(context, allocator, frame.color_attachment);
-      deinit_attachment(context, allocator, frame.depth_attachment);
+      deinit_image(context, allocator, frame.depth_image);
+      deinit_image_view(context, frame.color_view);
+      deinit_image_view(context, frame.depth_view);
     }
     delete[] render_context.image_resources;
 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "context.hpp"
-#include "attachment.hpp"
+#include "image_view.hpp"
 
 namespace vulkan
 {
@@ -10,8 +10,8 @@ namespace vulkan
     VkRenderPass      render_pass;
 
     VkExtent2D        extent;
-    const Attachment *attachments;
-    uint32_t          attachment_count;
+    const ImageView  *image_views;
+    uint32_t          image_view_count;
   };
 
   struct Framebuffer

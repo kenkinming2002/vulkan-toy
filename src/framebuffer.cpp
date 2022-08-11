@@ -3,13 +3,15 @@
 #include "vk_check.hpp"
 #include "utils.hpp"
 
+#include <type_traits>
+
 namespace vulkan
 {
   void init_framebuffer(const Context& context, FramebufferCreateInfo create_info, Framebuffer& framebuffer)
   {
-    dynarray<VkImageView> attachments = create_dynarray<VkImageView>(create_info.attachment_count);
-    for(uint32_t i=0; i<create_info.attachment_count; ++i)
-      attachments[i] = create_info.attachments[i].image_view;
+    dynarray<VkImageView> attachments = create_dynarray<VkImageView>(create_info.image_view_count);
+    for(uint32_t i=0; i<create_info.image_view_count; ++i)
+      attachments[i] = create_info.image_views[i].handle;
 
     VkFramebufferCreateInfo framebuffer_create_info = {};
     framebuffer_create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
