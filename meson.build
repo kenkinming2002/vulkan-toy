@@ -9,7 +9,6 @@ glm_dep    = dependency('glm')
 
 srcs = [
   'src/allocator.cpp',
-  'src/attachment.cpp',
   'src/buffer.cpp',
   'src/command_buffer.cpp',
   'src/context.cpp',
