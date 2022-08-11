@@ -1,7 +1,6 @@
 #include "image_view.hpp"
 
 #include "vk_check.hpp"
-#include <vulkan/vulkan_core.h>
 
 namespace vulkan
 {
