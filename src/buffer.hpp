@@ -11,23 +11,28 @@
 
 namespace vulkan
 {
+  enum class BufferType
+  {
+    STAGING_BUFFER,
+    VERTEX_BUFFER,
+    INDEX_BUFFER,
+    UNIFORM_BUFFER,
+  };
+
   struct BufferCreateInfo
   {
-    VkBufferUsageFlags usage;
-    VkMemoryPropertyFlags properties;
-    size_t size;
+    BufferType type;
+    VkDeviceSize size;
   };
-  VkBuffer create_buffer(const Context& context, Allocator& allocator, BufferCreateInfo info, MemoryAllocation& allocation);
 
-  struct Image2dCreateInfo
+  struct Buffer
   {
-    VkImageUsageFlags usage;
-    VkMemoryPropertyFlags properties;
-    VkFormat format;
-    size_t width, height;
+    VkBuffer         handle;
+    MemoryAllocation allocation;
   };
-  VkImage create_image2d(const Context& context, Allocator& allocator, Image2dCreateInfo info, MemoryAllocation& allocation);
 
-  void write_buffer(const Context& context, Allocator& allocator, VkBuffer buffer, MemoryAllocation allocation, const void *data);
-  void write_image2d(const Context& context, Allocator& allocator, VkImage image, size_t width, size_t height, MemoryAllocation allocation, const void *data);
+  void init_buffer(const Context& context, Allocator& allocator, BufferCreateInfo create_info, Buffer& buffer);
+  void deinit_buffer(const Context& context, Allocator& allocator, Buffer& buffer);
+
+  void write_buffer(const Context& context, Allocator& allocator, Buffer& buffer, const void *data, size_t size);
 }

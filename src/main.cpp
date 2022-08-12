@@ -54,48 +54,35 @@ static constexpr size_t MAX_FRAME_IN_FLIGHT = 4;
 
 struct Texture
 {
-  vulkan::MemoryAllocation allocation;
-  VkImage     image;
-  VkImageView image_view;
+  vulkan::Image     image;
+  vulkan::ImageView image_view;
 };
 
 Texture create_texture(const vulkan::Context& context, vulkan::Allocator& allocator, const void *data, size_t width, size_t height)
 {
   Texture texture = {};
 
-  {
-    vulkan::Image2dCreateInfo info = {};
-    info.usage      = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-    info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    info.format     = VK_FORMAT_R8G8B8A8_SRGB;
-    info.width      = width;
-    info.height     = height;
-    texture.image = vulkan::create_image2d(context, allocator, info, texture.allocation);
-    vulkan::write_image2d(context, allocator, texture.image, width, height, texture.allocation, data);
-  }
+  vulkan::ImageCreateInfo image_create_info = {};
+  image_create_info.type          = vulkan::ImageType::TEXTURE;
+  image_create_info.format        = VK_FORMAT_R8G8B8A8_SRGB;
+  image_create_info.extent.width  = width;
+  image_create_info.extent.height = height;
+  vulkan::init_image(context, allocator, image_create_info, texture.image);
+  vulkan::write_image(context, allocator, texture.image, data, width, height, width * height * 4);
 
-  {
-    VkImageViewCreateInfo create_info = {};
-    create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    create_info.image                           = texture.image;
-    create_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
-    create_info.format                          = VK_FORMAT_R8G8B8A8_SRGB;
-    create_info.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-    create_info.subresourceRange.baseMipLevel   = 0;
-    create_info.subresourceRange.levelCount     = 1;
-    create_info.subresourceRange.baseArrayLayer = 0;
-    create_info.subresourceRange.layerCount     = 1;
-    VK_CHECK(vkCreateImageView(context.device, &create_info, nullptr, &texture.image_view));
-  }
+  vulkan::ImageViewCreateInfo image_view_create_info = {};
+  image_view_create_info.type = vulkan::ImageViewType::COLOR;
+  image_view_create_info.format = VK_FORMAT_R8G8B8A8_SRGB;
+  image_view_create_info.image = texture.image;
+  vulkan::init_image_view(context, image_view_create_info, texture.image_view);
 
   return texture;
 }
 
 void destroy_texture(const vulkan::Context& context, vulkan::Allocator& allocator, Texture texture)
 {
-  vkDestroyImageView(context.device, texture.image_view, nullptr);
-  vkDestroyImage(context.device, texture.image, nullptr);
-  vulkan::deallocate_memory(context, allocator, texture.allocation);
+  vulkan::deinit_image_view(context, texture.image_view);
+  vulkan::deinit_image(context, allocator, texture.image);
 }
 
 Texture load_texture(const vulkan::Context& context, vulkan::Allocator& allocator, const char *file_name)
@@ -110,15 +97,8 @@ Texture load_texture(const vulkan::Context& context, vulkan::Allocator& allocato
 
 struct Model
 {
-  size_t vertex_count;
-  size_t index_count;
-
-  vulkan::MemoryAllocation vbo_allocation;
-  vulkan::MemoryAllocation ibo_allocation;
-
-  VkBuffer vbo;
-  VkBuffer ibo;
-
+  size_t vertex_count, index_count;
+  vulkan::Buffer vbo, ibo;
 };
 
 Model create_model(const vulkan::Context& context, vulkan::Allocator& allocator, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
@@ -127,34 +107,25 @@ Model create_model(const vulkan::Context& context, vulkan::Allocator& allocator,
   model.vertex_count = vertices.size();
   model.index_count  = indices.size();
 
-  {
-    vulkan::BufferCreateInfo info = {};
-    info.usage      = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    info.size       = vertices.size() * sizeof vertices[0];
-    model.vbo = vulkan::create_buffer(context, allocator, info, model.vbo_allocation);
-    vulkan::write_buffer(context, allocator, model.vbo, model.vbo_allocation, vertices.data());
-  }
+  vulkan::BufferCreateInfo buffer_create_info = {};
 
-  {
-    vulkan::BufferCreateInfo info = {};
-    info.usage      = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-    info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    info.size       = indices.size() * sizeof indices[0];
-    model.ibo = vulkan::create_buffer(context, allocator, info, model.ibo_allocation);
-    vulkan::write_buffer(context, allocator, model.ibo, model.ibo_allocation, indices.data());
-  }
+  buffer_create_info.type = vulkan::BufferType::VERTEX_BUFFER;
+  buffer_create_info.size = vertices.size() * sizeof vertices[0];
+  vulkan::init_buffer(context, allocator, buffer_create_info, model.vbo);
+  vulkan::write_buffer(context, allocator, model.vbo, vertices.data(), vertices.size() * sizeof vertices[0]);
+
+  buffer_create_info.type = vulkan::BufferType::INDEX_BUFFER;
+  buffer_create_info.size = indices.size() * sizeof indices[0];
+  vulkan::init_buffer(context, allocator, buffer_create_info, model.ibo);
+  vulkan::write_buffer(context, allocator, model.ibo, indices.data(), indices.size() * sizeof indices[0]);
 
   return model;
 }
 
 void destroy_model(const vulkan::Context& context, vulkan::Allocator& allocator, Model model)
 {
-  vkDestroyBuffer(context.device, model.vbo, nullptr);
-  vkDestroyBuffer(context.device, model.ibo, nullptr);
-
-  vulkan::deallocate_memory(context, allocator, model.vbo_allocation);
-  vulkan::deallocate_memory(context, allocator, model.ibo_allocation);
+  vulkan::deinit_buffer(context, allocator, model.vbo);
+  vulkan::deinit_buffer(context, allocator, model.ibo);
 }
 
 Model load_model(const vulkan::Context& context, vulkan::Allocator& allocator, const char* file_name)
@@ -282,15 +253,13 @@ int main()
     VK_CHECK(vkCreateSampler(context.device, &create_info, nullptr, &sampler));
   }
 
-  VkBuffer                 ubos[MAX_FRAME_IN_FLIGHT];
-  vulkan::MemoryAllocation ubo_allocations[MAX_FRAME_IN_FLIGHT];
+  vulkan::Buffer ubos[MAX_FRAME_IN_FLIGHT];
   for (size_t i = 0; i < MAX_FRAME_IN_FLIGHT; i++)
   {
-    vulkan::BufferCreateInfo create_info = {};
-    create_info.usage      = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-    create_info.properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    create_info.size       = sizeof(UniformBufferObject);
-    ubos[i] = vulkan::create_buffer(context, allocator, create_info, ubo_allocations[i]);
+    vulkan::BufferCreateInfo buffer_create_info = {};
+    buffer_create_info.type = vulkan::BufferType::UNIFORM_BUFFER;
+    buffer_create_info.size = sizeof(UniformBufferObject);
+    vulkan::init_buffer(context, allocator, buffer_create_info, ubos[i]);
   }
 
   // Descriptor pool
@@ -309,7 +278,7 @@ int main()
   for (size_t i = 0; i < MAX_FRAME_IN_FLIGHT; i++)
   {
     const vulkan::Descriptor descriptors[] = {
-      {.type = vulkan::DescriptorType::UNIFORM_BUFFER, .uniform_buffer         = { .buffer = ubos[i], .size = sizeof(UniformBufferObject), }},
+      {.type = vulkan::DescriptorType::UNIFORM_BUFFER, .uniform_buffer         = { .buffer = ubos[i].handle, .size = sizeof(UniformBufferObject), }},
       {.type = vulkan::DescriptorType::SAMPLER,        .combined_image_sampler = { .image_view = texture.image_view, .sampler = sampler, }}
     };
 
@@ -346,7 +315,7 @@ int main()
     ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.proj = glm::perspective(glm::radians(45.0f), (float)extent.width / (float) extent.height, 0.1f, 10.0f);
     ubo.proj[1][1] *= -1;
-    vulkan::write_buffer(context, allocator, ubos[frame_info->frame_index], ubo_allocations[frame_info->frame_index], &ubo);
+    vulkan::write_buffer(context, allocator, ubos[frame_info->frame_index], &ubo, sizeof ubo);
 
     vkCmdBindDescriptorSets(frame_info->command_buffer.handle,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -356,8 +325,8 @@ int main()
         0, nullptr);
 
     VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(frame_info->command_buffer.handle, 0, 1, &model.vbo, offsets);
-    vkCmdBindIndexBuffer(frame_info->command_buffer.handle, model.ibo, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindVertexBuffers(frame_info->command_buffer.handle, 0, 1, &model.vbo.handle, offsets);
+    vkCmdBindIndexBuffer(frame_info->command_buffer.handle, model.ibo.handle, 0, VK_INDEX_TYPE_UINT32);
 
     VkViewport viewport = {};
     viewport.x = 0.0f;
