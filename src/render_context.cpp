@@ -124,6 +124,16 @@ namespace vulkan
     }
     delete[] render_context.image_resources;
 
+    for(uint32_t i=0; i<render_context.frame_count; ++i)
+    {
+      FrameResource& frame = render_context.frame_resources[i];
+      deinit_command_buffer(context, frame.command_buffer);
+      deinit_fence(context, frame.fence);
+      vulkan::destroy_semaphore(context.device, frame.semaphore_image_available);
+      vulkan::destroy_semaphore(context.device, frame.semaphore_render_finished);
+    }
+    delete[] render_context.frame_resources;
+
     deinit_pipeline(context, render_context.pipeline);
     deinit_pipeline_layout(context, render_context.pipeline_layout);
     deinit_descriptor_set_layout(context, render_context.descriptor_set_layout);

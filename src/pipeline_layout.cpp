@@ -26,6 +26,7 @@ namespace vulkan
       push_constant_range.size       = create_info.push_constants[i].size;
       push_constant_ranges[i] = push_constant_range;
     }
+    destroy_dynarray(push_constant_ranges);
 
     VkPipelineLayoutCreateInfo pipeline_layout_create_info = {};
     pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
