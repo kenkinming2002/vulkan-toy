@@ -151,10 +151,10 @@ namespace vulkan
     render_context.frame_index = (render_context.frame_index + 1) % render_context.frame_count;
     FrameResource frame_resource = render_context.frame_resources[info.frame_index];
 
-    // Acquire image resource
-    auto result = vkAcquireNextImageKHR(context.device, render_context.swapchain.handle, UINT64_MAX, frame_resource.semaphore_image_available, VK_NULL_HANDLE, &info.image_index);
-    if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) return std::nullopt;
-    VK_CHECK(result);
+    auto result = swapchain_next_image_index(context, render_context.swapchain, frame_resource.semaphore_image_available, info.image_index);
+    if(result != SwapchainResult::SUCCESS)
+      return std::nullopt;
+
     ImageResource image_resource = render_context.image_resources[info.image_index];
 
     // Wait and begin commannd buffer recording
@@ -197,21 +197,6 @@ namespace vulkan
         frame_resource.semaphore_image_available, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
         frame_resource.semaphore_render_finished);
 
-    // Present
-    VkPresentInfoKHR present_info = {};
-    present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    present_info.waitSemaphoreCount = 1;
-    present_info.pWaitSemaphores = &frame_resource.semaphore_render_finished;
-    present_info.swapchainCount = 1;
-    present_info.pSwapchains    = &render_context.swapchain.handle;
-    present_info.pImageIndices  = &info.image_index;
-    present_info.pResults       = nullptr;
-
-    auto result = vkQueuePresentKHR(context.queue, &present_info);
-    if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
-      return false;
-
-    VK_CHECK(result);
-    return true;
+    return swapchain_present_image_index(context, render_context.swapchain, frame_resource.semaphore_render_finished, info.image_index) == SwapchainResult::SUCCESS;
   }
 }

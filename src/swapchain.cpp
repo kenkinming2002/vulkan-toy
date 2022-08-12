@@ -129,4 +129,43 @@ namespace vulkan
     swapchain.handle = nullptr;
     swapchain = {};
   }
+
+  SwapchainResult swapchain_next_image_index(const Context& context, const Swapchain& swapchain, VkSemaphore signal_semaphore, uint32_t& image_index)
+  {
+    VkResult result = vkAcquireNextImageKHR(context.device, swapchain.handle, UINT64_MAX, signal_semaphore, VK_NULL_HANDLE, &image_index);
+    switch(result)
+    {
+    default:
+      VK_CHECK(result);
+      return SwapchainResult::SUCCESS;
+    case VK_SUBOPTIMAL_KHR:
+      return SwapchainResult::SUBOPTIMAL;
+    case VK_ERROR_OUT_OF_DATE_KHR:
+      return SwapchainResult::OUT_OF_DATE;
+    }
+  }
+
+  SwapchainResult swapchain_present_image_index(const Context& context, const Swapchain& swapchain, VkSemaphore wait_semaphore, uint32_t image_index)
+  {
+    VkPresentInfoKHR present_info = {};
+    present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    present_info.waitSemaphoreCount = 1;
+    present_info.pWaitSemaphores = &wait_semaphore;
+    present_info.swapchainCount = 1;
+    present_info.pSwapchains    = &swapchain.handle;
+    present_info.pImageIndices  = &image_index;
+    present_info.pResults       = nullptr;
+
+    VkResult result = vkQueuePresentKHR(context.queue, &present_info);
+    switch(result)
+    {
+    default:
+      VK_CHECK(result);
+      return SwapchainResult::SUCCESS;
+    case VK_SUBOPTIMAL_KHR:
+      return SwapchainResult::SUBOPTIMAL;
+    case VK_ERROR_OUT_OF_DATE_KHR:
+      return SwapchainResult::OUT_OF_DATE;
+    }
+  }
 }
