@@ -24,6 +24,7 @@ srcs = [
   'src/pipeline_layout.cpp',
   'src/render_context.cpp',
   'src/render_pass.cpp',
+  'src/sampler.cpp',
   'src/shader.cpp',
   'src/swapchain.cpp',
   'src/vk_check.cpp',

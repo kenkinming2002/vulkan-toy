@@ -1,11 +1,12 @@
-#include "context.hpp"
-#include "render_context.hpp"
-#include "command_buffer.hpp"
-#include "descriptor_set.hpp"
-#include "shader.hpp"
-#include "vulkan.hpp"
-#include "vk_check.hpp"
 #include "buffer.hpp"
+#include "command_buffer.hpp"
+#include "context.hpp"
+#include "descriptor_set.hpp"
+#include "render_context.hpp"
+#include "sampler.hpp"
+#include "shader.hpp"
+#include "vk_check.hpp"
+#include "vulkan.hpp"
 
 #include "tiny_obj_loader.h"
 #include "stb_image.h"
@@ -228,30 +229,8 @@ int main()
   vulkan::RenderContext render_context = {};
   vulkan::init_render_context(context, allocator, render_context_create_info, render_context);
 
-  VkSampler sampler;
-  {
-    VkPhysicalDeviceProperties properties;
-    vkGetPhysicalDeviceProperties(context.physical_device, &properties);
-
-    VkSamplerCreateInfo create_info{};
-    create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    create_info.magFilter = VK_FILTER_LINEAR;
-    create_info.minFilter = VK_FILTER_LINEAR;
-    create_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    create_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    create_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    create_info.anisotropyEnable = VK_TRUE;
-    create_info.maxAnisotropy    = properties.limits.maxSamplerAnisotropy;
-    create_info.borderColor      = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-    create_info.unnormalizedCoordinates = VK_FALSE;
-    create_info.compareEnable           = VK_FALSE;
-    create_info.compareOp               = VK_COMPARE_OP_ALWAYS;
-    create_info.mipmapMode              = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    create_info.mipLodBias              = 0.0f;
-    create_info.minLod                  = 0.0f;
-    create_info.maxLod                  = 0.0f;
-    VK_CHECK(vkCreateSampler(context.device, &create_info, nullptr, &sampler));
-  }
+  vulkan::Sampler sampler = {};
+  vulkan::init_sampler_simple(context, sampler);
 
   vulkan::Buffer ubos[MAX_FRAME_IN_FLIGHT];
   for (size_t i = 0; i < MAX_FRAME_IN_FLIGHT; i++)
@@ -279,7 +258,7 @@ int main()
   {
     const vulkan::Descriptor descriptors[] = {
       {.type = vulkan::DescriptorType::UNIFORM_BUFFER, .uniform_buffer         = { .buffer = ubos[i].handle, .size = sizeof(UniformBufferObject), }},
-      {.type = vulkan::DescriptorType::SAMPLER,        .combined_image_sampler = { .image_view = texture.image_view, .sampler = sampler, }}
+      {.type = vulkan::DescriptorType::SAMPLER,        .combined_image_sampler = { .image_view = texture.image_view, .sampler = sampler.handle, }}
     };
 
     vulkan::allocate_descriptor_set(context, descriptor_pool, render_context.descriptor_set_layout, descriptor_sets[i]);
