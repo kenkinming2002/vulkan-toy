@@ -10,48 +10,32 @@ namespace vulkan
 {
   void init_render_context(const Context& context, Allocator& allocator, RenderContextCreateInfo create_info, RenderContext& render_context)
   {
+    const DescriptorInfo descriptor_infos[] = {
+      {.type = DescriptorType::UNIFORM_BUFFER, .stage = ShaderStage::VERTEX },
+      {.type = DescriptorType::SAMPLER,        .stage = ShaderStage::FRAGMENT },
+    };
+
     init_swapchain(context, render_context.swapchain);
-
-    {
-      RenderPassCreateInfoSimple create_info = {};
-      create_info.color_format = render_context.swapchain.surface_format.format;
-      create_info.depth_format = VK_FORMAT_D32_SFLOAT;
-      init_render_pass_simple(context, create_info, render_context.render_pass);
-    }
-
-    // Create desciptor set layout
-    {
-      const DescriptorInfo descriptor_infos[] = {
-        {.type = DescriptorType::UNIFORM_BUFFER, .stage = ShaderStage::VERTEX },
-        {.type = DescriptorType::SAMPLER,        .stage = ShaderStage::FRAGMENT },
-      };
-
-      DescriptorSetLayoutCreateInfo create_info = {};
-      create_info.descriptors      = descriptor_infos;
-      create_info.descriptor_count = std::size(descriptor_infos);
-      init_descriptor_set_layout(context, create_info, render_context.descriptor_set_layout);
-    }
-
-    // Create pipeline layout
-    {
-      PipelineLayoutCreateInfo create_info = {};
-      create_info.descriptor_set_layout = render_context.descriptor_set_layout;
-      create_info.push_constants      = nullptr;
-      create_info.push_constant_count = 0;
-      init_pipeline_layout(context, create_info, render_context.pipeline_layout);
-    }
-
-
-    // 4: Create Pipeline
-    {
-      PipelineCreateInfo pipeline_create_info = {};
-      pipeline_create_info.vertex_shader   = create_info.vertex_shader;
-      pipeline_create_info.fragment_shader = create_info.fragment_shader;
-      pipeline_create_info.vertex_input    = create_info.vertex_input;
-      pipeline_create_info.pipeline_layout = render_context.pipeline_layout;
-      pipeline_create_info.render_pass     = render_context.render_pass;
-      init_pipeline(context, pipeline_create_info, render_context.pipeline);
-    }
+    init_render_pass_simple(context, RenderPassCreateInfoSimple{
+      .color_format = render_context.swapchain.surface_format.format,
+      .depth_format = VK_FORMAT_D32_SFLOAT,
+    }, render_context.render_pass);
+    init_descriptor_set_layout(context, DescriptorSetLayoutCreateInfo{
+      .descriptors      = descriptor_infos,
+      .descriptor_count = std::size(descriptor_infos),
+    }, render_context.descriptor_set_layout);
+    init_pipeline_layout(context, PipelineLayoutCreateInfo{
+      .descriptor_set_layout = render_context.descriptor_set_layout,
+      .push_constants      = nullptr,
+      .push_constant_count = 0,
+    }, render_context.pipeline_layout);
+    init_pipeline(context, PipelineCreateInfo{
+      .render_pass     = render_context.render_pass,
+      .vertex_shader   = create_info.vertex_shader,
+      .fragment_shader = create_info.fragment_shader,
+      .vertex_input    = create_info.vertex_input,
+      .pipeline_layout = render_context.pipeline_layout,
+    }, render_context.pipeline);
 
     // 5: Create image resources
     {
@@ -65,12 +49,10 @@ namespace vulkan
           .format = VK_FORMAT_D32_SFLOAT,
           .extent = render_context.swapchain.extent,
         }, image_resource.depth_image);
-
         init_image_view(context, ImageViewCreateInfoSwapchain{
           .swapchain = render_context.swapchain,
           .index     = i,
         }, image_resource.color_view);
-
         init_image_view(context, ImageViewCreateInfo{
           .type   = ImageViewType::DEPTH,
           .format = VK_FORMAT_D32_SFLOAT,
@@ -81,7 +63,6 @@ namespace vulkan
           image_resource.color_view,
           image_resource.depth_view,
         };
-
         init_framebuffer(context, FramebufferCreateInfo{
           .render_pass      = render_context.render_pass.handle,
           .extent           = render_context.swapchain.extent,
