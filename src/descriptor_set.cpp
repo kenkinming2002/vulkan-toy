@@ -68,7 +68,7 @@ namespace vulkan
       case DescriptorType::UNIFORM_BUFFER:
         {
           VkDescriptorBufferInfo *buffer_info = new VkDescriptorBufferInfo{};
-          buffer_info->buffer = write_info.descriptors[i].uniform_buffer.buffer;
+          buffer_info->buffer = write_info.descriptors[i].uniform_buffer.buffer.handle;
           buffer_info->offset = 0;
           buffer_info->range  = write_info.descriptors[i].uniform_buffer.size;
           write_descriptor_sets[i].pBufferInfo = buffer_info;
@@ -79,7 +79,7 @@ namespace vulkan
           VkDescriptorImageInfo *image_info = new VkDescriptorImageInfo{};
           image_info->imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
           image_info->imageView   = write_info.descriptors[i].combined_image_sampler.image_view.handle;
-          image_info->sampler     = write_info.descriptors[i].combined_image_sampler.sampler;
+          image_info->sampler     = write_info.descriptors[i].combined_image_sampler.sampler.handle;
           write_descriptor_sets[i].pImageInfo = image_info;
         }
         break;

@@ -1,9 +1,11 @@
 #pragma once
 
+#include "buffer.hpp"
 #include "context.hpp"
 #include "descriptor_info.hpp"
 #include "descriptor_set_layout.hpp"
 #include "image_view.hpp"
+#include "sampler.hpp"
 
 namespace vulkan
 {
@@ -32,14 +34,14 @@ namespace vulkan
 
   struct UniformBufferDescriptor
   {
-    VkBuffer buffer;
+    Buffer buffer;
     VkDeviceSize size;
   };
 
   struct CombinedImageSmaplerDescriptor
   {
     ImageView image_view;
-    VkSampler sampler;
+    Sampler sampler;
   };
 
   struct Descriptor

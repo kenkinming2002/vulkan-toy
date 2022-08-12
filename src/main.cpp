@@ -257,8 +257,8 @@ int main()
   for (size_t i = 0; i < MAX_FRAME_IN_FLIGHT; i++)
   {
     const vulkan::Descriptor descriptors[] = {
-      {.type = vulkan::DescriptorType::UNIFORM_BUFFER, .uniform_buffer         = { .buffer = ubos[i].handle, .size = sizeof(UniformBufferObject), }},
-      {.type = vulkan::DescriptorType::SAMPLER,        .combined_image_sampler = { .image_view = texture.image_view, .sampler = sampler.handle, }}
+      {.type = vulkan::DescriptorType::UNIFORM_BUFFER, .uniform_buffer         = { .buffer = ubos[i], .size = sizeof(UniformBufferObject), }},
+      {.type = vulkan::DescriptorType::SAMPLER,        .combined_image_sampler = { .image_view = texture.image_view, .sampler = sampler, }}
     };
 
     vulkan::allocate_descriptor_set(context, descriptor_pool, render_context.descriptor_set_layout, descriptor_sets[i]);
