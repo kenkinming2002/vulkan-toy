@@ -5,10 +5,15 @@
 
 namespace vulkan
 {
-  struct DescriptorSetLayoutCreateInfo
+  struct DescriptorInput
   {
     const DescriptorInfo *descriptors;
     uint32_t              descriptor_count;
+  };
+
+  struct DescriptorSetLayoutCreateInfo
+  {
+    DescriptorInput descriptor_input;
   };
 
   struct DescriptorSetLayout

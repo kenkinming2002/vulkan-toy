@@ -21,8 +21,10 @@ namespace vulkan
       .depth_format = VK_FORMAT_D32_SFLOAT,
     }, render_context.render_pass);
     init_descriptor_set_layout(context, DescriptorSetLayoutCreateInfo{
-      .descriptors      = descriptor_infos,
-      .descriptor_count = std::size(descriptor_infos),
+      .descriptor_input = {
+        .descriptors      = descriptor_infos,
+        .descriptor_count = std::size(descriptor_infos),
+      }
     }, render_context.descriptor_set_layout);
     init_pipeline_layout(context, PipelineLayoutCreateInfo{
       .descriptor_set_layout = render_context.descriptor_set_layout,
