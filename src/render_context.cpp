@@ -28,8 +28,10 @@ namespace vulkan
     }, render_context.descriptor_set_layout);
     init_pipeline_layout(context, PipelineLayoutCreateInfo{
       .descriptor_set_layout = render_context.descriptor_set_layout,
-      .push_constants      = nullptr,
-      .push_constant_count = 0,
+      .push_constant_input = {
+        .ranges      = nullptr,
+        .range_count = 0,
+      },
     }, render_context.pipeline_layout);
     init_pipeline(context, PipelineCreateInfo{
       .render_pass     = render_context.render_pass,

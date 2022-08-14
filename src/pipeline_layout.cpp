@@ -17,13 +17,13 @@ namespace vulkan
 
   void init_pipeline_layout(const Context& context, PipelineLayoutCreateInfo create_info, PipelineLayout& pipeline_layout)
   {
-    dynarray<VkPushConstantRange> push_constant_ranges = create_dynarray<VkPushConstantRange>(create_info.push_constant_count);
-    for(uint32_t i=0; i<create_info.push_constant_count; ++i)
+    dynarray<VkPushConstantRange> push_constant_ranges = create_dynarray<VkPushConstantRange>(create_info.push_constant_input.range_count);
+    for(uint32_t i=0; i<create_info.push_constant_input.range_count; ++i)
     {
       VkPushConstantRange push_constant_range = {};
-      push_constant_range.stageFlags = to_vulkan_stage_flags(create_info.push_constants[i].stage);
-      push_constant_range.offset     = create_info.push_constants[i].offset;
-      push_constant_range.size       = create_info.push_constants[i].size;
+      push_constant_range.stageFlags = to_vulkan_stage_flags(create_info.push_constant_input.ranges[i].stage);
+      push_constant_range.offset     = create_info.push_constant_input.ranges[i].offset;
+      push_constant_range.size       = create_info.push_constant_input.ranges[i].size;
       push_constant_ranges[i] = push_constant_range;
     }
     destroy_dynarray(push_constant_ranges);

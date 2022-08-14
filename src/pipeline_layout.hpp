@@ -2,24 +2,16 @@
 
 #include "context.hpp"
 #include "descriptor_set_layout.hpp"
+#include "input.hpp"
 
 #include <vulkan/vulkan.h>
 
 namespace vulkan
 {
-  struct PushConstantInfo
-  {
-    uint32_t offset;
-    uint32_t size;
-    ShaderStage stage;
-  };
-
   struct PipelineLayoutCreateInfo
   {
     DescriptorSetLayout descriptor_set_layout;
-
-    const PushConstantInfo *push_constants;
-    uint32_t                push_constant_count;
+    PushConstantInput   push_constant_input;
   };
 
   struct PipelineLayout

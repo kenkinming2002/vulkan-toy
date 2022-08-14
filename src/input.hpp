@@ -47,4 +47,16 @@ namespace vulkan
     uint32_t              descriptor_count;
   };
 
+  struct PushConstantRange
+  {
+    uint32_t offset;
+    uint32_t size;
+    ShaderStage stage;
+  };
+
+  struct PushConstantInput
+  {
+    const PushConstantRange *ranges;
+    uint32_t                 range_count;
+  };
 }
