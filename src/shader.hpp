@@ -1,9 +1,7 @@
 #pragma once
 
 #include "context.hpp"
-#include "shader_stage.hpp"
-
-#include <vulkan/vulkan.h>
+#include "input.hpp"
 
 namespace vulkan
 {

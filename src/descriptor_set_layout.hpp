@@ -1,16 +1,10 @@
 #pragma once
 
 #include "context.hpp"
-#include "descriptor_info.hpp"
+#include "input.hpp"
 
 namespace vulkan
 {
-  struct DescriptorInput
-  {
-    const DescriptorInfo *descriptors;
-    uint32_t              descriptor_count;
-  };
-
   struct DescriptorSetLayoutCreateInfo
   {
     DescriptorInput descriptor_input;

@@ -2,7 +2,6 @@
 
 #include "buffer.hpp"
 #include "context.hpp"
-#include "descriptor_info.hpp"
 #include "descriptor_set_layout.hpp"
 #include "image_view.hpp"
 #include "sampler.hpp"

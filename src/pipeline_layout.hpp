@@ -1,7 +1,6 @@
 #pragma once
 
 #include "context.hpp"
-#include "shader_stage.hpp"
 #include "descriptor_set_layout.hpp"
 
 #include <vulkan/vulkan.h>
