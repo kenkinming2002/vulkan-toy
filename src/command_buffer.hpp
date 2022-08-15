@@ -2,6 +2,7 @@
 
 #include "command_buffer.hpp"
 #include "context.hpp"
+#include "descriptor_set.hpp"
 #include "fence.hpp"
 #include "pipeline.hpp"
 #include "vulkan.hpp"
@@ -25,4 +26,5 @@ namespace vulkan
       VkSemaphore signal_semaphore);
 
   void command_push_constant(CommandBuffer command_buffer, Pipeline2 pipeline, ShaderStage stage, void *data, size_t offset, size_t size);
+  void command_bind_descriptor_set(CommandBuffer command_buffer, Pipeline2 pipeline, DescriptorSet descriptor_set);
 }

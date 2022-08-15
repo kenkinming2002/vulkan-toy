@@ -79,4 +79,9 @@ namespace vulkan
   {
     vkCmdPushConstants(command_buffer.handle, pipeline.pipeline_layout, to_vulkan_stage_flags(stage), offset, size, data);
   }
+
+  void command_bind_descriptor_set(CommandBuffer command_buffer, Pipeline2 pipeline, DescriptorSet descriptor_set)
+  {
+    vkCmdBindDescriptorSets(command_buffer.handle, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline_layout, 0, 1, &descriptor_set.handle, 0, nullptr);
+  }
 }

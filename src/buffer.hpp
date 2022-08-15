@@ -3,7 +3,6 @@
 #include "vulkan.hpp"
 #include "context.hpp"
 #include "allocator.hpp"
-#include "command_buffer.hpp"
 
 #include <stdio.h>
 #include <stdlib.h>
