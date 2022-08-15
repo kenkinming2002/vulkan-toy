@@ -5,6 +5,7 @@
 #include "render_context.hpp"
 #include "sampler.hpp"
 #include "shader.hpp"
+#include "src/image.hpp"
 #include "vk_check.hpp"
 #include "vulkan.hpp"
 
@@ -97,50 +98,6 @@ static constexpr vulkan::PushConstantInput PUSH_CONSTANT_INPUT = {
   .range_count = std::size(PUSH_CONSTANT_RANGES),
 };
 
-
-struct Texture
-{
-  vulkan::Image     image;
-  vulkan::ImageView image_view;
-};
-
-Texture create_texture(const vulkan::Context& context, vulkan::Allocator& allocator, const void *data, size_t width, size_t height)
-{
-  Texture texture = {};
-
-  vulkan::ImageCreateInfo image_create_info = {};
-  image_create_info.type          = vulkan::ImageType::TEXTURE;
-  image_create_info.format        = VK_FORMAT_R8G8B8A8_SRGB;
-  image_create_info.extent.width  = width;
-  image_create_info.extent.height = height;
-  vulkan::init_image(context, allocator, image_create_info, texture.image);
-  vulkan::write_image(context, allocator, texture.image, data, width, height, width * height * 4);
-
-  vulkan::ImageViewCreateInfo image_view_create_info = {};
-  image_view_create_info.type = vulkan::ImageViewType::COLOR;
-  image_view_create_info.format = VK_FORMAT_R8G8B8A8_SRGB;
-  image_view_create_info.image = texture.image;
-  vulkan::init_image_view(context, image_view_create_info, texture.image_view);
-
-  return texture;
-}
-
-void destroy_texture(const vulkan::Context& context, vulkan::Allocator& allocator, Texture texture)
-{
-  vulkan::deinit_image_view(context, texture.image_view);
-  vulkan::deinit_image(context, allocator, texture.image);
-}
-
-Texture load_texture(const vulkan::Context& context, vulkan::Allocator& allocator, const char *file_name)
-{
-  int x, y, n;
-  unsigned char *data = stbi_load(file_name, &x, &y, &n, STBI_rgb_alpha);
-  assert(data);
-  Texture texture = create_texture(context, allocator, data, x, y);
-  stbi_image_free(data);
-  return texture;
-}
-
 struct Model
 {
   size_t vertex_count, index_count;
@@ -222,7 +179,16 @@ int main()
   vulkan::Allocator allocator = {};
   vulkan::init_allocator(context, allocator);
 
-  Texture texture = load_texture(context, allocator, "viking_room.png");
+  vulkan::Image image = {};
+  vulkan::load_image(context, allocator, image, "viking_room.png");
+
+  vulkan::ImageView image_view = {};
+  vulkan::init_image_view(context, vulkan::ImageViewCreateInfo{
+    .type   = vulkan::ImageViewType::COLOR,
+    .format = VK_FORMAT_R8G8B8A8_SRGB,
+    .image  = image,
+  }, image_view);
+
   Model   model   = load_model(context, allocator, "viking_room.obj");
 
   // May need to be recreated on window resize
@@ -250,7 +216,7 @@ int main()
 
   vulkan::DescriptorSet descriptor_set;
   const vulkan::Descriptor descriptors[] = {
-    {.type = vulkan::DescriptorType::SAMPLER, .combined_image_sampler = { .image_view = texture.image_view, .sampler = sampler, }}
+    {.type = vulkan::DescriptorType::SAMPLER, .combined_image_sampler = { .image_view = image_view, .sampler = sampler, }}
   };
 
   vulkan::allocate_descriptor_set(context, descriptor_pool, render_context.pipeline.descriptor_set_layout, descriptor_set);

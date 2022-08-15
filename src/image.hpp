@@ -31,4 +31,6 @@ namespace vulkan
   void deinit_image(const Context& context, Allocator& allocator, Image& image);
 
   void write_image(const Context& context, Allocator& allocator, Image image, const void *data, size_t width, size_t height, size_t size);
+
+  void load_image(const Context& context, Allocator& allocator, Image& image, const char *file_name);
 }
