@@ -252,7 +252,7 @@ int main()
       {.type = vulkan::DescriptorType::SAMPLER,        .combined_image_sampler = { .image_view = texture.image_view, .sampler = sampler, }}
     };
 
-    vulkan::allocate_descriptor_set(context, descriptor_pool, render_context.descriptor_set_layout, descriptor_sets[i]);
+    vulkan::allocate_descriptor_set(context, descriptor_pool, vulkan::DescriptorSetLayout{render_context.pipeline.descriptor_set_layout}, descriptor_sets[i]);
     vulkan::write_descriptor_set(context, descriptor_sets[i], vulkan::DescriptorSetWriteInfo{
       .descriptors      = descriptors,
       .descriptor_count = std::size(descriptors),
@@ -289,7 +289,7 @@ int main()
 
     vkCmdBindDescriptorSets(frame_info->command_buffer.handle,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
-        render_context.pipeline_layout.handle,
+        render_context.pipeline.pipeline_layout,
         0, 1,
         &descriptor_sets[frame_info->frame_index].handle,
         0, nullptr);

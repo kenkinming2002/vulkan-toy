@@ -20,25 +20,19 @@ namespace vulkan
       .color_format = render_context.swapchain.surface_format.format,
       .depth_format = VK_FORMAT_D32_SFLOAT,
     }, render_context.render_pass);
-    init_descriptor_set_layout(context, DescriptorSetLayoutCreateInfo{
-      .descriptor_input = {
-        .descriptors      = descriptor_infos,
-        .descriptor_count = std::size(descriptor_infos),
-      }
-    }, render_context.descriptor_set_layout);
-    init_pipeline_layout(context, PipelineLayoutCreateInfo{
-      .descriptor_set_layout = render_context.descriptor_set_layout,
-      .push_constant_input = {
-        .ranges      = nullptr,
-        .range_count = 0,
-      },
-    }, render_context.pipeline_layout);
-    init_pipeline(context, PipelineCreateInfo{
+    init_pipeline2(context, PipelineCreateInfo2{
       .render_pass     = render_context.render_pass,
       .vertex_shader   = create_info.vertex_shader,
       .fragment_shader = create_info.fragment_shader,
       .vertex_input    = create_info.vertex_input,
-      .pipeline_layout = render_context.pipeline_layout,
+      .descriptor_input = {
+        .descriptors      = descriptor_infos,
+        .descriptor_count = std::size(descriptor_infos),
+      },
+      .push_constant_input = {
+        .ranges      = nullptr,
+        .range_count = 0,
+      },
     }, render_context.pipeline);
 
     // 5: Create image resources
@@ -119,9 +113,7 @@ namespace vulkan
     }
     delete[] render_context.frame_resources;
 
-    deinit_pipeline(context, render_context.pipeline);
-    deinit_pipeline_layout(context, render_context.pipeline_layout);
-    deinit_descriptor_set_layout(context, render_context.descriptor_set_layout);
+    deinit_pipeline2(context, render_context.pipeline);
     deinit_render_pass(context, render_context.render_pass);
     deinit_swapchain(context, render_context.swapchain);
   }
