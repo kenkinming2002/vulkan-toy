@@ -73,8 +73,8 @@ namespace vulkan
       push_constant_range.offset     = create_info.push_constant_input.ranges[i].offset;
       push_constant_range.size       = create_info.push_constant_input.ranges[i].size;
       push_constant_ranges[i] = push_constant_range;
+      assert(push_constant_ranges[i].stageFlags == VK_SHADER_STAGE_VERTEX_BIT);
     }
-    destroy_dynarray(push_constant_ranges);
 
     VkPipelineLayoutCreateInfo pipeline_layout_create_info = {};
     pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -83,6 +83,8 @@ namespace vulkan
     pipeline_layout_create_info.pushConstantRangeCount = size(push_constant_ranges);
     pipeline_layout_create_info.pPushConstantRanges    = data(push_constant_ranges);
     VK_CHECK(vkCreatePipelineLayout(context.device, &pipeline_layout_create_info, nullptr, &pipeline.pipeline_layout));
+
+    destroy_dynarray(push_constant_ranges);
   }
 
   void init_pipeline2(const Context& context, PipelineCreateInfo2 create_info, Pipeline2& pipeline)

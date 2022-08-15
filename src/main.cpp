@@ -37,11 +37,9 @@
 #include <stdlib.h>
 
 // TODO: Move this outside
-struct UniformBufferObject
+struct Matrices
 {
-  alignas(16) glm::mat4 model;
-  alignas(16) glm::mat4 view;
-  alignas(16) glm::mat4 proj;
+  glm::mat4 mvp;
 };
 
 struct Vertex
@@ -80,7 +78,6 @@ static constexpr vulkan::VertexInput VERTEX_INPUT = {
 };
 
 static constexpr vulkan::DescriptorBinding DESCRIPTOR_BINDINGS[] = {
-  {.type = vulkan::DescriptorType::UNIFORM_BUFFER, .stage = vulkan::ShaderStage::VERTEX },
   {.type = vulkan::DescriptorType::SAMPLER,        .stage = vulkan::ShaderStage::FRAGMENT },
 };
 
@@ -89,9 +86,13 @@ static constexpr vulkan::DescriptorInput DESCRIPTOR_INPUT = {
   .binding_count = std::size(DESCRIPTOR_BINDINGS),
 };
 
+static constexpr vulkan::PushConstantRange PUSH_CONSTANT_RANGES[] = {
+  {.offset = 0, .size = sizeof(Matrices), .stage = vulkan::ShaderStage::VERTEX },
+};
+
 static constexpr vulkan::PushConstantInput PUSH_CONSTANT_INPUT = {
-  .ranges = nullptr,
-  .range_count = 0,
+  .ranges      = PUSH_CONSTANT_RANGES,
+  .range_count = std::size(PUSH_CONSTANT_RANGES),
 };
 
 
@@ -243,15 +244,6 @@ int main()
   vulkan::Sampler sampler = {};
   vulkan::init_sampler_simple(context, sampler);
 
-  vulkan::Buffer ubos[MAX_FRAME_IN_FLIGHT];
-  for (size_t i = 0; i < MAX_FRAME_IN_FLIGHT; i++)
-  {
-    vulkan::BufferCreateInfo buffer_create_info = {};
-    buffer_create_info.type = vulkan::BufferType::UNIFORM_BUFFER;
-    buffer_create_info.size = sizeof(UniformBufferObject);
-    vulkan::init_buffer(context, allocator, buffer_create_info, ubos[i]);
-  }
-
   // Descriptor pool
   vulkan::DescriptorPool descriptor_pool = {};
   vulkan::init_descriptor_pool(context, vulkan::DescriptorPoolCreateInfo{
@@ -263,8 +255,7 @@ int main()
   for (size_t i = 0; i < MAX_FRAME_IN_FLIGHT; i++)
   {
     const vulkan::Descriptor descriptors[] = {
-      {.type = vulkan::DescriptorType::UNIFORM_BUFFER, .uniform_buffer         = { .buffer = ubos[i], .size = sizeof(UniformBufferObject), }},
-      {.type = vulkan::DescriptorType::SAMPLER,        .combined_image_sampler = { .image_view = texture.image_view, .sampler = sampler, }}
+      {.type = vulkan::DescriptorType::SAMPLER, .combined_image_sampler = { .image_view = texture.image_view, .sampler = sampler, }}
     };
 
     vulkan::allocate_descriptor_set(context, descriptor_pool, render_context.pipeline.descriptor_set_layout, descriptor_sets[i]);
@@ -289,25 +280,28 @@ int main()
       frame_info = vulkan::begin_render(context, render_context);
     }
 
-    static auto start_time = std::chrono::high_resolution_clock::now();
-    auto current_time = std::chrono::high_resolution_clock::now();
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
-
-    auto extent = render_context.swapchain.extent;
-
-    UniformBufferObject ubo = {};
-    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.proj = glm::perspective(glm::radians(45.0f), (float)extent.width / (float) extent.height, 0.1f, 10.0f);
-    ubo.proj[1][1] *= -1;
-    vulkan::write_buffer(context, allocator, ubos[frame_info->frame_index], &ubo, sizeof ubo);
-
     vkCmdBindDescriptorSets(frame_info->command_buffer.handle,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
         render_context.pipeline.pipeline_layout,
         0, 1,
         &descriptor_sets[frame_info->frame_index].handle,
         0, nullptr);
+
+    auto extent = render_context.swapchain.extent;
+
+    Matrices matrices = {};
+    {
+      static auto start_time = std::chrono::high_resolution_clock::now();
+      auto current_time = std::chrono::high_resolution_clock::now();
+      float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
+
+      glm::mat4 model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+      glm::mat4 view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+      glm::mat4 proj = glm::perspective(glm::radians(45.0f), (float)extent.width / (float) extent.height, 0.1f, 10.0f);
+      proj[1][1] *= -1;
+      matrices.mvp = proj * view * model;
+    }
+    vkCmdPushConstants(frame_info->command_buffer.handle, render_context.pipeline.pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof matrices, &matrices);
 
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(frame_info->command_buffer.handle, 0, 1, &model.vbo.handle, offsets);
