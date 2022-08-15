@@ -35,7 +35,7 @@ namespace vulkan
 
   enum class ShaderStage { VERTEX, FRAGMENT };
 
-  struct DescriptorInfo
+  struct DescriptorBinding
   {
     DescriptorType type;
     ShaderStage stage;
@@ -43,8 +43,8 @@ namespace vulkan
 
   struct DescriptorInput
   {
-    const DescriptorInfo *descriptors;
-    uint32_t              descriptor_count;
+    const DescriptorBinding *bindings;
+    uint32_t                 binding_count;
   };
 
   struct PushConstantRange

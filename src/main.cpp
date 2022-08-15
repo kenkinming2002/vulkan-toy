@@ -233,7 +233,7 @@ int main()
   }
 
   // Descriptor pool
-  const vulkan::DescriptorInfo descriptor_infos[] = {
+  const vulkan::DescriptorBinding descriptor_infos[] = {
     {.type = vulkan::DescriptorType::UNIFORM_BUFFER, .stage = vulkan::ShaderStage::VERTEX },
     {.type = vulkan::DescriptorType::SAMPLER,        .stage = vulkan::ShaderStage::FRAGMENT },
   };

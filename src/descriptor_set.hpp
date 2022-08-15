@@ -10,7 +10,7 @@ namespace vulkan
 {
   struct DescriptorPoolCreateInfo
   {
-    const DescriptorInfo *descriptors;
+    const DescriptorBinding *descriptors;
     uint32_t              descriptor_count;
 
     uint32_t count;

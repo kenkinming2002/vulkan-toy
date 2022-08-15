@@ -10,7 +10,7 @@ namespace vulkan
 {
   void init_render_context(const Context& context, Allocator& allocator, RenderContextCreateInfo create_info, RenderContext& render_context)
   {
-    const DescriptorInfo descriptor_infos[] = {
+    const DescriptorBinding descriptor_bindings[] = {
       {.type = DescriptorType::UNIFORM_BUFFER, .stage = ShaderStage::VERTEX },
       {.type = DescriptorType::SAMPLER,        .stage = ShaderStage::FRAGMENT },
     };
@@ -26,8 +26,8 @@ namespace vulkan
       .fragment_shader = create_info.fragment_shader,
       .vertex_input    = create_info.vertex_input,
       .descriptor_input = {
-        .descriptors      = descriptor_infos,
-        .descriptor_count = std::size(descriptor_infos),
+        .bindings      = descriptor_bindings,
+        .binding_count = std::size(descriptor_bindings),
       },
       .push_constant_input = {
         .ranges      = nullptr,

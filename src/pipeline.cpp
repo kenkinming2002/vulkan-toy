@@ -198,14 +198,14 @@ namespace vulkan
 
   static inline void init_pipeline2_descriptor_set_layout(const Context& context, PipelineCreateInfo2 create_info, Pipeline2& pipeline)
   {
-    dynarray<VkDescriptorSetLayoutBinding> layout_bindings = create_dynarray<VkDescriptorSetLayoutBinding>(create_info.descriptor_input.descriptor_count);
-    for(uint32_t i=0; i<create_info.descriptor_input.descriptor_count; ++i)
+    dynarray<VkDescriptorSetLayoutBinding> layout_bindings = create_dynarray<VkDescriptorSetLayoutBinding>(create_info.descriptor_input.binding_count);
+    for(uint32_t i=0; i<create_info.descriptor_input.binding_count; ++i)
     {
       VkDescriptorSetLayoutBinding layout_binding = {};
       layout_binding.binding            = i;
-      layout_binding.descriptorType     = to_vulkan_descriptor_type(create_info.descriptor_input.descriptors[i].type);
+      layout_binding.descriptorType     = to_vulkan_descriptor_type(create_info.descriptor_input.bindings[i].type);
       layout_binding.descriptorCount    = 1;
-      layout_binding.stageFlags         = to_vulkan_stage_flags(create_info.descriptor_input.descriptors[i].stage);
+      layout_binding.stageFlags         = to_vulkan_stage_flags(create_info.descriptor_input.bindings[i].stage);
       layout_binding.pImmutableSamplers = nullptr;
       layout_bindings[i] = layout_binding;
     }
