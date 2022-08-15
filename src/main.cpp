@@ -165,10 +165,6 @@ int main()
     vulkan::command_push_constant(frame_info->command_buffer, render_context.pipeline, vulkan::ShaderStage::VERTEX, &matrices, 0, sizeof matrices);
     vulkan::command_bind_descriptor_set(frame_info->command_buffer, render_context.pipeline, descriptor_set);
 
-    VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(frame_info->command_buffer.handle, 0, 1, &model.vertex_buffer.handle, offsets);
-    vkCmdBindIndexBuffer(frame_info->command_buffer.handle, model.index_buffer.handle, 0, VK_INDEX_TYPE_UINT32);
-
     VkViewport viewport = {};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
@@ -183,7 +179,7 @@ int main()
     scissor.extent = extent;
     vkCmdSetScissor(frame_info->command_buffer.handle, 0, 1, &scissor);
 
-    vkCmdDrawIndexed(frame_info->command_buffer.handle, model.index_count, 1, 0, 0, 0);
+    vulkan::command_model_render_simple(frame_info->command_buffer, model);
 
     if(!vulkan::end_render(context, render_context, *frame_info))
     {

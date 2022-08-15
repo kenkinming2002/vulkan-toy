@@ -2,6 +2,7 @@
 
 #include "input.hpp"
 #include "buffer.hpp"
+#include "command_buffer.hpp"
 
 #include <glm/glm.hpp>
 
@@ -54,4 +55,6 @@ namespace vulkan
   void init_model(const Context& context, Allocator& allocator, ModelCreateInfo create_info, Model& model);
   void deinit_model(const Context& context, Allocator& allocator, Model& model);
   void load_model(const Context& context, Allocator& allocator, const char *file_name, Model& model);
+
+  void command_model_render_simple(CommandBuffer command_buffer, Model model);
 }

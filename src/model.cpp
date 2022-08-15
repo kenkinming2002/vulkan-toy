@@ -70,4 +70,12 @@ namespace vulkan
     };
     init_model(context, allocator, create_info, model);
   }
+
+  void command_model_render_simple(CommandBuffer command_buffer, Model model)
+  {
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(command_buffer.handle, 0, 1, &model.vertex_buffer.handle, offsets);
+    vkCmdBindIndexBuffer(command_buffer.handle, model.index_buffer.handle, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(command_buffer.handle, model.index_count, 1, 0, 0, 0);
+  }
 }
