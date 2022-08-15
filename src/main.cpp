@@ -233,15 +233,17 @@ int main()
   }
 
   // Descriptor pool
-  const vulkan::DescriptorBinding descriptor_infos[] = {
+  const vulkan::DescriptorBinding descriptor_bindings[] = {
     {.type = vulkan::DescriptorType::UNIFORM_BUFFER, .stage = vulkan::ShaderStage::VERTEX },
     {.type = vulkan::DescriptorType::SAMPLER,        .stage = vulkan::ShaderStage::FRAGMENT },
   };
   vulkan::DescriptorPool descriptor_pool = {};
   vulkan::init_descriptor_pool(context, vulkan::DescriptorPoolCreateInfo{
-    .descriptors      = descriptor_infos,
-    .descriptor_count = std::size(descriptor_infos),
-    .count            = MAX_FRAME_IN_FLIGHT,
+    .descriptor_input = {
+      .bindings      = descriptor_bindings,
+      .binding_count = std::size(descriptor_bindings),
+    },
+    .count = MAX_FRAME_IN_FLIGHT,
   }, descriptor_pool);
 
   vulkan::DescriptorSet descriptor_sets[MAX_FRAME_IN_FLIGHT];

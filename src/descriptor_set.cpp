@@ -19,16 +19,16 @@ namespace vulkan
 
   void init_descriptor_pool(const Context& context, DescriptorPoolCreateInfo create_info, DescriptorPool& descriptor_pool)
   {
-    VkDescriptorPoolSize *pool_sizes = new VkDescriptorPoolSize[create_info.descriptor_count];
-    for(uint32_t i=0; i<create_info.descriptor_count; ++i)
+    VkDescriptorPoolSize *pool_sizes = new VkDescriptorPoolSize[create_info.descriptor_input.binding_count];
+    for(uint32_t i=0; i<create_info.descriptor_input.binding_count; ++i)
     {
-      pool_sizes[i].type            = to_vulkan_descriptor_type(create_info.descriptors[i].type);
+      pool_sizes[i].type            = to_vulkan_descriptor_type(create_info.descriptor_input.bindings[i].type);
       pool_sizes[i].descriptorCount = create_info.count;
     }
 
     VkDescriptorPoolCreateInfo pool_create_info = {};
     pool_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pool_create_info.poolSizeCount = create_info.descriptor_count;
+    pool_create_info.poolSizeCount = create_info.descriptor_input.binding_count;
     pool_create_info.pPoolSizes    = pool_sizes;
     pool_create_info.maxSets       = create_info.count;
     VK_CHECK(vkCreateDescriptorPool(context.device, &pool_create_info, nullptr, &descriptor_pool.handle));
