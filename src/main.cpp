@@ -298,7 +298,7 @@ int main()
       proj[1][1] *= -1;
       matrices.mvp = proj * view * model;
     }
-    vkCmdPushConstants(frame_info->command_buffer.handle, render_context.pipeline.pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof matrices, &matrices);
+    vulkan::command_push_constant(frame_info->command_buffer, render_context.pipeline, vulkan::ShaderStage::VERTEX, &matrices, 0, sizeof matrices);
 
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(frame_info->command_buffer.handle, 0, 1, &model.vbo.handle, offsets);

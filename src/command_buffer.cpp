@@ -2,7 +2,7 @@
 
 #include "vk_check.hpp"
 
-#include <vulkan/vulkan_core.h>
+#include <assert.h>
 
 namespace vulkan
 {
@@ -63,5 +63,20 @@ namespace vulkan
     submit_info.pCommandBuffers    = &command_buffer.handle;
 
     VK_CHECK(vkQueueSubmit(context.queue, 1, &submit_info, fence.handle));
+  }
+
+  static VkShaderStageFlags to_vulkan_stage_flags(ShaderStage stage)
+  {
+    switch(stage)
+    {
+    case ShaderStage::VERTEX:   return VK_SHADER_STAGE_VERTEX_BIT;
+    case ShaderStage::FRAGMENT: return VK_SHADER_STAGE_FRAGMENT_BIT;
+    default: assert(false && "Unreachable");
+    }
+  }
+
+  void command_push_constant(CommandBuffer command_buffer, Pipeline2 pipeline, ShaderStage stage, void *data, size_t offset, size_t size)
+  {
+    vkCmdPushConstants(command_buffer.handle, pipeline.pipeline_layout, to_vulkan_stage_flags(stage), offset, size, data);
   }
 }
