@@ -188,19 +188,10 @@ int main()
   Texture texture = load_texture(context, allocator, "viking_room.png");
   Model   model   = load_model(context, allocator, "viking_room.obj");
 
-  const vulkan::ShaderLoadInfo vertex_shader_load_info = {
-    .file_name = "shaders/vert.spv",
-    .stage     = vulkan::ShaderStage::VERTEX,
-  };
   vulkan::Shader vertex_shader = {};
-  vulkan::load_shader(context, vertex_shader_load_info, vertex_shader);
-
-  const vulkan::ShaderLoadInfo fragment_shader_load_info = {
-    .file_name = "shaders/frag.spv",
-    .stage     = vulkan::ShaderStage::FRAGMENT,
-  };
   vulkan::Shader fragment_shader = {};
-  vulkan::load_shader(context, fragment_shader_load_info, fragment_shader);
+  vulkan::load_shader(context, "shaders/vert.spv", vertex_shader);
+  vulkan::load_shader(context, "shaders/frag.spv", fragment_shader);
 
   // May need to be recreated on window resize
   const vulkan::VertexAttribute vertex_attributes[] = {

@@ -49,9 +49,9 @@ namespace vulkan
     return content;
   }
 
-  void load_shader(const Context& context, ShaderLoadInfo load_info, Shader& shader)
+  void load_shader(const Context& context, const char *file_name, Shader& shader)
   {
-    dynarray<char> code = read_file(load_info.file_name);
+    dynarray<char> code = read_file(file_name);
 
     VkShaderModuleCreateInfo shader_module_create_info = {};
     shader_module_create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
