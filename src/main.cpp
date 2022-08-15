@@ -59,6 +59,8 @@ static constexpr vulkan::ContextCreateInfo CONTEXT_CREATE_INFO = {
   .width            = 1080,
   .height           = 720,
 };
+static constexpr const char *VERTEX_SHADER_FILE_NAME   = "shaders/vert.spv";
+static constexpr const char *FRAGMENT_SHADER_FILE_NAME = "shaders/frag.spv";
 
 static constexpr vulkan::VertexAttribute VERTEX_ATTRIBUTES[] = {
   { .offset = offsetof(Vertex, pos),   .type = vulkan::VertexAttribute::Type::FLOAT3 },
@@ -223,19 +225,14 @@ int main()
   Texture texture = load_texture(context, allocator, "viking_room.png");
   Model   model   = load_model(context, allocator, "viking_room.obj");
 
-  vulkan::Shader vertex_shader = {};
-  vulkan::Shader fragment_shader = {};
-  vulkan::load_shader(context, "shaders/vert.spv", vertex_shader);
-  vulkan::load_shader(context, "shaders/frag.spv", fragment_shader);
-
   // May need to be recreated on window resize
   const vulkan::RenderContextCreateInfo render_context_create_info{
-    .vertex_shader   = vertex_shader,
-    .fragment_shader     = fragment_shader,
-    .vertex_input        = VERTEX_INPUT,
-    .descriptor_input    = DESCRIPTOR_INPUT,
-    .push_constant_input = PUSH_CONSTANT_INPUT,
-    .max_frame_in_flight = MAX_FRAME_IN_FLIGHT,
+    .vertex_shader_file_name   = VERTEX_SHADER_FILE_NAME,
+    .fragment_shader_file_name = FRAGMENT_SHADER_FILE_NAME,
+    .vertex_input              = VERTEX_INPUT,
+    .descriptor_input          = DESCRIPTOR_INPUT,
+    .push_constant_input       = PUSH_CONSTANT_INPUT,
+    .max_frame_in_flight       = MAX_FRAME_IN_FLIGHT,
   };
 
   vulkan::RenderContext render_context = {};

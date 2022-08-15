@@ -43,8 +43,8 @@ namespace vulkan
 
   struct RenderContextCreateInfo
   {
-    Shader vertex_shader;
-    Shader fragment_shader;
+    const char* vertex_shader_file_name;
+    const char* fragment_shader_file_name;
 
     VertexInput       vertex_input;
     DescriptorInput   descriptor_input;

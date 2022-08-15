@@ -10,6 +10,12 @@ namespace vulkan
 {
   void init_render_context(const Context& context, Allocator& allocator, RenderContextCreateInfo create_info, RenderContext& render_context)
   {
+    vulkan::Shader vertex_shader = {};
+    vulkan::Shader fragment_shader = {};
+
+    vulkan::load_shader(context, create_info.vertex_shader_file_name, vertex_shader);
+    vulkan::load_shader(context, create_info.fragment_shader_file_name, fragment_shader);
+
     init_swapchain(context, render_context.swapchain);
     init_render_pass_simple(context, RenderPassCreateInfoSimple{
       .color_format = render_context.swapchain.surface_format.format,
@@ -17,12 +23,15 @@ namespace vulkan
     }, render_context.render_pass);
     init_pipeline2(context, PipelineCreateInfo2{
       .render_pass         = render_context.render_pass,
-      .vertex_shader       = create_info.vertex_shader,
-      .fragment_shader     = create_info.fragment_shader,
+      .vertex_shader       = vertex_shader,
+      .fragment_shader     = fragment_shader,
       .vertex_input        = create_info.vertex_input,
       .descriptor_input    = create_info.descriptor_input,
       .push_constant_input = create_info.push_constant_input,
     }, render_context.pipeline);
+
+    vulkan::deinit_shader(context, vertex_shader);
+    vulkan::deinit_shader(context, fragment_shader);
 
     // 5: Create image resources
     {
