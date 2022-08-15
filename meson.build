@@ -11,6 +11,7 @@ srcs = [
   'src/allocator.cpp',
   'src/buffer.cpp',
   'src/command_buffer.cpp',
+  'src/model.cpp',
   'src/context.cpp',
   'src/descriptor_set.cpp',
   'src/fence.cpp',

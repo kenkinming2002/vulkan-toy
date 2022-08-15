@@ -3,6 +3,7 @@
 #include "context.hpp"
 #include "descriptor_set.hpp"
 #include "loader.hpp"
+#include "model.hpp"
 #include "render_context.hpp"
 #include "sampler.hpp"
 #include "shader.hpp"
@@ -43,13 +44,6 @@ struct Matrices
   glm::mat4 mvp;
 };
 
-struct Vertex
-{
-  glm::vec3 pos;
-  glm::vec3 color;
-  glm::vec2 uv;
-};
-
 // Constant sections
 static constexpr size_t MAX_FRAME_IN_FLIGHT = 4;
 
@@ -62,23 +56,6 @@ static constexpr vulkan::ContextCreateInfo CONTEXT_CREATE_INFO = {
 };
 static constexpr const char *VERTEX_SHADER_FILE_NAME   = "shaders/vert.spv";
 static constexpr const char *FRAGMENT_SHADER_FILE_NAME = "shaders/frag.spv";
-
-static constexpr vulkan::VertexAttribute VERTEX_ATTRIBUTES[] = {
-  { .offset = offsetof(Vertex, pos),   .type = vulkan::VertexAttribute::Type::FLOAT3 },
-  { .offset = offsetof(Vertex, color), .type = vulkan::VertexAttribute::Type::FLOAT3 },
-  { .offset = offsetof(Vertex, uv),    .type = vulkan::VertexAttribute::Type::FLOAT2 },
-};
-
-static constexpr vulkan::VertexBinding VERTEX_BINDINGS[] = {{
-  .stride          = sizeof(Vertex),
-  .attributes      = VERTEX_ATTRIBUTES,
-  .attribute_count = std::size(VERTEX_ATTRIBUTES),
-}};
-
-static constexpr vulkan::VertexInput VERTEX_INPUT = {
-  .bindings      = VERTEX_BINDINGS,
-  .binding_count = std::size(VERTEX_BINDINGS),
-};
 
 static constexpr vulkan::DescriptorBinding DESCRIPTOR_BINDINGS[] = {
   {.type = vulkan::DescriptorType::SAMPLER,        .stage = vulkan::ShaderStage::FRAGMENT },
@@ -97,76 +74,6 @@ static constexpr vulkan::PushConstantInput PUSH_CONSTANT_INPUT = {
   .ranges      = PUSH_CONSTANT_RANGES,
   .range_count = std::size(PUSH_CONSTANT_RANGES),
 };
-
-struct Model
-{
-  size_t vertex_count, index_count;
-  vulkan::Buffer vbo, ibo;
-};
-
-Model create_model(const vulkan::Context& context, vulkan::Allocator& allocator, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
-{
-  Model model = {};
-  model.vertex_count = vertices.size();
-  model.index_count  = indices.size();
-
-  vulkan::BufferCreateInfo buffer_create_info = {};
-
-  buffer_create_info.type = vulkan::BufferType::VERTEX_BUFFER;
-  buffer_create_info.size = vertices.size() * sizeof vertices[0];
-  vulkan::init_buffer(context, allocator, buffer_create_info, model.vbo);
-  vulkan::write_buffer(context, allocator, model.vbo, vertices.data(), vertices.size() * sizeof vertices[0]);
-
-  buffer_create_info.type = vulkan::BufferType::INDEX_BUFFER;
-  buffer_create_info.size = indices.size() * sizeof indices[0];
-  vulkan::init_buffer(context, allocator, buffer_create_info, model.ibo);
-  vulkan::write_buffer(context, allocator, model.ibo, indices.data(), indices.size() * sizeof indices[0]);
-
-  return model;
-}
-
-void destroy_model(const vulkan::Context& context, vulkan::Allocator& allocator, Model model)
-{
-  vulkan::deinit_buffer(context, allocator, model.vbo);
-  vulkan::deinit_buffer(context, allocator, model.ibo);
-}
-
-Model load_model(const vulkan::Context& context, vulkan::Allocator& allocator, const char* file_name)
-{
-  tinyobj::attrib_t attrib;
-  std::vector<tinyobj::shape_t> shapes;
-  std::vector<tinyobj::material_t> materials;
-  std::string warn, err;
-  std::vector<Vertex>   vertices;
-  std::vector<uint32_t> indices;
-
-  if(!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, file_name))
-  {
-    fprintf(stderr, "Failed to load object file:%s", err.c_str());
-    abort();
-  }
-  fprintf(stderr, "Warning:%s", warn.c_str());
-
-  for(const auto& shape : shapes)
-    for(const auto& index : shape.mesh.indices)
-    {
-      Vertex vertex = {};
-      vertex.pos = {
-        attrib.vertices[3 * index.vertex_index + 0],
-        attrib.vertices[3 * index.vertex_index + 1],
-        attrib.vertices[3 * index.vertex_index + 2]
-      };
-      vertex.uv = {
-        attrib.texcoords[2 * index.texcoord_index + 0],
-        1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-      };
-      vertex.color = {1.0f, 1.0f, 1.0f};
-      vertices.push_back(vertex);
-      indices.push_back(indices.size());
-    }
-
-  return create_model(context, allocator, vertices, indices);
-}
 
 int main()
 {
@@ -189,13 +96,14 @@ int main()
     .image  = image,
   }, image_view);
 
-  Model   model   = load_model(context, allocator, "viking_room.obj");
+  vulkan::Model model = {};
+  vulkan::load_model(context, allocator, "viking_room.obj", model);
 
   // May need to be recreated on window resize
   const vulkan::RenderContextCreateInfo render_context_create_info{
     .vertex_shader_file_name   = VERTEX_SHADER_FILE_NAME,
     .fragment_shader_file_name = FRAGMENT_SHADER_FILE_NAME,
-    .vertex_input              = VERTEX_INPUT,
+    .vertex_input              = vulkan::VERTEX_INPUT,
     .descriptor_input          = DESCRIPTOR_INPUT,
     .push_constant_input       = PUSH_CONSTANT_INPUT,
     .max_frame_in_flight       = MAX_FRAME_IN_FLIGHT,
@@ -258,8 +166,8 @@ int main()
     vulkan::command_bind_descriptor_set(frame_info->command_buffer, render_context.pipeline, descriptor_set);
 
     VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(frame_info->command_buffer.handle, 0, 1, &model.vbo.handle, offsets);
-    vkCmdBindIndexBuffer(frame_info->command_buffer.handle, model.ibo.handle, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindVertexBuffers(frame_info->command_buffer.handle, 0, 1, &model.vertex_buffer.handle, offsets);
+    vkCmdBindIndexBuffer(frame_info->command_buffer.handle, model.index_buffer.handle, 0, VK_INDEX_TYPE_UINT32);
 
     VkViewport viewport = {};
     viewport.x = 0.0f;
