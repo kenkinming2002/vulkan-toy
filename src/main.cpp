@@ -51,7 +51,49 @@ struct Vertex
   glm::vec2 uv;
 };
 
+// Constant sections
 static constexpr size_t MAX_FRAME_IN_FLIGHT = 4;
+
+static constexpr vulkan::ContextCreateInfo CONTEXT_CREATE_INFO = {
+  .application_name = "Vulkan",
+  .engine_name      = "Engine",
+  .window_name      = "Vulkan",
+  .width            = 1080,
+  .height           = 720,
+};
+
+static constexpr vulkan::VertexAttribute VERTEX_ATTRIBUTES[] = {
+  { .offset = offsetof(Vertex, pos),   .type = vulkan::VertexAttribute::Type::FLOAT3 },
+  { .offset = offsetof(Vertex, color), .type = vulkan::VertexAttribute::Type::FLOAT3 },
+  { .offset = offsetof(Vertex, uv),    .type = vulkan::VertexAttribute::Type::FLOAT2 },
+};
+
+static constexpr vulkan::VertexBinding VERTEX_BINDINGS[] = {{
+  .stride          = sizeof(Vertex),
+  .attributes      = VERTEX_ATTRIBUTES,
+  .attribute_count = std::size(VERTEX_ATTRIBUTES),
+}};
+
+static constexpr vulkan::VertexInput VERTEX_INPUT = {
+  .bindings      = VERTEX_BINDINGS,
+  .binding_count = std::size(VERTEX_BINDINGS),
+};
+
+static constexpr vulkan::DescriptorBinding DESCRIPTOR_BINDINGS[] = {
+  {.type = vulkan::DescriptorType::UNIFORM_BUFFER, .stage = vulkan::ShaderStage::VERTEX },
+  {.type = vulkan::DescriptorType::SAMPLER,        .stage = vulkan::ShaderStage::FRAGMENT },
+};
+
+static constexpr vulkan::DescriptorInput DESCRIPTOR_INPUT = {
+  .bindings      = DESCRIPTOR_BINDINGS,
+  .binding_count = std::size(DESCRIPTOR_BINDINGS),
+};
+
+static constexpr vulkan::PushConstantInput PUSH_CONSTANT_INPUT = {
+  .ranges = nullptr,
+  .range_count = 0,
+};
+
 
 struct Texture
 {
@@ -166,21 +208,13 @@ Model load_model(const vulkan::Context& context, vulkan::Allocator& allocator, c
   return create_model(context, allocator, vertices, indices);
 }
 
-const vulkan::ContextCreateInfo context_create_info = {
-  .application_name = "Vulkan",
-  .engine_name      = "Engine",
-  .window_name      = "Vulkan",
-  .width            = 1080,
-  .height           = 720,
-};
-
 int main()
 {
   glfwInit();
 
   // Context
   vulkan::Context context = {};
-  vulkan::init_context(context_create_info, context);
+  vulkan::init_context(CONTEXT_CREATE_INFO, context);
 
   vulkan::Allocator allocator = {};
   vulkan::init_allocator(context, allocator);
@@ -194,29 +228,15 @@ int main()
   vulkan::load_shader(context, "shaders/frag.spv", fragment_shader);
 
   // May need to be recreated on window resize
-  const vulkan::VertexAttribute vertex_attributes[] = {
-    { .offset = offsetof(Vertex, pos),   .type = vulkan::VertexAttribute::Type::FLOAT3 },
-    { .offset = offsetof(Vertex, color), .type = vulkan::VertexAttribute::Type::FLOAT3 },
-    { .offset = offsetof(Vertex, uv),    .type = vulkan::VertexAttribute::Type::FLOAT2 },
-  };
-
-  const vulkan::VertexBinding vertex_bindings[] = {{
-    .stride          = sizeof(Vertex),
-    .attributes      = vertex_attributes,
-    .attribute_count = std::size(vertex_attributes),
-  }};
-
-  const vulkan::VertexInput vertex_input = {
-    .bindings      = vertex_bindings,
-    .binding_count = std::size(vertex_bindings),
-  };
-
   const vulkan::RenderContextCreateInfo render_context_create_info{
     .vertex_shader   = vertex_shader,
-    .fragment_shader = fragment_shader,
-    .vertex_input    = vertex_input,
-    .max_frame_in_flight = 4,
+    .fragment_shader     = fragment_shader,
+    .vertex_input        = VERTEX_INPUT,
+    .descriptor_input    = DESCRIPTOR_INPUT,
+    .push_constant_input = PUSH_CONSTANT_INPUT,
+    .max_frame_in_flight = MAX_FRAME_IN_FLIGHT,
   };
+
   vulkan::RenderContext render_context = {};
   vulkan::init_render_context(context, allocator, render_context_create_info, render_context);
 
@@ -233,17 +253,10 @@ int main()
   }
 
   // Descriptor pool
-  const vulkan::DescriptorBinding descriptor_bindings[] = {
-    {.type = vulkan::DescriptorType::UNIFORM_BUFFER, .stage = vulkan::ShaderStage::VERTEX },
-    {.type = vulkan::DescriptorType::SAMPLER,        .stage = vulkan::ShaderStage::FRAGMENT },
-  };
   vulkan::DescriptorPool descriptor_pool = {};
   vulkan::init_descriptor_pool(context, vulkan::DescriptorPoolCreateInfo{
-    .descriptor_input = {
-      .bindings      = descriptor_bindings,
-      .binding_count = std::size(descriptor_bindings),
-    },
-    .count = MAX_FRAME_IN_FLIGHT,
+    .descriptor_input = DESCRIPTOR_INPUT,
+    .count            = MAX_FRAME_IN_FLIGHT,
   }, descriptor_pool);
 
   vulkan::DescriptorSet descriptor_sets[MAX_FRAME_IN_FLIGHT];

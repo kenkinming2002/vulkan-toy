@@ -10,29 +10,18 @@ namespace vulkan
 {
   void init_render_context(const Context& context, Allocator& allocator, RenderContextCreateInfo create_info, RenderContext& render_context)
   {
-    const DescriptorBinding descriptor_bindings[] = {
-      {.type = DescriptorType::UNIFORM_BUFFER, .stage = ShaderStage::VERTEX },
-      {.type = DescriptorType::SAMPLER,        .stage = ShaderStage::FRAGMENT },
-    };
-
     init_swapchain(context, render_context.swapchain);
     init_render_pass_simple(context, RenderPassCreateInfoSimple{
       .color_format = render_context.swapchain.surface_format.format,
       .depth_format = VK_FORMAT_D32_SFLOAT,
     }, render_context.render_pass);
     init_pipeline2(context, PipelineCreateInfo2{
-      .render_pass     = render_context.render_pass,
-      .vertex_shader   = create_info.vertex_shader,
-      .fragment_shader = create_info.fragment_shader,
-      .vertex_input    = create_info.vertex_input,
-      .descriptor_input = {
-        .bindings      = descriptor_bindings,
-        .binding_count = std::size(descriptor_bindings),
-      },
-      .push_constant_input = {
-        .ranges      = nullptr,
-        .range_count = 0,
-      },
+      .render_pass         = render_context.render_pass,
+      .vertex_shader       = create_info.vertex_shader,
+      .fragment_shader     = create_info.fragment_shader,
+      .vertex_input        = create_info.vertex_input,
+      .descriptor_input    = create_info.descriptor_input,
+      .push_constant_input = create_info.push_constant_input,
     }, render_context.pipeline);
 
     // 5: Create image resources

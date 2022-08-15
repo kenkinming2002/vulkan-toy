@@ -46,7 +46,9 @@ namespace vulkan
     Shader vertex_shader;
     Shader fragment_shader;
 
-    VertexInput vertex_input;
+    VertexInput       vertex_input;
+    DescriptorInput   descriptor_input;
+    PushConstantInput push_constant_input;
 
     uint32_t max_frame_in_flight;
   };
