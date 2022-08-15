@@ -18,6 +18,7 @@ srcs = [
   'src/image.cpp',
   'src/image_view.cpp',
   'src/impl.cpp',
+  'src/loader.cpp',
   'src/main.cpp',
   'src/pipeline.cpp',
   'src/render_context.cpp',

@@ -2,10 +2,10 @@
 #include "command_buffer.hpp"
 #include "context.hpp"
 #include "descriptor_set.hpp"
+#include "loader.hpp"
 #include "render_context.hpp"
 #include "sampler.hpp"
 #include "shader.hpp"
-#include "src/image.hpp"
 #include "vk_check.hpp"
 #include "vulkan.hpp"
 
