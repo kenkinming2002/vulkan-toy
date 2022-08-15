@@ -252,7 +252,7 @@ int main()
       {.type = vulkan::DescriptorType::SAMPLER,        .combined_image_sampler = { .image_view = texture.image_view, .sampler = sampler, }}
     };
 
-    vulkan::allocate_descriptor_set(context, descriptor_pool, vulkan::DescriptorSetLayout{render_context.pipeline.descriptor_set_layout}, descriptor_sets[i]);
+    vulkan::allocate_descriptor_set(context, descriptor_pool, render_context.pipeline.descriptor_set_layout, descriptor_sets[i]);
     vulkan::write_descriptor_set(context, descriptor_sets[i], vulkan::DescriptorSetWriteInfo{
       .descriptors      = descriptors,
       .descriptor_count = std::size(descriptors),

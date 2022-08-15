@@ -2,8 +2,8 @@
 
 #include "buffer.hpp"
 #include "context.hpp"
-#include "descriptor_set_layout.hpp"
 #include "image_view.hpp"
+#include "input.hpp"
 #include "sampler.hpp"
 
 namespace vulkan
@@ -29,7 +29,7 @@ namespace vulkan
     VkDescriptorSet handle;
   };
 
-  void allocate_descriptor_set(const Context& context, DescriptorPool descriptor_pool, DescriptorSetLayout descriptor_set_layout, DescriptorSet& descriptor_set);
+  void allocate_descriptor_set(const Context& context, DescriptorPool descriptor_pool, VkDescriptorSetLayout descriptor_set_layout, DescriptorSet& descriptor_set);
 
   struct UniformBufferDescriptor
   {

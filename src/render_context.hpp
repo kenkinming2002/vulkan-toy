@@ -6,7 +6,6 @@
 #include "framebuffer.hpp"
 #include "image_view.hpp"
 #include "pipeline.hpp"
-#include "pipeline_layout.hpp"
 #include "render_pass.hpp"
 #include "shader.hpp"
 #include "swapchain.hpp"
