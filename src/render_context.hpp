@@ -22,15 +22,6 @@
 
 namespace vulkan
 {
-  struct FrameResource
-  {
-    CommandBuffer command_buffer;
-    Fence fence;
-
-    VkSemaphore semaphore_image_available;
-    VkSemaphore semaphore_render_finished;
-  };
-
   struct RenderContextCreateInfo
   {
     const char* vertex_shader_file_name;
@@ -43,6 +34,15 @@ namespace vulkan
     uint32_t max_frame_in_flight;
   };
 
+  struct Frame
+  {
+    CommandBuffer command_buffer;
+    Fence fence;
+
+    VkSemaphore semaphore_image_available;
+    VkSemaphore semaphore_render_finished;
+  };
+
   struct RenderContext
   {
     Swapchain  swapchain;
@@ -52,8 +52,9 @@ namespace vulkan
     Image          depth_image;
     ImageView      depth_image_view;
     Framebuffer   *framebuffers;
-    FrameResource *frame_resources;
+    uint32_t       image_index;
 
+    Frame *frames;
     uint32_t frame_count;
     uint32_t frame_index;
   };
@@ -61,17 +62,7 @@ namespace vulkan
   void init_render_context(const Context& context, Allocator& allocator, RenderContextCreateInfo create_info, RenderContext& render_context);
   void deinit_render_context(const Context& context, Allocator& allocator, RenderContext& render_context);
 
-  struct RenderInfo
-  {
-    uint32_t      frame_index;
-    uint32_t      image_index;
-
-    CommandBuffer command_buffer;
-    VkSemaphore semaphore_image_available;
-    VkSemaphore semaphore_render_finished;
-  };
-
-  std::optional<RenderInfo> begin_render(const Context& context, RenderContext& render_context);
-  bool end_render(const Context& context, RenderContext& render_context, RenderInfo info);
+  bool begin_render(const Context& context, RenderContext& render_context, Frame& frame);
+  bool end_render(const Context& context, RenderContext& render_context, const Frame& frame);
 }
 

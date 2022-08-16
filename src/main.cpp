@@ -136,19 +136,18 @@ int main()
   // Maybe you would want multiple render pass? How do I support that?
   // We would need to expose the concept of swapchain and render pass
 
+  vulkan::Frame frame = {};
   while(!vulkan::context_should_destroy(context))
   {
     vulkan::context_handle_events(context);
 
-    auto frame_info = vulkan::begin_render(context, render_context);
-    while(!frame_info)
+    while(!vulkan::begin_render(context, render_context, frame))
     {
       std::cout << "Recreating render context\n";
 
       vkDeviceWaitIdle(context.device);
       vulkan::deinit_render_context(context, allocator, render_context);
       vulkan::init_render_context(context, allocator, render_context_create_info, render_context);
-      frame_info = vulkan::begin_render(context, render_context);
     }
 
     auto extent = render_context.swapchain.extent;
@@ -165,8 +164,8 @@ int main()
       proj[1][1] *= -1;
       matrices.mvp = proj * view * model;
     }
-    vulkan::command_push_constant(frame_info->command_buffer, render_context.pipeline, vulkan::ShaderStage::VERTEX, &matrices, 0, sizeof matrices);
-    vulkan::command_bind_descriptor_set(frame_info->command_buffer, render_context.pipeline, descriptor_set);
+    vulkan::command_push_constant(frame.command_buffer, render_context.pipeline, vulkan::ShaderStage::VERTEX, &matrices, 0, sizeof matrices);
+    vulkan::command_bind_descriptor_set(frame.command_buffer, render_context.pipeline, descriptor_set);
 
     VkViewport viewport = {};
     viewport.x = 0.0f;
@@ -175,16 +174,16 @@ int main()
     viewport.height = extent.height;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(frame_info->command_buffer.handle, 0, 1, &viewport);
+    vkCmdSetViewport(frame.command_buffer.handle, 0, 1, &viewport);
 
     VkRect2D scissor = {};
     scissor.offset = {0, 0};
     scissor.extent = extent;
-    vkCmdSetScissor(frame_info->command_buffer.handle, 0, 1, &scissor);
+    vkCmdSetScissor(frame.command_buffer.handle, 0, 1, &scissor);
 
-    vulkan::command_model_render_simple(frame_info->command_buffer, model);
+    vulkan::command_model_render_simple(frame.command_buffer, model);
 
-    if(!vulkan::end_render(context, render_context, *frame_info))
+    if(!vulkan::end_render(context, render_context, frame))
     {
       std::cout << "Recreating render context\n";
 

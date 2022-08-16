@@ -61,15 +61,15 @@ namespace vulkan
     }
 
     // 7: Create frame resources
-    render_context.frame_resources = new FrameResource[create_info.max_frame_in_flight];
+    render_context.frames = new Frame[create_info.max_frame_in_flight];
     for(uint32_t i=0; i<create_info.max_frame_in_flight; ++i)
     {
-      FrameResource frame_resource = {};
-      init_command_buffer(context, frame_resource.command_buffer);
-      init_fence(context, frame_resource.fence, true);
-      frame_resource.semaphore_image_available = vulkan::create_semaphore(context.device);
-      frame_resource.semaphore_render_finished = vulkan::create_semaphore(context.device);
-      render_context.frame_resources[i] = frame_resource;
+      Frame frame = {};
+      init_command_buffer(context, frame.command_buffer);
+      init_fence(context, frame.fence, true);
+      frame.semaphore_image_available = vulkan::create_semaphore(context.device);
+      frame.semaphore_render_finished = vulkan::create_semaphore(context.device);
+      render_context.frames[i] = frame;
     }
     render_context.frame_count = create_info.max_frame_in_flight;
     render_context.frame_index = 0;
@@ -89,41 +89,37 @@ namespace vulkan
 
     for(uint32_t i=0; i<render_context.frame_count; ++i)
     {
-      FrameResource& frame = render_context.frame_resources[i];
+      Frame& frame = render_context.frames[i];
       deinit_command_buffer(context, frame.command_buffer);
       deinit_fence(context, frame.fence);
       vulkan::destroy_semaphore(context.device, frame.semaphore_image_available);
       vulkan::destroy_semaphore(context.device, frame.semaphore_render_finished);
     }
-    delete[] render_context.frame_resources;
+    delete[] render_context.frames;
 
     deinit_pipeline2(context, render_context.pipeline);
     deinit_render_pass(context, render_context.render_pass);
     deinit_swapchain(context, render_context.swapchain);
   }
 
-  std::optional<RenderInfo> begin_render(const Context& context, RenderContext& render_context)
+  bool begin_render(const Context& context, RenderContext& render_context, Frame& frame)
   {
-    // Render info
-    RenderInfo info  = {};
-
     // Acquire frame resource
-    info.frame_index = render_context.frame_index;
+    frame = render_context.frames[render_context.frame_index];
     render_context.frame_index = (render_context.frame_index + 1) % render_context.frame_count;
-    FrameResource frame_resource = render_context.frame_resources[info.frame_index];
 
-    auto result = swapchain_next_image_index(context, render_context.swapchain, frame_resource.semaphore_image_available, info.image_index);
+    auto result = swapchain_next_image_index(context, render_context.swapchain, frame.semaphore_image_available, render_context.image_index);
     if(result != SwapchainResult::SUCCESS)
-      return std::nullopt;
+      return false;
 
     // Wait and begin commannd buffer recording
-    fence_wait_and_reset(context, frame_resource.fence);
-    command_buffer_begin(frame_resource.command_buffer);
+    fence_wait_and_reset(context, frame.fence);
+    command_buffer_begin(frame.command_buffer);
 
     VkRenderPassBeginInfo render_pass_begin_info = {};
     render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     render_pass_begin_info.renderPass        = render_context.render_pass.handle;
-    render_pass_begin_info.framebuffer       = render_context.framebuffers[info.image_index].handle;
+    render_pass_begin_info.framebuffer       = render_context.framebuffers[render_context.image_index].handle;
     render_pass_begin_info.renderArea.offset = {0, 0};
     render_pass_begin_info.renderArea.extent = render_context.swapchain.extent;
 
@@ -135,27 +131,21 @@ namespace vulkan
     render_pass_begin_info.clearValueCount = 2;
     render_pass_begin_info.pClearValues = clear_values;
 
-    vkCmdBeginRenderPass(frame_resource.command_buffer.handle, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(frame_resource.command_buffer.handle, VK_PIPELINE_BIND_POINT_GRAPHICS, render_context.pipeline.handle);
-
-    info.semaphore_image_available = frame_resource.semaphore_image_available;
-    info.semaphore_render_finished = frame_resource.semaphore_render_finished;
-    info.command_buffer            = frame_resource.command_buffer;
-    return info;
+    vkCmdBeginRenderPass(frame.command_buffer.handle, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(frame.command_buffer.handle, VK_PIPELINE_BIND_POINT_GRAPHICS, render_context.pipeline.handle);
+    return true;
   }
 
-  bool end_render(const Context& context, RenderContext& render_context, RenderInfo info)
+  bool end_render(const Context& context, RenderContext& render_context, const Frame& frame)
   {
-    FrameResource frame_resource = render_context.frame_resources[info.frame_index];
-
-    vkCmdEndRenderPass(frame_resource.command_buffer.handle);
+    vkCmdEndRenderPass(frame.command_buffer.handle);
 
     // End command buffer recording and submit
-    command_buffer_end(frame_resource.command_buffer);
-    command_buffer_submit(context, frame_resource.command_buffer, frame_resource.fence,
-        frame_resource.semaphore_image_available, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        frame_resource.semaphore_render_finished);
+    command_buffer_end(frame.command_buffer);
+    command_buffer_submit(context, frame.command_buffer, frame.fence,
+        frame.semaphore_image_available, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        frame.semaphore_render_finished);
 
-    return swapchain_present_image_index(context, render_context.swapchain, frame_resource.semaphore_render_finished, info.image_index) == SwapchainResult::SUCCESS;
+    return swapchain_present_image_index(context, render_context.swapchain, frame.semaphore_render_finished, render_context.image_index) == SwapchainResult::SUCCESS;
   }
 }
