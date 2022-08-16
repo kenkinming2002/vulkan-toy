@@ -61,17 +61,13 @@ namespace vulkan
     }
 
     // 7: Create frame resources
-    render_context.frames = new Frame[create_info.max_frame_in_flight];
-    for(uint32_t i=0; i<create_info.max_frame_in_flight; ++i)
+    for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
     {
-      Frame frame = {};
-      init_command_buffer(context, frame.command_buffer);
-      init_fence(context, frame.fence, true);
-      frame.semaphore_image_available = vulkan::create_semaphore(context.device);
-      frame.semaphore_render_finished = vulkan::create_semaphore(context.device);
-      render_context.frames[i] = frame;
+      init_command_buffer(context, render_context.frames[i].command_buffer);
+      init_fence(context, render_context.frames[i].fence, true);
+      render_context.frames[i].semaphore_image_available = create_semaphore(context.device);
+      render_context.frames[i].semaphore_render_finished = create_semaphore(context.device);
     }
-    render_context.frame_count = create_info.max_frame_in_flight;
     render_context.frame_index = 0;
   }
 
@@ -87,15 +83,13 @@ namespace vulkan
     deinit_image(context, allocator, render_context.depth_image);
     deinit_image_view(context, render_context.depth_image_view);
 
-    for(uint32_t i=0; i<render_context.frame_count; ++i)
+    for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
     {
-      Frame& frame = render_context.frames[i];
-      deinit_command_buffer(context, frame.command_buffer);
-      deinit_fence(context, frame.fence);
-      vulkan::destroy_semaphore(context.device, frame.semaphore_image_available);
-      vulkan::destroy_semaphore(context.device, frame.semaphore_render_finished);
+      deinit_command_buffer(context, render_context.frames[i].command_buffer);
+      deinit_fence(context, render_context.frames[i].fence);
+      destroy_semaphore(context.device, render_context.frames[i].semaphore_image_available);
+      destroy_semaphore(context.device, render_context.frames[i].semaphore_render_finished);
     }
-    delete[] render_context.frames;
 
     deinit_pipeline2(context, render_context.pipeline);
     deinit_render_pass(context, render_context.render_pass);
@@ -106,7 +100,7 @@ namespace vulkan
   {
     // Acquire frame resource
     frame = render_context.frames[render_context.frame_index];
-    render_context.frame_index = (render_context.frame_index + 1) % render_context.frame_count;
+    render_context.frame_index = (render_context.frame_index + 1) % MAX_FRAME_IN_FLIGHT;
 
     auto result = swapchain_next_image_index(context, render_context.swapchain, frame.semaphore_image_available, render_context.image_index);
     if(result != SwapchainResult::SUCCESS)

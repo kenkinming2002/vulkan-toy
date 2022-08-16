@@ -30,8 +30,6 @@ namespace vulkan
     VertexInput       vertex_input;
     DescriptorInput   descriptor_input;
     PushConstantInput push_constant_input;
-
-    uint32_t max_frame_in_flight;
   };
 
   struct Frame
@@ -43,6 +41,7 @@ namespace vulkan
     VkSemaphore semaphore_render_finished;
   };
 
+  static constexpr size_t MAX_FRAME_IN_FLIGHT = 2;
   struct RenderContext
   {
     Swapchain  swapchain;
@@ -54,9 +53,8 @@ namespace vulkan
     Framebuffer   *framebuffers;
     uint32_t       image_index;
 
-    Frame *frames;
-    uint32_t frame_count;
-    uint32_t frame_index;
+    Frame frames[MAX_FRAME_IN_FLIGHT];
+    size_t frame_index;
   };
 
   void init_render_context(const Context& context, Allocator& allocator, RenderContextCreateInfo create_info, RenderContext& render_context);

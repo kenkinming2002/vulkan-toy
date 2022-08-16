@@ -45,8 +45,6 @@ struct Matrices
 };
 
 // Constant sections
-static constexpr size_t MAX_FRAME_IN_FLIGHT = 4;
-
 static constexpr vulkan::ContextCreateInfo CONTEXT_CREATE_INFO = {
   .application_name = "Vulkan",
   .engine_name      = "Engine",
@@ -106,7 +104,6 @@ int main()
     .vertex_input              = vulkan::VERTEX_INPUT,
     .descriptor_input          = DESCRIPTOR_INPUT,
     .push_constant_input       = PUSH_CONSTANT_INPUT,
-    .max_frame_in_flight       = MAX_FRAME_IN_FLIGHT,
   };
 
   vulkan::RenderContext render_context = {};
