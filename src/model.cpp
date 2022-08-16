@@ -22,7 +22,7 @@ namespace vulkan
     vulkan::write_buffer(context, allocator, model.index_buffer, create_info.indices, create_info.index_count * sizeof create_info.indices[0]);
   }
 
-  void deinit_model(const vulkan::Context& context, vulkan::Allocator& allocator, Model model)
+  void deinit_model(const Context& context, Allocator& allocator, Model& model)
   {
     vulkan::deinit_buffer(context, allocator, model.vertex_buffer);
     vulkan::deinit_buffer(context, allocator, model.index_buffer);

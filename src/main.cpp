@@ -102,6 +102,7 @@ void application_init(Application& application)
 {
   vulkan::init_context(CONTEXT_CREATE_INFO, application.context);
   vulkan::init_allocator(application.context, application.allocator);
+  vulkan::init_render_context(application.context, application.allocator, RENDER_CONTEXT_CREATE_INFO, application.render_context);
 
   vulkan::load_image(application.context, application.allocator, application.image, "viking_room.png");
   vulkan::init_image_view(application.context, vulkan::ImageViewCreateInfo{
@@ -113,8 +114,6 @@ void application_init(Application& application)
   vulkan::init_sampler_simple(application.context, application.sampler);
 
   vulkan::load_model(application.context, application.allocator, "viking_room.obj", application.model);
-
-  vulkan::init_render_context(application.context, application.allocator, RENDER_CONTEXT_CREATE_INFO, application.render_context);
 
   // Descriptor pool
   vulkan::init_descriptor_pool(application.context, vulkan::DescriptorPoolCreateInfo{
@@ -136,6 +135,13 @@ void application_init(Application& application)
 void application_deinit(Application& application)
 {
   vkDeviceWaitIdle(application.context.device);
+
+  vulkan::deinit_descriptor_pool(application.context, application.descriptor_pool);
+
+  vulkan::deinit_model(application.context, application.allocator, application.model);
+  vulkan::deinit_sampler(application.context, application.sampler);
+  vulkan::deinit_image_view(application.context, application.image_view);
+  vulkan::deinit_image(application.context, application.allocator, application.image);
 
   vulkan::deinit_render_context(application.context, application.allocator, application.render_context);
   vulkan::deinit_allocator(application.context, application.allocator);

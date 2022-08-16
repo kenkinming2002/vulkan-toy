@@ -138,13 +138,13 @@ namespace vulkan
 
   void deinit_swapchain(const Context& context, Swapchain& swapchain)
   {
-    swapchain.image_count = 0;
-
     delete[] swapchain.images;
     swapchain.images = nullptr;
 
     for(uint32_t i=0; i<swapchain.image_count; ++i)
       deinit_image_view(context, swapchain.image_views[i]);
+
+    swapchain.image_count = 0;
 
     delete[] swapchain.image_views;
     swapchain.image_views = nullptr;
