@@ -24,11 +24,8 @@ namespace vulkan
 {
   struct ImageResource
   {
-    Image     depth_image;
-
-    ImageView color_view;
-    ImageView depth_view;
-
+    Image       depth_image;
+    ImageView   depth_view;
     Framebuffer framebuffer;
   };
 

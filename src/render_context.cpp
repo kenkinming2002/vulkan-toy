@@ -45,10 +45,6 @@ namespace vulkan
           .format = VK_FORMAT_D32_SFLOAT,
           .extent = render_context.swapchain.extent,
         }, image_resource.depth_image);
-        init_image_view(context, ImageViewCreateInfoSwapchain{
-          .swapchain = render_context.swapchain,
-          .index     = i,
-        }, image_resource.color_view);
         init_image_view(context, ImageViewCreateInfo{
           .type   = ImageViewType::DEPTH,
           .format = VK_FORMAT_D32_SFLOAT,
@@ -56,7 +52,7 @@ namespace vulkan
         }, image_resource.depth_view);
 
         const ImageView image_views[] = {
-          image_resource.color_view,
+          render_context.swapchain.image_views[i],
           image_resource.depth_view,
         };
         init_framebuffer(context, FramebufferCreateInfo{
@@ -96,7 +92,6 @@ namespace vulkan
       ImageResource& frame = render_context.image_resources[i];
       deinit_framebuffer(context, frame.framebuffer);
       deinit_image(context, allocator, frame.depth_image);
-      deinit_image_view(context, frame.color_view);
       deinit_image_view(context, frame.depth_view);
     }
     delete[] render_context.image_resources;

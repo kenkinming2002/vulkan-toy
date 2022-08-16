@@ -1,4 +1,5 @@
 #include "swapchain.hpp"
+#include "src/image_view.hpp"
 #include "utils.hpp"
 #include "vk_check.hpp"
 
@@ -114,16 +115,39 @@ namespace vulkan
     }
 
     // 3: Retrive images
-    vkGetSwapchainImagesKHR(context.device, swapchain.handle, &swapchain.image_count, nullptr);
-    swapchain.images = new VkImage[swapchain.image_count];
-    vkGetSwapchainImagesKHR(context.device, swapchain.handle, &swapchain.image_count, swapchain.images);
+    uint32_t image_count;
+    vkGetSwapchainImagesKHR(context.device, swapchain.handle, &image_count, nullptr);
+    VkImage *images = new VkImage[image_count];
+    vkGetSwapchainImagesKHR(context.device, swapchain.handle, &image_count, images);
+
+    swapchain.image_count = image_count;
+    swapchain.images      = new Image[image_count];
+    swapchain.image_views = new ImageView[image_count];
+    for(uint32_t i=0; i<image_count; ++i)
+    {
+      swapchain.images[i] = Image{.handle = images[i], .allocation = {}};
+      init_image_view(context, ImageViewCreateInfo{
+        .type = ImageViewType::COLOR,
+        .format = swapchain.surface_format.format,
+        .image = swapchain.images[i],
+      }, swapchain.image_views[i]);
+    }
+
+    delete[] images;
   }
 
   void deinit_swapchain(const Context& context, Swapchain& swapchain)
   {
-    delete[] swapchain.images;
     swapchain.image_count = 0;
-    swapchain.images      = nullptr;
+
+    delete[] swapchain.images;
+    swapchain.images = nullptr;
+
+    for(uint32_t i=0; i<swapchain.image_count; ++i)
+      deinit_image_view(context, swapchain.image_views[i]);
+
+    delete[] swapchain.image_views;
+    swapchain.image_views = nullptr;
 
     vkDestroySwapchainKHR(context.device, swapchain.handle, nullptr);
     swapchain.handle = nullptr;

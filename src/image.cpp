@@ -5,6 +5,8 @@
 #include "command_buffer.hpp"
 #include "vk_check.hpp"
 
+#include <assert.h>
+
 namespace vulkan
 {
   static VkImageUsageFlags get_vulkan_image_usage(ImageType type)

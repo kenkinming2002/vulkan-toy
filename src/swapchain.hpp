@@ -1,8 +1,10 @@
 #pragma once
 
-#include "vulkan.hpp"
 #include "context.hpp"
+#include "image.hpp"
+#include "image_view.hpp"
 #include "utils.hpp"
+#include "vulkan.hpp"
 
 namespace vulkan
 {
@@ -16,7 +18,8 @@ namespace vulkan
     VkSwapchainKHR handle;
 
     uint32_t  image_count;
-    VkImage  *images;
+    Image     *images;
+    ImageView *image_views;
   };
 
   void init_swapchain(const Context& context, Swapchain& swapchain);

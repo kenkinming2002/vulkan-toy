@@ -2,7 +2,6 @@
 
 #include "allocator.hpp"
 #include "context.hpp"
-#include "swapchain.hpp"
 
 namespace vulkan
 {

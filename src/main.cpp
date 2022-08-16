@@ -133,6 +133,9 @@ int main()
     .descriptor_count = std::size(descriptors),
   });
 
+  // Maybe you would want multiple render pass? How do I support that?
+  // We would need to expose the concept of swapchain and render pass
+
   while(!vulkan::context_should_destroy(context))
   {
     vulkan::context_handle_events(context);

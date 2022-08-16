@@ -2,6 +2,8 @@
 
 #include "stb_image.h"
 
+#include <assert.h>
+
 namespace vulkan
 {
   void load_image(const Context& context, Allocator& allocator, Image& image, const char *file_name)
