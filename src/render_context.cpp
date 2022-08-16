@@ -33,54 +33,46 @@ namespace vulkan
     vulkan::deinit_shader(context, vertex_shader);
     vulkan::deinit_shader(context, fragment_shader);
 
-    // 5: Create image resources
+    // 5: Create framebuffers
+    init_image(context, allocator, ImageCreateInfo{
+      .type   = ImageType::DEPTH_ATTACHMENT,
+      .format = VK_FORMAT_D32_SFLOAT,
+      .extent = render_context.swapchain.extent,
+    }, render_context.depth_image);
+    init_image_view(context, ImageViewCreateInfo{
+      .type   = ImageViewType::DEPTH,
+      .format = VK_FORMAT_D32_SFLOAT,
+      .image  = render_context.depth_image,
+    }, render_context.depth_image_view);
+
+    render_context.framebuffers = new Framebuffer[render_context.swapchain.image_count];
+    for(uint32_t i=0; i<render_context.swapchain.image_count; ++i)
     {
-      render_context.image_resources = new ImageResource[render_context.swapchain.image_count];
-      for(uint32_t i=0; i<render_context.swapchain.image_count; ++i)
-      {
-        ImageResource image_resource = {};
-
-        init_image(context, allocator, ImageCreateInfo{
-          .type   = ImageType::DEPTH_ATTACHMENT,
-          .format = VK_FORMAT_D32_SFLOAT,
-          .extent = render_context.swapchain.extent,
-        }, image_resource.depth_image);
-        init_image_view(context, ImageViewCreateInfo{
-          .type   = ImageViewType::DEPTH,
-          .format = VK_FORMAT_D32_SFLOAT,
-          .image  = image_resource.depth_image,
-        }, image_resource.depth_view);
-
-        const ImageView image_views[] = {
-          render_context.swapchain.image_views[i],
-          image_resource.depth_view,
-        };
-        init_framebuffer(context, FramebufferCreateInfo{
-          .render_pass      = render_context.render_pass.handle,
-          .extent           = render_context.swapchain.extent,
-          .image_views      = image_views,
-          .image_view_count = std::size(image_views),
-        }, image_resource.framebuffer);
-
-        render_context.image_resources[i] = image_resource;
-      }
+      const ImageView image_views[] = {
+        render_context.swapchain.image_views[i],
+        render_context.depth_image_view,
+      };
+      init_framebuffer(context, FramebufferCreateInfo{
+        .render_pass      = render_context.render_pass.handle,
+        .extent           = render_context.swapchain.extent,
+        .image_views      = image_views,
+        .image_view_count = std::size(image_views),
+      }, render_context.framebuffers[i]);
     }
 
     // 7: Create frame resources
+    render_context.frame_resources = new FrameResource[create_info.max_frame_in_flight];
+    for(uint32_t i=0; i<create_info.max_frame_in_flight; ++i)
     {
-      render_context.frame_resources = new FrameResource[create_info.max_frame_in_flight];
-      for(uint32_t i=0; i<create_info.max_frame_in_flight; ++i)
-      {
-        FrameResource frame_resource = {};
-        init_command_buffer(context, frame_resource.command_buffer);
-        init_fence(context, frame_resource.fence, true);
-        frame_resource.semaphore_image_available = vulkan::create_semaphore(context.device);
-        frame_resource.semaphore_render_finished = vulkan::create_semaphore(context.device);
-        render_context.frame_resources[i] = frame_resource;
-      }
-      render_context.frame_count = create_info.max_frame_in_flight;
-      render_context.frame_index = 0;
+      FrameResource frame_resource = {};
+      init_command_buffer(context, frame_resource.command_buffer);
+      init_fence(context, frame_resource.fence, true);
+      frame_resource.semaphore_image_available = vulkan::create_semaphore(context.device);
+      frame_resource.semaphore_render_finished = vulkan::create_semaphore(context.device);
+      render_context.frame_resources[i] = frame_resource;
     }
+    render_context.frame_count = create_info.max_frame_in_flight;
+    render_context.frame_index = 0;
   }
 
   void deinit_render_context(const Context& context, Allocator& allocator, RenderContext& render_context)
@@ -88,13 +80,12 @@ namespace vulkan
     (void)allocator;
 
     for(uint32_t i=0; i<render_context.swapchain.image_count; ++i)
-    {
-      ImageResource& frame = render_context.image_resources[i];
-      deinit_framebuffer(context, frame.framebuffer);
-      deinit_image(context, allocator, frame.depth_image);
-      deinit_image_view(context, frame.depth_view);
-    }
-    delete[] render_context.image_resources;
+      deinit_framebuffer(context, render_context.framebuffers[i]);
+
+    delete[] render_context.framebuffers;
+
+    deinit_image(context, allocator, render_context.depth_image);
+    deinit_image_view(context, render_context.depth_image_view);
 
     for(uint32_t i=0; i<render_context.frame_count; ++i)
     {
@@ -125,8 +116,6 @@ namespace vulkan
     if(result != SwapchainResult::SUCCESS)
       return std::nullopt;
 
-    ImageResource image_resource = render_context.image_resources[info.image_index];
-
     // Wait and begin commannd buffer recording
     fence_wait_and_reset(context, frame_resource.fence);
     command_buffer_begin(frame_resource.command_buffer);
@@ -134,7 +123,7 @@ namespace vulkan
     VkRenderPassBeginInfo render_pass_begin_info = {};
     render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     render_pass_begin_info.renderPass        = render_context.render_pass.handle;
-    render_pass_begin_info.framebuffer       = image_resource.framebuffer.handle;
+    render_pass_begin_info.framebuffer       = render_context.framebuffers[info.image_index].handle;
     render_pass_begin_info.renderArea.offset = {0, 0};
     render_pass_begin_info.renderArea.extent = render_context.swapchain.extent;
 

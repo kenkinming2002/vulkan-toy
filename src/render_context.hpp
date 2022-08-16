@@ -22,13 +22,6 @@
 
 namespace vulkan
 {
-  struct ImageResource
-  {
-    Image       depth_image;
-    ImageView   depth_view;
-    Framebuffer framebuffer;
-  };
-
   struct FrameResource
   {
     CommandBuffer command_buffer;
@@ -56,7 +49,9 @@ namespace vulkan
     RenderPass render_pass;
     Pipeline2  pipeline;
 
-    ImageResource *image_resources;
+    Image          depth_image;
+    ImageView      depth_image_view;
+    Framebuffer   *framebuffers;
     FrameResource *frame_resources;
 
     uint32_t frame_count;
