@@ -154,9 +154,9 @@ namespace vulkan
     swapchain = {};
   }
 
-  SwapchainResult swapchain_next_image_index(const Context& context, const Swapchain& swapchain, VkSemaphore signal_semaphore, uint32_t& image_index)
+  SwapchainResult swapchain_next_image_index(const Context& context, const Swapchain& swapchain, Semaphore signal_semaphore, uint32_t& image_index)
   {
-    VkResult result = vkAcquireNextImageKHR(context.device, swapchain.handle, UINT64_MAX, signal_semaphore, VK_NULL_HANDLE, &image_index);
+    VkResult result = vkAcquireNextImageKHR(context.device, swapchain.handle, UINT64_MAX, signal_semaphore.handle, VK_NULL_HANDLE, &image_index);
     switch(result)
     {
     default:
@@ -169,12 +169,12 @@ namespace vulkan
     }
   }
 
-  SwapchainResult swapchain_present_image_index(const Context& context, const Swapchain& swapchain, VkSemaphore wait_semaphore, uint32_t image_index)
+  SwapchainResult swapchain_present_image_index(const Context& context, const Swapchain& swapchain, Semaphore wait_semaphore, uint32_t image_index)
   {
     VkPresentInfoKHR present_info = {};
     present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     present_info.waitSemaphoreCount = 1;
-    present_info.pWaitSemaphores = &wait_semaphore;
+    present_info.pWaitSemaphores = &wait_semaphore.handle;
     present_info.swapchainCount = 1;
     present_info.pSwapchains    = &swapchain.handle;
     present_info.pImageIndices  = &image_index;

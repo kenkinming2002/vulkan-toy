@@ -7,9 +7,11 @@
 #include "image_view.hpp"
 #include "pipeline.hpp"
 #include "render_pass.hpp"
+#include "semaphore.hpp"
 #include "shader.hpp"
 #include "swapchain.hpp"
 #include "vulkan.hpp"
+
 #include <glm/glm.hpp>
 
 #include <algorithm>
@@ -36,9 +38,8 @@ namespace vulkan
   {
     CommandBuffer command_buffer;
     Fence fence;
-
-    VkSemaphore semaphore_image_available;
-    VkSemaphore semaphore_render_finished;
+    Semaphore semaphore_image_available;
+    Semaphore semaphore_render_finished;
   };
 
   static constexpr size_t MAX_FRAME_IN_FLIGHT = 2;

@@ -5,6 +5,7 @@
 #include "descriptor_set.hpp"
 #include "fence.hpp"
 #include "pipeline.hpp"
+#include "semaphore.hpp"
 #include "vulkan.hpp"
 
 namespace vulkan
@@ -22,8 +23,8 @@ namespace vulkan
 
   void command_buffer_submit(const Context& context, const CommandBuffer& command_buffer, const Fence& fence);
   void command_buffer_submit(const Context& context, const CommandBuffer& command_buffer, const Fence& fence,
-      VkSemaphore wait_semaphore, VkPipelineStageFlags wait_stage,
-      VkSemaphore signal_semaphore);
+      Semaphore wait_semaphore, VkPipelineStageFlags wait_stage,
+      Semaphore signal_semaphore);
 
   void command_push_constant(CommandBuffer command_buffer, Pipeline2 pipeline, ShaderStage stage, void *data, size_t offset, size_t size);
   void command_bind_descriptor_set(CommandBuffer command_buffer, Pipeline2 pipeline, DescriptorSet descriptor_set);

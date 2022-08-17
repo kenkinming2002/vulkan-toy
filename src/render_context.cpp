@@ -65,8 +65,8 @@ namespace vulkan
     {
       init_command_buffer(context, render_context.frames[i].command_buffer);
       init_fence(context, render_context.frames[i].fence, true);
-      render_context.frames[i].semaphore_image_available = create_semaphore(context.device);
-      render_context.frames[i].semaphore_render_finished = create_semaphore(context.device);
+      init_semaphore(context, render_context.frames[i].semaphore_image_available);
+      init_semaphore(context, render_context.frames[i].semaphore_render_finished);
     }
     render_context.frame_index = 0;
   }
@@ -87,8 +87,8 @@ namespace vulkan
     {
       deinit_command_buffer(context, render_context.frames[i].command_buffer);
       deinit_fence(context, render_context.frames[i].fence);
-      destroy_semaphore(context.device, render_context.frames[i].semaphore_image_available);
-      destroy_semaphore(context.device, render_context.frames[i].semaphore_render_finished);
+      deinit_semaphore(context, render_context.frames[i].semaphore_image_available);
+      deinit_semaphore(context, render_context.frames[i].semaphore_render_finished);
     }
 
     deinit_pipeline2(context, render_context.pipeline);

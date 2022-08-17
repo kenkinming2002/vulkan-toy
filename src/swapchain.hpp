@@ -3,6 +3,7 @@
 #include "context.hpp"
 #include "image.hpp"
 #include "image_view.hpp"
+#include "semaphore.hpp"
 #include "utils.hpp"
 #include "vulkan.hpp"
 
@@ -31,6 +32,6 @@ namespace vulkan
     SUBOPTIMAL,
     OUT_OF_DATE,
   };
-  SwapchainResult swapchain_next_image_index(const Context& context, const Swapchain& swapchain, VkSemaphore signal_semaphore, uint32_t& image_index);
-  SwapchainResult swapchain_present_image_index(const Context& context, const Swapchain& swapchain, VkSemaphore wait_semaphore, uint32_t image_index);
+  SwapchainResult swapchain_next_image_index(const Context& context, const Swapchain& swapchain, Semaphore signal_semaphore, uint32_t& image_index);
+  SwapchainResult swapchain_present_image_index(const Context& context, const Swapchain& swapchain, Semaphore wait_semaphore, uint32_t image_index);
 }

@@ -46,18 +46,18 @@ namespace vulkan
   }
 
   void command_buffer_submit(const Context& context, const CommandBuffer& command_buffer, const Fence& fence,
-      VkSemaphore wait_semaphore, VkPipelineStageFlags wait_stage,
-      VkSemaphore signal_semaphore)
+      Semaphore wait_semaphore, VkPipelineStageFlags wait_stage,
+      Semaphore signal_semaphore)
   {
     VkSubmitInfo submit_info = {};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
     submit_info.waitSemaphoreCount = 1;
-    submit_info.pWaitSemaphores    = &wait_semaphore;
+    submit_info.pWaitSemaphores    = &wait_semaphore.handle;
     submit_info.pWaitDstStageMask  = &wait_stage;
 
     submit_info.signalSemaphoreCount = 1;
-    submit_info.pSignalSemaphores    = &signal_semaphore;
+    submit_info.pSignalSemaphores    = &signal_semaphore.handle;
 
     submit_info.commandBufferCount = 1;
     submit_info.pCommandBuffers    = &command_buffer.handle;
