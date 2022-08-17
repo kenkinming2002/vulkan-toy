@@ -188,26 +188,12 @@ void application_render(Application& application)
       proj[1][1] *= -1;
       matrices.mvp = proj * view * model;
     }
-    vulkan::command_push_constant(frame.command_buffer, application.renderer.pipeline, vulkan::ShaderStage::VERTEX, &matrices, 0, sizeof matrices);
-    vulkan::command_bind_descriptor_set(frame.command_buffer, application.renderer.pipeline, application.descriptor_set);
-
-    VkViewport viewport = {};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width  = extent.width;
-    viewport.height = extent.height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(frame.command_buffer.handle, 0, 1, &viewport);
-
-    VkRect2D scissor = {};
-    scissor.offset = {0, 0};
-    scissor.extent = extent;
-    vkCmdSetScissor(frame.command_buffer.handle, 0, 1, &scissor);
-
+    vulkan::renderer_push_constant(application.renderer, vulkan::ShaderStage::VERTEX, &matrices, 0, sizeof matrices);
+    vulkan::renderer_bind_descriptor_set(application.renderer, application.descriptor_set);
+    vulkan::renderer_set_viewport_and_scissor(application.renderer, extent);
     vulkan::command_model_render_simple(frame.command_buffer, application.model);
   }
-  vulkan::renderer_end_render(application.renderer, frame);
+  vulkan::renderer_end_render(application.renderer);
 
   // Present frame
   if(!vulkan::render_target_end_frame(application.context, application.render_target, frame))
