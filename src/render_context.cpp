@@ -96,6 +96,13 @@ namespace vulkan
     deinit_swapchain(context, render_context.swapchain);
   }
 
+  void reinit_render_context(const Context& context, Allocator& allocator, RenderContextCreateInfo create_info, RenderContext& render_context)
+  {
+    vkDeviceWaitIdle(context.device);
+    deinit_render_context(context, allocator, render_context);
+    init_render_context(context, allocator, create_info, render_context);
+  }
+
   bool begin_render(const Context& context, RenderContext& render_context, Frame& frame)
   {
     // Acquire frame resource

@@ -59,6 +59,7 @@ namespace vulkan
 
   void init_render_context(const Context& context, Allocator& allocator, RenderContextCreateInfo create_info, RenderContext& render_context);
   void deinit_render_context(const Context& context, Allocator& allocator, RenderContext& render_context);
+  void reinit_render_context(const Context& context, Allocator& allocator, RenderContextCreateInfo create_info, RenderContext& render_context);
 
   bool begin_render(const Context& context, RenderContext& render_context, Frame& frame);
   bool end_render(const Context& context, RenderContext& render_context, const Frame& frame);

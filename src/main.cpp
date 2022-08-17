@@ -156,12 +156,7 @@ void application_render(Application& application)
 {
   vulkan::Frame frame = {};
   while(!vulkan::begin_render(application.context, application.render_context, frame))
-  {
-    std::cout << "Recreating render context\n";
-    vkDeviceWaitIdle(application.context.device);
-    vulkan::deinit_render_context(application.context, application.allocator, application.render_context);
-    vulkan::init_render_context(application.context, application.allocator, RENDER_CONTEXT_CREATE_INFO, application.render_context);
-  }
+    vulkan::reinit_render_context(application.context, application.allocator, RENDER_CONTEXT_CREATE_INFO, application.render_context);
 
   auto extent = application.render_context.swapchain.extent;
   Matrices matrices = {};
@@ -196,12 +191,7 @@ void application_render(Application& application)
   vulkan::command_model_render_simple(frame.command_buffer, application.model);
 
   if(!vulkan::end_render(application.context, application.render_context, frame))
-  {
-    std::cout << "Recreating render context\n";
-    vkDeviceWaitIdle(application.context.device);
-    vulkan::deinit_render_context(application.context, application.allocator, application.render_context);
-    vulkan::init_render_context(application.context, application.allocator, RENDER_CONTEXT_CREATE_INFO, application.render_context);
-  }
+    vulkan::reinit_render_context(application.context, application.allocator, RENDER_CONTEXT_CREATE_INFO, application.render_context);
 }
 
 void application_run(Application& application)
