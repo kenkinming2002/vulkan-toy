@@ -72,7 +72,7 @@ static constexpr vulkan::PushConstantInput PUSH_CONSTANT_INPUT = {
   .range_count = std::size(PUSH_CONSTANT_RANGES),
 };
 
-static constexpr vulkan::RenderContextCreateInfo RENDER_CONTEXT_CREATE_INFO = {
+static constexpr vulkan::RendererCreateInfo RENDERER_CREATE_INFO = {
   .vertex_shader_file_name   = VERTEX_SHADER_FILE_NAME,
   .fragment_shader_file_name = FRAGMENT_SHADER_FILE_NAME,
   .vertex_input              = vulkan::VERTEX_INPUT,
@@ -94,14 +94,17 @@ struct Application
   vulkan::DescriptorPool descriptor_pool;
   vulkan::DescriptorSet  descriptor_set;
 
-  vulkan::RenderContext render_context;
+  vulkan::RenderTarget render_target;
+  vulkan::Renderer     renderer;
 };
 
 void application_init(Application& application)
 {
   vulkan::init_context(CONTEXT_CREATE_INFO, application.context);
   vulkan::init_allocator(application.context, application.allocator);
-  vulkan::init_render_context(application.context, application.allocator, RENDER_CONTEXT_CREATE_INFO, application.render_context);
+
+  vulkan::render_target_init(application.context, application.allocator, application.render_target);
+  vulkan::renderer_init(application.context, application.render_target, RENDERER_CREATE_INFO, application.renderer);
 
   vulkan::load_image(application.context, application.allocator, application.image, "viking_room.png");
   vulkan::init_image_view(application.context, vulkan::ImageViewCreateInfo{
@@ -124,7 +127,7 @@ void application_init(Application& application)
     {.type = vulkan::DescriptorType::SAMPLER, .combined_image_sampler = { .image_view = application.image_view, .sampler = application.sampler, }}
   };
 
-  vulkan::allocate_descriptor_set(application.context, application.descriptor_pool, application.render_context.pipeline.descriptor_set_layout, application.descriptor_set);
+  vulkan::allocate_descriptor_set(application.context, application.descriptor_pool, application.renderer.pipeline.descriptor_set_layout, application.descriptor_set);
   vulkan::write_descriptor_set(application.context, application.descriptor_set, vulkan::DescriptorSetWriteInfo{
     .descriptors      = descriptors,
     .descriptor_count = std::size(descriptors),
@@ -142,7 +145,9 @@ void application_deinit(Application& application)
   vulkan::deinit_image_view(application.context, application.image_view);
   vulkan::deinit_image(application.context, application.allocator, application.image);
 
-  vulkan::deinit_render_context(application.context, application.allocator, application.render_context);
+  vulkan::renderer_deinit(application.context, application.renderer);
+  vulkan::render_target_deinit(application.context, application.allocator, application.render_target);
+
   vulkan::deinit_allocator(application.context, application.allocator);
   vulkan::deinit_context(application.context);
 }
@@ -154,44 +159,65 @@ void application_update(Application& application)
 
 void application_render(Application& application)
 {
+  // Acquire frame
   vulkan::Frame frame = {};
-  while(!vulkan::begin_render(application.context, application.render_context, frame))
-    vulkan::reinit_render_context(application.context, application.allocator, RENDER_CONTEXT_CREATE_INFO, application.render_context);
-
-  auto extent = application.render_context.swapchain.extent;
-  Matrices matrices = {};
+  while(!vulkan::render_target_begin_frame(application.context, application.render_target, frame))
   {
-    static auto start_time = std::chrono::high_resolution_clock::now();
-    auto current_time = std::chrono::high_resolution_clock::now();
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
+    vkDeviceWaitIdle(application.context.device);
 
-    glm::mat4 model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    glm::mat4 view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    glm::mat4 proj = glm::perspective(glm::radians(45.0f), (float)extent.width / (float) extent.height, 0.1f, 10.0f);
-    proj[1][1] *= -1;
-    matrices.mvp = proj * view * model;
+    vulkan::renderer_deinit(application.context, application.renderer);
+    vulkan::render_target_deinit(application.context, application.allocator, application.render_target);
+    vulkan::render_target_init(application.context, application.allocator, application.render_target);
+    vulkan::renderer_init(application.context, application.render_target, RENDERER_CREATE_INFO, application.renderer);
   }
-  vulkan::command_push_constant(frame.command_buffer, application.render_context.pipeline, vulkan::ShaderStage::VERTEX, &matrices, 0, sizeof matrices);
-  vulkan::command_bind_descriptor_set(frame.command_buffer, application.render_context.pipeline, application.descriptor_set);
 
-  VkViewport viewport = {};
-  viewport.x = 0.0f;
-  viewport.y = 0.0f;
-  viewport.width  = extent.width;
-  viewport.height = extent.height;
-  viewport.minDepth = 0.0f;
-  viewport.maxDepth = 1.0f;
-  vkCmdSetViewport(frame.command_buffer.handle, 0, 1, &viewport);
+  // Rendering
+  vulkan::renderer_begin_render(application.renderer, frame);
+  {
+    auto extent = application.render_target.swapchain.extent;
+    Matrices matrices = {};
+    {
+      static auto start_time = std::chrono::high_resolution_clock::now();
+      auto current_time = std::chrono::high_resolution_clock::now();
+      float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
 
-  VkRect2D scissor = {};
-  scissor.offset = {0, 0};
-  scissor.extent = extent;
-  vkCmdSetScissor(frame.command_buffer.handle, 0, 1, &scissor);
+      glm::mat4 model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+      glm::mat4 view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+      glm::mat4 proj = glm::perspective(glm::radians(45.0f), (float)extent.width / (float) extent.height, 0.1f, 10.0f);
+      proj[1][1] *= -1;
+      matrices.mvp = proj * view * model;
+    }
+    vulkan::command_push_constant(frame.command_buffer, application.renderer.pipeline, vulkan::ShaderStage::VERTEX, &matrices, 0, sizeof matrices);
+    vulkan::command_bind_descriptor_set(frame.command_buffer, application.renderer.pipeline, application.descriptor_set);
 
-  vulkan::command_model_render_simple(frame.command_buffer, application.model);
+    VkViewport viewport = {};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width  = extent.width;
+    viewport.height = extent.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(frame.command_buffer.handle, 0, 1, &viewport);
 
-  if(!vulkan::end_render(application.context, application.render_context, frame))
-    vulkan::reinit_render_context(application.context, application.allocator, RENDER_CONTEXT_CREATE_INFO, application.render_context);
+    VkRect2D scissor = {};
+    scissor.offset = {0, 0};
+    scissor.extent = extent;
+    vkCmdSetScissor(frame.command_buffer.handle, 0, 1, &scissor);
+
+    vulkan::command_model_render_simple(frame.command_buffer, application.model);
+  }
+  vulkan::renderer_end_render(application.renderer, frame);
+
+  // Present frame
+  if(!vulkan::render_target_end_frame(application.context, application.render_target, frame))
+  {
+    vkDeviceWaitIdle(application.context.device);
+
+    vulkan::renderer_deinit(application.context, application.renderer);
+    vulkan::render_target_deinit(application.context, application.allocator, application.render_target);
+    vulkan::render_target_init(application.context, application.allocator, application.render_target);
+    vulkan::renderer_init(application.context, application.render_target, RENDERER_CREATE_INFO, application.renderer);
+  }
 }
 
 void application_run(Application& application)

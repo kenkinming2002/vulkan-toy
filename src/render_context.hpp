@@ -23,15 +23,8 @@
 
 namespace vulkan
 {
-  struct RenderContextCreateInfo
-  {
-    const char* vertex_shader_file_name;
-    const char* fragment_shader_file_name;
-
-    VertexInput       vertex_input;
-    DescriptorInput   descriptor_input;
-    PushConstantInput push_constant_input;
-  };
+  // Double buffering
+  static constexpr size_t MAX_FRAME_IN_FLIGHT = 2;
 
   struct Frame
   {
@@ -41,27 +34,47 @@ namespace vulkan
     Semaphore semaphore_render_finished;
   };
 
-  static constexpr size_t MAX_FRAME_IN_FLIGHT = 2;
-  struct RenderContext
+  struct RenderTarget
   {
-    Swapchain  swapchain;
-    RenderPass render_pass;
-    Pipeline2  pipeline;
+    Swapchain swapchain;
 
-    Image          depth_image;
-    ImageView      depth_image_view;
-    Framebuffer   *framebuffers;
-    uint32_t       image_index;
+    RenderPass   render_pass;
+    Image        depth_image;
+    ImageView    depth_image_view;
+    Framebuffer *framebuffers;
+
+    uint32_t image_index;
+    uint32_t image_count;
 
     Frame frames[MAX_FRAME_IN_FLIGHT];
     size_t frame_index;
   };
 
-  void init_render_context(const Context& context, Allocator& allocator, RenderContextCreateInfo create_info, RenderContext& render_context);
-  void deinit_render_context(const Context& context, Allocator& allocator, RenderContext& render_context);
-  void reinit_render_context(const Context& context, Allocator& allocator, RenderContextCreateInfo create_info, RenderContext& render_context);
+  void render_target_init(const Context& context, Allocator& allocator, RenderTarget& render_target);
+  void render_target_deinit(const Context& context, Allocator& allocator, RenderTarget& render_target);
 
-  bool begin_render(const Context& context, RenderContext& render_context, Frame& frame);
-  bool end_render(const Context& context, RenderContext& render_context, const Frame& frame);
+  bool render_target_begin_frame(const Context& context, RenderTarget& render_target, Frame& frame);
+  bool render_target_end_frame(const Context& context, RenderTarget& render_target, const Frame& frame);
+
+  struct RendererCreateInfo
+  {
+    const char* vertex_shader_file_name;
+    const char* fragment_shader_file_name;
+
+    VertexInput       vertex_input;
+    DescriptorInput   descriptor_input;
+    PushConstantInput push_constant_input;
+  };
+
+  struct Renderer
+  {
+    Pipeline2  pipeline;
+  };
+
+  void renderer_init(const Context& context, const RenderTarget& render_target, RendererCreateInfo create_info, Renderer& renderer);
+  void renderer_deinit(const Context& context, Renderer& renderer);
+
+  void renderer_begin_render(Renderer& renderer, const Frame& frame);
+  void renderer_end_render(Renderer& renderer, const Frame& frame);
 }
 
