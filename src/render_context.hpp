@@ -10,7 +10,6 @@
 #include "semaphore.hpp"
 #include "shader.hpp"
 #include "swapchain.hpp"
-#include "vulkan.hpp"
 
 #include <glm/glm.hpp>
 

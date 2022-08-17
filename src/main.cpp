@@ -8,7 +8,6 @@
 #include "sampler.hpp"
 #include "shader.hpp"
 #include "vk_check.hpp"
-#include "vulkan.hpp"
 
 #include "tiny_obj_loader.h"
 #include "stb_image.h"

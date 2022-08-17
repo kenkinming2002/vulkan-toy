@@ -29,7 +29,6 @@ srcs = [
   'src/shader.cpp',
   'src/swapchain.cpp',
   'src/vk_check.cpp',
-  'src/vulkan.cpp',
 ]
 
 exe = executable('vulkan', srcs, dependencies : [glfw_dep, vulkan_dep, glm_dep],

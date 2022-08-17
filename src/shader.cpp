@@ -4,6 +4,8 @@
 #include "utils.hpp"
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <type_traits>
 
 
 template<typename T>

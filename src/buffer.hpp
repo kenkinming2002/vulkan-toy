@@ -1,12 +1,7 @@
 #pragma once
 
-#include "vulkan.hpp"
-#include "context.hpp"
 #include "allocator.hpp"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "context.hpp"
 
 namespace vulkan
 {

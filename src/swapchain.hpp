@@ -5,7 +5,6 @@
 #include "image_view.hpp"
 #include "semaphore.hpp"
 #include "utils.hpp"
-#include "vulkan.hpp"
 
 namespace vulkan
 {

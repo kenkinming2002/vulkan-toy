@@ -2,6 +2,9 @@
 
 #include "vk_check.hpp"
 
+#include <stdio.h>
+#include <stdlib.h>
+
 namespace vulkan
 {
   void init_allocator(const Context& context, Allocator& allocator)

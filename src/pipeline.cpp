@@ -3,6 +3,10 @@
 #include "utils.hpp"
 #include "vk_check.hpp"
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <vector>
+
 namespace vulkan
 {
   static VkFormat to_vulkan_format(VertexAttribute::Type type)

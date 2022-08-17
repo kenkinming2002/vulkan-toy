@@ -6,7 +6,6 @@
 #include "fence.hpp"
 #include "pipeline.hpp"
 #include "semaphore.hpp"
-#include "vulkan.hpp"
 
 namespace vulkan
 {

@@ -5,6 +5,7 @@
 #include "allocator.hpp"
 #include "vk_check.hpp"
 
+#include <string.h>
 #include <assert.h>
 
 namespace vulkan

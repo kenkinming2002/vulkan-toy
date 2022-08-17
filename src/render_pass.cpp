@@ -2,6 +2,8 @@
 
 #include "vk_check.hpp"
 
+#include <array>
+
 namespace vulkan
 {
   void init_render_pass_simple(const Context& context, RenderPassCreateInfoSimple create_info, RenderPass& render_pass)
