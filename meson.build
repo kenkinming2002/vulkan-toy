@@ -18,7 +18,6 @@ srcs = [
   'src/image.cpp',
   'src/image_view.cpp',
   'src/impl.cpp',
-  'src/loader.cpp',
   'src/main.cpp',
   'src/mesh.cpp',
   'src/pipeline.cpp',
@@ -29,6 +28,7 @@ srcs = [
   'src/semaphore.cpp',
   'src/shader.cpp',
   'src/swapchain.cpp',
+  'src/texture.cpp',
   'src/vk_check.cpp',
 ]
 

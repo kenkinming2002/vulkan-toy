@@ -2,7 +2,7 @@
 #include "command_buffer.hpp"
 #include "context.hpp"
 #include "descriptor_set.hpp"
-#include "loader.hpp"
+#include "texture.hpp"
 #include "mesh.hpp"
 #include "render_target.hpp"
 #include "renderer.hpp"
@@ -87,10 +87,9 @@ struct Application
   vulkan::Context   context;
   vulkan::Allocator allocator;
 
-  vulkan::Image     image;
-  vulkan::ImageView image_view;
-  vulkan::Mesh      mesh;
-  vulkan::Sampler   sampler;
+  vulkan::Mesh    mesh;
+  vulkan::Texture texture;
+  vulkan::Sampler sampler;
 
   vulkan::DescriptorPool descriptor_pool;
   vulkan::DescriptorSet  descriptor_set;
@@ -107,16 +106,9 @@ void application_init(Application& application)
   vulkan::render_target_init(application.context, application.allocator, application.render_target);
   vulkan::renderer_init(application.context, application.render_target, RENDERER_CREATE_INFO, application.renderer);
 
-  vulkan::load_image(application.context, application.allocator, application.image, "viking_room.png");
-  vulkan::init_image_view(application.context, vulkan::ImageViewCreateInfo{
-    .type   = vulkan::ImageViewType::COLOR,
-    .format = VK_FORMAT_R8G8B8A8_SRGB,
-    .image  = application.image,
-  }, application.image_view);
-
-  vulkan::init_sampler_simple(application.context, application.sampler);
-
   vulkan::mesh_load(application.context, application.allocator, "viking_room.obj", application.mesh);
+  vulkan::texture_load(application.context, application.allocator, "viking_room.png", application.texture);
+  vulkan::init_sampler_simple(application.context, application.sampler);
 
   // Descriptor pool
   vulkan::init_descriptor_pool(application.context, vulkan::DescriptorPoolCreateInfo{
@@ -125,7 +117,7 @@ void application_init(Application& application)
   }, application.descriptor_pool);
 
   const vulkan::Descriptor descriptors[] = {
-    {.type = vulkan::DescriptorType::SAMPLER, .combined_image_sampler = { .image_view = application.image_view, .sampler = application.sampler, }}
+    {.type = vulkan::DescriptorType::SAMPLER, .combined_image_sampler = { .image_view = application.texture.image_view, .sampler = application.sampler, }}
   };
 
   vulkan::allocate_descriptor_set(application.context, application.descriptor_pool, application.renderer.pipeline.descriptor_set_layout, application.descriptor_set);
@@ -142,9 +134,8 @@ void application_deinit(Application& application)
   vulkan::deinit_descriptor_pool(application.context, application.descriptor_pool);
 
   vulkan::mesh_deinit(application.context, application.allocator, application.mesh);
+  vulkan::texture_deinit(application.context, application.allocator, application.texture);
   vulkan::deinit_sampler(application.context, application.sampler);
-  vulkan::deinit_image_view(application.context, application.image_view);
-  vulkan::deinit_image(application.context, application.allocator, application.image);
 
   vulkan::renderer_deinit(application.context, application.renderer);
   vulkan::render_target_deinit(application.context, application.allocator, application.render_target);
