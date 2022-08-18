@@ -56,5 +56,5 @@ namespace vulkan
   void deinit_model(const Context& context, Allocator& allocator, Model& model);
   void load_model(const Context& context, Allocator& allocator, const char *file_name, Model& model);
 
-  void command_model_render_simple(CommandBuffer command_buffer, Model model);
+  void command_model_render_simple(VkCommandBuffer command_buffer, Model model);
 }

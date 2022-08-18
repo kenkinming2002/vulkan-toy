@@ -17,10 +17,10 @@ namespace vulkan
 
   struct Frame
   {
-    CommandBuffer command_buffer;
-    Fence fence;
-    Semaphore semaphore_image_available;
-    Semaphore semaphore_render_finished;
+    VkCommandBuffer command_buffer;
+    VkFence         fence;
+    VkSemaphore     image_available_semaphore;
+    VkSemaphore     render_finished_semaphore;
   };
 
   struct RenderTarget

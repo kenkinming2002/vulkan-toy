@@ -48,13 +48,34 @@ namespace vulkan
     render_target.image_index = 0;
 
     // Frames
+
+    // Command buffers
+    VkCommandBuffer command_buffers[MAX_FRAME_IN_FLIGHT];
+    VkCommandBufferAllocateInfo command_buffer_allocate_info = {};
+    command_buffer_allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    command_buffer_allocate_info.commandPool        = context.command_pool;
+    command_buffer_allocate_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    command_buffer_allocate_info.commandBufferCount = MAX_FRAME_IN_FLIGHT;
+    VK_CHECK(vkAllocateCommandBuffers(context.device, &command_buffer_allocate_info, command_buffers));
+
+    for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
+      render_target.frames[i].command_buffer = command_buffers[i];
+
+    // Sync objects
+    VkFenceCreateInfo fence_create_info = {};
+    fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    VkSemaphoreCreateInfo semaphore_create_info = {};
+    semaphore_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
     for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
     {
-      init_command_buffer(context, render_target.frames[i].command_buffer);
-      init_fence(context, render_target.frames[i].fence, true);
-      init_semaphore(context, render_target.frames[i].semaphore_image_available);
-      init_semaphore(context, render_target.frames[i].semaphore_render_finished);
+      VK_CHECK(vkCreateFence(context.device, &fence_create_info, nullptr, &render_target.frames[i].fence));
+      VK_CHECK(vkCreateSemaphore(context.device, &semaphore_create_info, nullptr, &render_target.frames[i].image_available_semaphore));
+      VK_CHECK(vkCreateSemaphore(context.device, &semaphore_create_info, nullptr, &render_target.frames[i].render_finished_semaphore));
     }
+
     render_target.frame_index = 0;
   }
 
@@ -68,12 +89,19 @@ namespace vulkan
     deinit_image(context, allocator, render_target.depth_image);
     deinit_image_view(context, render_target.depth_image_view);
 
+    // Command buffer
+    VkCommandBuffer command_buffers[MAX_FRAME_IN_FLIGHT];
+    for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
+      command_buffers[i] = render_target.frames[i].command_buffer;
+
+    vkFreeCommandBuffers(context.device, context.command_pool, MAX_FRAME_IN_FLIGHT, command_buffers);
+
+    // Sync objects
     for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
     {
-      deinit_command_buffer(context, render_target.frames[i].command_buffer);
-      deinit_fence(context, render_target.frames[i].fence);
-      deinit_semaphore(context, render_target.frames[i].semaphore_image_available);
-      deinit_semaphore(context, render_target.frames[i].semaphore_render_finished);
+      vkDestroyFence(context.device, render_target.frames[i].fence, nullptr);
+      vkDestroySemaphore(context.device, render_target.frames[i].image_available_semaphore, nullptr);
+      vkDestroySemaphore(context.device, render_target.frames[i].render_finished_semaphore, nullptr);
     }
 
     deinit_render_pass(context, render_target.render_pass);
@@ -86,13 +114,18 @@ namespace vulkan
     frame = render_target.frames[render_target.frame_index];
     render_target.frame_index = (render_target.frame_index + 1) % MAX_FRAME_IN_FLIGHT;
 
-    auto result = swapchain_next_image_index(context, render_target.swapchain, frame.semaphore_image_available, render_target.image_index);
+    auto result = swapchain_next_image_index(context, render_target.swapchain, frame.image_available_semaphore, render_target.image_index);
     if(result != SwapchainResult::SUCCESS)
       return false;
 
     // Wait and begin commannd buffer recording
-    fence_wait_and_reset(context, frame.fence);
-    command_buffer_begin(frame.command_buffer);
+    VK_CHECK(vkWaitForFences(context.device, 1, &frame.fence, VK_TRUE, UINT64_MAX));
+    VK_CHECK(vkResetFences(context.device, 1, &frame.fence));
+
+    VkCommandBufferBeginInfo begin_info = {};
+    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    VK_CHECK(vkResetCommandBuffer(frame.command_buffer, 0));
+    VK_CHECK(vkBeginCommandBuffer(frame.command_buffer, &begin_info));
 
     VkRenderPassBeginInfo render_pass_begin_info = {};
     render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -109,20 +142,23 @@ namespace vulkan
     render_pass_begin_info.clearValueCount = 2;
     render_pass_begin_info.pClearValues = clear_values;
 
-    vkCmdBeginRenderPass(frame.command_buffer.handle, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRenderPass(frame.command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
     return true;
   }
 
   bool render_target_end_frame(const Context& context, RenderTarget& render_target, const Frame& frame)
   {
-    vkCmdEndRenderPass(frame.command_buffer.handle);
+    vkCmdEndRenderPass(frame.command_buffer);
 
     // End command buffer recording and submit
-    command_buffer_end(frame.command_buffer);
-    command_buffer_submit(context, frame.command_buffer, frame.fence,
-        frame.semaphore_image_available, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        frame.semaphore_render_finished);
+    VK_CHECK(vkEndCommandBuffer(frame.command_buffer));
 
-    return swapchain_present_image_index(context, render_target.swapchain, frame.semaphore_render_finished, render_target.image_index) == SwapchainResult::SUCCESS;
+    VkSubmitInfo submit_info = {};
+    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers    = &frame.command_buffer;
+    VK_CHECK(vkQueueSubmit(context.queue, 1, &submit_info, frame.fence));
+
+    return swapchain_present_image_index(context, render_target.swapchain, frame.render_finished_semaphore, render_target.image_index) == SwapchainResult::SUCCESS;
   }
 }
