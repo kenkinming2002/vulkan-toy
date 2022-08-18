@@ -13,14 +13,16 @@ namespace vulkan
   struct Vertex
   {
     glm::vec3 pos;
+    glm::vec3 normal;
     glm::vec3 color;
     glm::vec2 uv;
   };
 
   static constexpr vulkan::VertexAttribute VERTEX_ATTRIBUTES[] = {
-    { .offset = offsetof(Vertex, pos),   .type = vulkan::VertexAttribute::Type::FLOAT3 },
-    { .offset = offsetof(Vertex, color), .type = vulkan::VertexAttribute::Type::FLOAT3 },
-    { .offset = offsetof(Vertex, uv),    .type = vulkan::VertexAttribute::Type::FLOAT2 },
+    { .offset = offsetof(Vertex, pos),    .type = vulkan::VertexAttribute::Type::FLOAT3 },
+    { .offset = offsetof(Vertex, normal), .type = vulkan::VertexAttribute::Type::FLOAT3 },
+    { .offset = offsetof(Vertex, color),  .type = vulkan::VertexAttribute::Type::FLOAT3 },
+    { .offset = offsetof(Vertex, uv),     .type = vulkan::VertexAttribute::Type::FLOAT2 },
   };
 
   static constexpr vulkan::VertexBinding VERTEX_BINDINGS[] = {{

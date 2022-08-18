@@ -42,6 +42,7 @@
 struct Matrices
 {
   glm::mat4 mvp;
+  glm::mat4 model;
 };
 
 // Constant sections
@@ -178,6 +179,7 @@ void application_render(Application& application)
       glm::mat4 proj = glm::perspective(glm::radians(45.0f), (float)extent.width / (float) extent.height, 0.1f, 10.0f);
       proj[1][1] *= -1;
       matrices.mvp = proj * view * model;
+      matrices.model = model;
     }
     vulkan::renderer_push_constant(application.renderer, vulkan::ShaderStage::VERTEX, &matrices, 0, sizeof matrices);
     vulkan::renderer_bind_descriptor_set(application.renderer, application.descriptor_set);
