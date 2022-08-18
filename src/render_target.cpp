@@ -153,8 +153,18 @@ namespace vulkan
     // End command buffer recording and submit
     VK_CHECK(vkEndCommandBuffer(frame.command_buffer));
 
+    VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
     VkSubmitInfo submit_info = {};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+    submit_info.waitSemaphoreCount = 1;
+    submit_info.pWaitSemaphores    = &frame.image_available_semaphore;
+    submit_info.pWaitDstStageMask  = &wait_stage;
+
+    submit_info.signalSemaphoreCount = 1;
+    submit_info.pSignalSemaphores    = &frame.render_finished_semaphore;
+
     submit_info.commandBufferCount = 1;
     submit_info.pCommandBuffers    = &frame.command_buffer;
     VK_CHECK(vkQueueSubmit(context.queue, 1, &submit_info, frame.fence));
