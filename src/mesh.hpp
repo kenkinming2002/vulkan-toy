@@ -34,7 +34,7 @@ namespace vulkan
     .binding_count = std::size(VERTEX_BINDINGS),
   };
 
-  struct ModelCreateInfo
+  struct MeshCreateInfo
   {
     const Vertex *vertices;
     size_t        vertex_count;
@@ -43,7 +43,7 @@ namespace vulkan
     size_t          index_count;
   };
 
-  struct Model
+  struct Mesh
   {
     size_t vertex_count;
     size_t index_count;
@@ -52,9 +52,9 @@ namespace vulkan
     Buffer index_buffer;
   };
 
-  void init_model(const Context& context, Allocator& allocator, ModelCreateInfo create_info, Model& model);
-  void deinit_model(const Context& context, Allocator& allocator, Model& model);
-  void load_model(const Context& context, Allocator& allocator, const char *file_name, Model& model);
+  void mesh_init(const Context& context, Allocator& allocator, MeshCreateInfo create_info, Mesh& mesh);
+  void mesh_deinit(const Context& context, Allocator& allocator, Mesh& model);
+  void mesh_load(const Context& context, Allocator& allocator, const char *file_name, Mesh& mesh);
 
-  void command_model_render_simple(VkCommandBuffer command_buffer, Model model);
+  void mesh_render_simple(VkCommandBuffer command_buffer, Mesh mesh);
 }

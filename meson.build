@@ -20,7 +20,7 @@ srcs = [
   'src/impl.cpp',
   'src/loader.cpp',
   'src/main.cpp',
-  'src/model.cpp',
+  'src/mesh.cpp',
   'src/pipeline.cpp',
   'src/render_pass.cpp',
   'src/render_target.cpp',

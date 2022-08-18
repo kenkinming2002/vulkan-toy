@@ -3,7 +3,7 @@
 #include "context.hpp"
 #include "descriptor_set.hpp"
 #include "loader.hpp"
-#include "model.hpp"
+#include "mesh.hpp"
 #include "render_target.hpp"
 #include "renderer.hpp"
 #include "sampler.hpp"
@@ -89,7 +89,7 @@ struct Application
 
   vulkan::Image     image;
   vulkan::ImageView image_view;
-  vulkan::Model     model;
+  vulkan::Mesh      mesh;
   vulkan::Sampler   sampler;
 
   vulkan::DescriptorPool descriptor_pool;
@@ -116,7 +116,7 @@ void application_init(Application& application)
 
   vulkan::init_sampler_simple(application.context, application.sampler);
 
-  vulkan::load_model(application.context, application.allocator, "viking_room.obj", application.model);
+  vulkan::mesh_load(application.context, application.allocator, "viking_room.obj", application.mesh);
 
   // Descriptor pool
   vulkan::init_descriptor_pool(application.context, vulkan::DescriptorPoolCreateInfo{
@@ -141,7 +141,7 @@ void application_deinit(Application& application)
 
   vulkan::deinit_descriptor_pool(application.context, application.descriptor_pool);
 
-  vulkan::deinit_model(application.context, application.allocator, application.model);
+  vulkan::mesh_deinit(application.context, application.allocator, application.mesh);
   vulkan::deinit_sampler(application.context, application.sampler);
   vulkan::deinit_image_view(application.context, application.image_view);
   vulkan::deinit_image(application.context, application.allocator, application.image);
@@ -191,7 +191,7 @@ void application_render(Application& application)
     vulkan::renderer_push_constant(application.renderer, vulkan::ShaderStage::VERTEX, &matrices, 0, sizeof matrices);
     vulkan::renderer_bind_descriptor_set(application.renderer, application.descriptor_set);
     vulkan::renderer_set_viewport_and_scissor(application.renderer, extent);
-    vulkan::command_model_render_simple(frame.command_buffer, application.model);
+    vulkan::mesh_render_simple(frame.command_buffer, application.mesh);
   }
   vulkan::renderer_end_render(application.renderer);
 

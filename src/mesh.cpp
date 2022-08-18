@@ -1,34 +1,34 @@
-#include "model.hpp"
+#include "mesh.hpp"
 
 #include "tiny_obj_loader.h"
 
 namespace vulkan
 {
-  void init_model(const Context& context, Allocator& allocator, ModelCreateInfo create_info, Model& model)
+  void mesh_init(const Context& context, Allocator& allocator, MeshCreateInfo create_info, Mesh& mesh)
   {
-    model.vertex_count = create_info.vertex_count;
-    model.index_count  = create_info.index_count;
+    mesh.vertex_count = create_info.vertex_count;
+    mesh.index_count  = create_info.index_count;
 
     vulkan::BufferCreateInfo buffer_create_info = {};
 
     buffer_create_info.type = vulkan::BufferType::VERTEX_BUFFER;
     buffer_create_info.size = create_info.vertex_count * sizeof create_info.vertices[0];
-    vulkan::init_buffer(context, allocator, buffer_create_info, model.vertex_buffer);
-    vulkan::write_buffer(context, allocator, model.vertex_buffer, create_info.vertices, create_info.vertex_count * sizeof create_info.vertices[0]);
+    vulkan::init_buffer(context, allocator, buffer_create_info, mesh.vertex_buffer);
+    vulkan::write_buffer(context, allocator, mesh.vertex_buffer, create_info.vertices, create_info.vertex_count * sizeof create_info.vertices[0]);
 
     buffer_create_info.type = vulkan::BufferType::INDEX_BUFFER;
     buffer_create_info.size = create_info.index_count * sizeof create_info.indices[0];
-    vulkan::init_buffer(context, allocator, buffer_create_info, model.index_buffer);
-    vulkan::write_buffer(context, allocator, model.index_buffer, create_info.indices, create_info.index_count * sizeof create_info.indices[0]);
+    vulkan::init_buffer(context, allocator, buffer_create_info, mesh.index_buffer);
+    vulkan::write_buffer(context, allocator, mesh.index_buffer, create_info.indices, create_info.index_count * sizeof create_info.indices[0]);
   }
 
-  void deinit_model(const Context& context, Allocator& allocator, Model& model)
+  void mesh_deinit(const Context& context, Allocator& allocator, Mesh& model)
   {
     vulkan::deinit_buffer(context, allocator, model.vertex_buffer);
     vulkan::deinit_buffer(context, allocator, model.index_buffer);
   }
 
-  void load_model(const Context& context, Allocator& allocator, const char *file_name, Model& model)
+  void mesh_load(const Context& context, Allocator& allocator, const char *file_name, Mesh& mesh)
   {
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
@@ -62,20 +62,20 @@ namespace vulkan
         indices.push_back(indices.size());
       }
 
-    ModelCreateInfo create_info = {
+    MeshCreateInfo create_info = {
       .vertices     = vertices.data(),
       .vertex_count = vertices.size(),
       .indices     = indices.data(),
       .index_count = indices.size(),
     };
-    init_model(context, allocator, create_info, model);
+    mesh_init(context, allocator, create_info, mesh);
   }
 
-  void command_model_render_simple(VkCommandBuffer command_buffer, Model model)
+  void mesh_render_simple(VkCommandBuffer command_buffer, Mesh mesh)
   {
     VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(command_buffer, 0, 1, &model.vertex_buffer.handle, offsets);
-    vkCmdBindIndexBuffer(command_buffer, model.index_buffer.handle, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdDrawIndexed(command_buffer, model.index_count, 1, 0, 0, 0);
+    vkCmdBindVertexBuffers(command_buffer, 0, 1, &mesh.vertex_buffer.handle, offsets);
+    vkCmdBindIndexBuffer(command_buffer, mesh.index_buffer.handle, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(command_buffer, mesh.index_count, 1, 0, 0, 0);
   }
 }
