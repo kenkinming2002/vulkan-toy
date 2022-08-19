@@ -3,6 +3,8 @@
 #include <stddef.h>
 #include <assert.h>
 
+#include <algorithm>
+
 // Believe it or not this dynarray, vector and span template would cover 99% of the use case
 template<typename T>
 struct vector
@@ -42,6 +44,22 @@ template<typename T>
 void vector_push(vector<T>& vector, T value)
 {
   assert(vector.size != vector.capacity);
+  vector.data[vector.size++] = value;
+}
+
+template<typename T>
+void vector_resize_push(vector<T>& vector, T value)
+{
+  if(vector.size == vector.capacity)
+  {
+    auto new_vector = create_vector<T>(vector.capacity * 2);
+
+    new_vector.size = size(vector);
+    std::copy_n(data(vector), size(vector), data(new_vector));
+
+    destroy_vector(vector);
+    vector = new_vector;
+  }
   vector.data[vector.size++] = value;
 }
 

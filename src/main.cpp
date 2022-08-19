@@ -82,6 +82,89 @@ static constexpr vulkan::RendererCreateInfo RENDERER_CREATE_INFO = {
   .push_constant_input       = PUSH_CONSTANT_INPUT,
 };
 
+struct Block
+{
+  bool valid;
+  glm::vec3 color;
+};
+
+static constexpr size_t CHUNK_SIZE = 8;
+static constexpr float  BLOCK_WIDTH = 0.2f;
+
+struct Chunk
+{
+  Block blocks[CHUNK_SIZE][CHUNK_SIZE][CHUNK_SIZE];
+};
+
+Chunk *chunk_generate_random()
+{
+  srand(time(NULL));
+  Chunk *chunk = new Chunk;
+  for(size_t z=0; z<CHUNK_SIZE; ++z)
+    for(size_t y=0; y<CHUNK_SIZE; ++y)
+      for(size_t x=0; x<CHUNK_SIZE; ++x)
+      {
+        chunk->blocks[z][y][z].valid = (unsigned)rand() % 8 == 0;
+        chunk->blocks[z][y][z].color = glm::vec3(x, y, z) * 2.0f / (float)CHUNK_SIZE;
+      }
+
+  return chunk;
+}
+
+vulkan::Mesh chunk_generate_mesh(const vulkan::Context& context, vulkan::Allocator& allocator, const Chunk& chunk)
+{
+  vector<vulkan::Vertex> vertices = create_vector<vulkan::Vertex>(1);
+  vector<uint32_t>       indices  = create_vector<uint32_t>(1);
+
+  for(size_t z=0; z<CHUNK_SIZE; ++z)
+    for(size_t y=0; y<CHUNK_SIZE; ++y)
+      for(size_t x=0; x<CHUNK_SIZE; ++x)
+      {
+        if(!chunk.blocks[z][y][x].valid)
+          continue;
+
+        vulkan::Vertex block_vertices[] = {
+          {.pos = glm::vec3(x,   y,   z  ) * BLOCK_WIDTH, .normal = {}, .color = chunk.blocks[z][y][x].color, .uv = {}},
+          {.pos = glm::vec3(x,   y,   z+1) * BLOCK_WIDTH, .normal = {}, .color = chunk.blocks[z][y][x].color, .uv = {}},
+          {.pos = glm::vec3(x,   y+1, z  ) * BLOCK_WIDTH, .normal = {}, .color = chunk.blocks[z][y][x].color, .uv = {}},
+          {.pos = glm::vec3(x,   y+1, z+1) * BLOCK_WIDTH, .normal = {}, .color = chunk.blocks[z][y][x].color, .uv = {}},
+          {.pos = glm::vec3(x+1, y,   z  ) * BLOCK_WIDTH, .normal = {}, .color = chunk.blocks[z][y][x].color, .uv = {}},
+          {.pos = glm::vec3(x+1, y,   z+1) * BLOCK_WIDTH, .normal = {}, .color = chunk.blocks[z][y][x].color, .uv = {}},
+          {.pos = glm::vec3(x+1, y+1, z  ) * BLOCK_WIDTH, .normal = {}, .color = chunk.blocks[z][y][x].color, .uv = {}},
+          {.pos = glm::vec3(x+1, y+1, z+1) * BLOCK_WIDTH, .normal = {}, .color = chunk.blocks[z][y][x].color, .uv = {}},
+        };
+        uint32_t block_indices[] = {
+          3, 2, 0, 1, 3, 0,
+          5, 4, 6, 7, 5, 6,
+          7, 6, 2, 3, 7, 2,
+          1, 0, 4, 5, 1, 4,
+          6, 4, 0, 2, 6, 0,
+          1, 5, 7, 1, 7, 3,
+        };
+
+        for(size_t i=0; i<std::size(block_indices); ++i)
+          vector_resize_push<uint32_t>(indices, size(vertices) + block_indices[i]);
+
+        for(size_t i=0; i<std::size(block_vertices); ++i)
+          vector_resize_push(vertices, block_vertices[i]);
+      }
+
+  printf("vertices size = %ld\n", size(vertices));
+  printf("indices  size = %ld\n", size(indices));
+
+  vulkan::MeshCreateInfo create_info = {};
+  create_info.index_count = size(indices);
+  create_info.indices     = data(indices);
+  create_info.vertex_count = size(vertices);
+  create_info.vertices     = data(vertices);
+
+  vulkan::Mesh mesh = {};
+  vulkan::mesh_init(context, allocator, create_info, mesh);
+
+  destroy_vector(vertices);
+  destroy_vector(indices);
+  return mesh;
+}
 
 struct Application
 {
@@ -91,6 +174,9 @@ struct Application
   vulkan::Mesh    mesh;
   vulkan::Texture texture;
   vulkan::Sampler sampler;
+
+  Chunk        *chunk;
+  vulkan::Mesh  chunk_mesh;
 
   vulkan::DescriptorPool descriptor_pool;
   vulkan::DescriptorSet  descriptor_set;
@@ -110,6 +196,9 @@ void application_init(Application& application)
   vulkan::mesh_load(application.context, application.allocator, "viking_room.obj", application.mesh);
   vulkan::texture_load(application.context, application.allocator, "viking_room.png", application.texture);
   vulkan::init_sampler_simple(application.context, application.sampler);
+
+  application.chunk = chunk_generate_random();
+  application.chunk_mesh = chunk_generate_mesh(application.context, application.allocator, *application.chunk);
 
   // Descriptor pool
   vulkan::init_descriptor_pool(application.context, vulkan::DescriptorPoolCreateInfo{
@@ -135,6 +224,7 @@ void application_deinit(Application& application)
   vulkan::deinit_descriptor_pool(application.context, application.descriptor_pool);
 
   vulkan::mesh_deinit(application.context, application.allocator, application.mesh);
+  vulkan::mesh_deinit(application.context, application.allocator, application.chunk_mesh);
   vulkan::texture_deinit(application.context, application.allocator, application.texture);
   vulkan::deinit_sampler(application.context, application.sampler);
 
@@ -181,10 +271,15 @@ void application_render(Application& application)
       matrices.mvp = proj * view * model;
       matrices.model = model;
     }
+    vulkan::renderer_set_viewport_and_scissor(application.renderer, extent);
+
+    //vulkan::renderer_push_constant(application.renderer, vulkan::ShaderStage::VERTEX, &matrices, 0, sizeof matrices);
+    //vulkan::renderer_bind_descriptor_set(application.renderer, application.descriptor_set);
+    //vulkan::mesh_render_simple(frame.command_buffer, application.mesh);
+
     vulkan::renderer_push_constant(application.renderer, vulkan::ShaderStage::VERTEX, &matrices, 0, sizeof matrices);
     vulkan::renderer_bind_descriptor_set(application.renderer, application.descriptor_set);
-    vulkan::renderer_set_viewport_and_scissor(application.renderer, extent);
-    vulkan::mesh_render_simple(frame.command_buffer, application.mesh);
+    vulkan::mesh_render_simple(frame.command_buffer, application.chunk_mesh);
   }
   vulkan::renderer_end_render(application.renderer);
 
