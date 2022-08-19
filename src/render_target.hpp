@@ -9,20 +9,12 @@
 #include "render_pass.hpp"
 #include "semaphore.hpp"
 #include "swapchain.hpp"
+#include "frame.hpp"
 
 namespace vulkan
 {
   // Double buffering
   static constexpr size_t MAX_FRAME_IN_FLIGHT = 2;
-
-  struct Frame
-  {
-    VkCommandBuffer command_buffer;
-    VkFence         fence;
-    VkSemaphore     image_available_semaphore;
-    VkSemaphore     render_finished_semaphore;
-  };
-
   struct RenderTarget
   {
     Swapchain swapchain;
