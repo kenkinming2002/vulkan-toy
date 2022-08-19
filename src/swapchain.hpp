@@ -18,7 +18,7 @@ namespace vulkan
     VkSwapchainKHR handle;
 
     uint32_t  image_count;
-    Image     *images;
+    VkImage   *images;
     ImageView *image_views;
   };
 

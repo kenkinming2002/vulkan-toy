@@ -2,6 +2,7 @@
 
 #include "allocator.hpp"
 #include "context.hpp"
+#include "ref.hpp"
 
 namespace vulkan
 {
@@ -20,14 +21,13 @@ namespace vulkan
     VkExtent2D extent;
   };
 
-  struct Image
-  {
-    VkImage          handle;
-    MemoryAllocation allocation;
-  };
+  typedef struct Image *image_t;
 
-  void init_image(const Context& context, Allocator& allocator, ImageCreateInfo create_info, Image& image);
-  void deinit_image(const Context& context, Allocator& allocator, Image& image);
+  image_t image_create(const Context *context, Allocator *allocator, ImageType type, VkFormat format, size_t width, size_t height);
+  void image_get(image_t image);
+  void image_put(image_t image);
 
-  void write_image(const Context& context, Allocator& allocator, Image image, const void *data, size_t width, size_t height, size_t size);
+  VkImage image_get_handle(image_t image);
+
+  void image_write(VkCommandBuffer command_buffer, image_t image, const void *data, size_t width, size_t height, size_t size);
 }

@@ -15,7 +15,7 @@ namespace vulkan
 
   struct Texture
   {
-    Image     image;
+    image_t   image;
     ImageView image_view;
   };
 

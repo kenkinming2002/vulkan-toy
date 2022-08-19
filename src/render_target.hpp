@@ -20,7 +20,7 @@ namespace vulkan
     Swapchain swapchain;
 
     RenderPass   render_pass;
-    Image        depth_image;
+    image_t      depth_image;
     ImageView    depth_image_view;
     Framebuffer *framebuffers;
 

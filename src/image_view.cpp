@@ -8,7 +8,7 @@ namespace vulkan
   {
     VkImageViewCreateInfo image_view_create_info = {};
     image_view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    image_view_create_info.image                           = create_info.image.handle;
+    image_view_create_info.image                           = image_get_handle(create_info.image);
     image_view_create_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
     image_view_create_info.format                          = create_info.format;
     image_view_create_info.components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY;

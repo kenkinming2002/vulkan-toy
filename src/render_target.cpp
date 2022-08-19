@@ -17,11 +17,12 @@ namespace vulkan
     }, render_target.render_pass);
 
     // Depth attachment
-    init_image(context, allocator, ImageCreateInfo{
-      .type   = ImageType::DEPTH_ATTACHMENT,
-      .format = VK_FORMAT_D32_SFLOAT,
-      .extent = render_target.swapchain.extent,
-    }, render_target.depth_image);
+    render_target.depth_image = image_create(&context, &allocator,
+      ImageType::DEPTH_ATTACHMENT,
+      VK_FORMAT_D32_SFLOAT,
+      render_target.swapchain.extent.width,
+      render_target.swapchain.extent.height
+    );
     init_image_view(context, ImageViewCreateInfo{
       .type   = ImageViewType::DEPTH,
       .format = VK_FORMAT_D32_SFLOAT,
@@ -61,7 +62,7 @@ namespace vulkan
 
     delete[] render_target.framebuffers;
 
-    deinit_image(context, allocator, render_target.depth_image);
+    image_put(render_target.depth_image);
     deinit_image_view(context, render_target.depth_image_view);
 
     for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)

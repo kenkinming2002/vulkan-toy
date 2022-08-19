@@ -123,6 +123,8 @@ namespace vulkan
     buffer_t staging_buffer = buffer_create(buffer->context, buffer->allocator, BufferType::STAGING_BUFFER, size);
     buffer_write(command_buffer, staging_buffer, data, size);
     buffer_copy(command_buffer, staging_buffer, buffer, size);
-    buffer_put(staging_buffer);
+
+    // TODO: Fix the memory leak
+    //buffer_put(staging_buffer);
   }
 }

@@ -16,7 +16,7 @@ namespace vulkan
   {
     ImageViewType type;
     VkFormat      format;
-    Image         image;
+    image_t       image;
   };
 
   struct ImageView
