@@ -48,33 +48,8 @@ namespace vulkan
     render_target.image_index = 0;
 
     // Frames
-
-    // Command buffers
-    VkCommandBuffer command_buffers[MAX_FRAME_IN_FLIGHT];
-    VkCommandBufferAllocateInfo command_buffer_allocate_info = {};
-    command_buffer_allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    command_buffer_allocate_info.commandPool        = context.command_pool;
-    command_buffer_allocate_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    command_buffer_allocate_info.commandBufferCount = MAX_FRAME_IN_FLIGHT;
-    VK_CHECK(vkAllocateCommandBuffers(context.device, &command_buffer_allocate_info, command_buffers));
-
     for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
-      render_target.frames[i].command_buffer = command_buffers[i];
-
-    // Sync objects
-    VkFenceCreateInfo fence_create_info = {};
-    fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-    VkSemaphoreCreateInfo semaphore_create_info = {};
-    semaphore_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-    for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
-    {
-      VK_CHECK(vkCreateFence(context.device, &fence_create_info, nullptr, &render_target.frames[i].fence));
-      VK_CHECK(vkCreateSemaphore(context.device, &semaphore_create_info, nullptr, &render_target.frames[i].image_available_semaphore));
-      VK_CHECK(vkCreateSemaphore(context.device, &semaphore_create_info, nullptr, &render_target.frames[i].render_finished_semaphore));
-    }
+      frame_init(context, render_target.frames[i]);
 
     render_target.frame_index = 0;
   }
@@ -89,20 +64,8 @@ namespace vulkan
     deinit_image(context, allocator, render_target.depth_image);
     deinit_image_view(context, render_target.depth_image_view);
 
-    // Command buffer
-    VkCommandBuffer command_buffers[MAX_FRAME_IN_FLIGHT];
     for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
-      command_buffers[i] = render_target.frames[i].command_buffer;
-
-    vkFreeCommandBuffers(context.device, context.command_pool, MAX_FRAME_IN_FLIGHT, command_buffers);
-
-    // Sync objects
-    for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
-    {
-      vkDestroyFence(context.device, render_target.frames[i].fence, nullptr);
-      vkDestroySemaphore(context.device, render_target.frames[i].image_available_semaphore, nullptr);
-      vkDestroySemaphore(context.device, render_target.frames[i].render_finished_semaphore, nullptr);
-    }
+      frame_deinit(context, render_target.frames[i]);
 
     deinit_render_pass(context, render_target.render_pass);
     deinit_swapchain(context, render_target.swapchain);
