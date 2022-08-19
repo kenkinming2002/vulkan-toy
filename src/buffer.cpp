@@ -61,16 +61,30 @@ namespace vulkan
     buffer = {};
   }
 
+  void buffer_write(const Context& context, Buffer buffer, const void *data, size_t size)
+  {
+    // The memory must be host mappable to be able to use this function
+    void *buffer_data;
+    VK_CHECK(vkMapMemory(context.device, buffer.allocation.memory, 0, size, 0, &buffer_data));
+    memcpy(buffer_data, data, size);
+    vkUnmapMemory(context.device, buffer.allocation.memory);
+  }
+
+  void buffer_copy(VkCommandBuffer command_buffer, Buffer src, Buffer dst, size_t size)
+  {
+    VkBufferCopy buffer_copy = {};
+    buffer_copy.srcOffset = 0;
+    buffer_copy.dstOffset = 0;
+    buffer_copy.size      = size;
+    vkCmdCopyBuffer(command_buffer, src.handle, dst.handle, 1, &buffer_copy);
+  }
+
   void write_buffer(const Context& context, Allocator& allocator, Buffer& buffer, const void *data, size_t size)
   {
     VkMemoryPropertyFlags memory_properties = allocator.memory_properties.memoryTypes[buffer.allocation.type_index].propertyFlags;
     if(memory_properties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
     {
-      // Nice, the memory is host visible so we can directly map it
-      void *buffer_data;
-      VK_CHECK(vkMapMemory(context.device, buffer.allocation.memory, 0, size, 0, &buffer_data));
-      memcpy(buffer_data, data, size);
-      vkUnmapMemory(context.device, buffer.allocation.memory);
+      buffer_write(context, buffer, data, size);
       return;
     }
 
@@ -87,13 +101,7 @@ namespace vulkan
       init_command_buffer(context, command_buffer);
 
       command_buffer_begin(command_buffer);
-      {
-        VkBufferCopy buffer_copy = {};
-        buffer_copy.srcOffset = 0;
-        buffer_copy.dstOffset = 0;
-        buffer_copy.size      = size;
-        vkCmdCopyBuffer(command_buffer.handle, staging_buffer.handle, buffer.handle, 1, &buffer_copy);
-      }
+      buffer_copy(command_buffer.handle, staging_buffer, buffer, size);
       command_buffer_end(command_buffer);
 
       Fence fence = {};
