@@ -64,84 +64,81 @@ namespace vulkan
     // Bytes per pixel should be integer
     assert(size / (width * height) * (width * height) == size);
 
-    Buffer staging_buffer = {};
-
-    BufferCreateInfo buffer_create_info = {};
-    buffer_create_info.type = BufferType::STAGING_BUFFER;
-    buffer_create_info.size = size;
-    init_buffer(context, allocator, buffer_create_info, staging_buffer);
-    write_buffer(context, allocator, staging_buffer, data, size);
 
     // TODO: What if we want to copy non color image
+    CommandBuffer command_buffer = {};
+    init_command_buffer(context, command_buffer);
+
+    command_buffer_begin(command_buffer);
+
+    // NOTE: This should not actually record any command in the command buffer
+    // TODO: Make this fact explicit
+    buffer_t staging_buffer = buffer_create(&context, &allocator, BufferType::STAGING_BUFFER, size);
+    buffer_write(command_buffer.handle, staging_buffer, data, size);
+
+    // Barrier
     {
-      CommandBuffer command_buffer = {};
-      init_command_buffer(context, command_buffer);
-
-      command_buffer_begin(command_buffer);
-
-      // Barrier
-      {
-        VkImageMemoryBarrier barrier = {};
-        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.srcQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
-        barrier.dstQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
-        barrier.srcAccessMask                   = 0;
-        barrier.dstAccessMask                   = VK_ACCESS_MEMORY_WRITE_BIT;
-        barrier.oldLayout                       = VK_IMAGE_LAYOUT_UNDEFINED;
-        barrier.newLayout                       = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        barrier.image                           = image.handle;
-        barrier.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-        barrier.subresourceRange.baseMipLevel   = 0;
-        barrier.subresourceRange.levelCount     = 1;
-        barrier.subresourceRange.baseArrayLayer = 0;
-        barrier.subresourceRange.layerCount     = 1;
-        vkCmdPipelineBarrier(command_buffer.handle, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-      }
-
-      // Copy
-      {
-        VkBufferImageCopy buffer_image_copy = {};
-        buffer_image_copy.bufferOffset                    = 0;
-        buffer_image_copy.bufferRowLength                 = 0;
-        buffer_image_copy.bufferImageHeight               = 0;
-        buffer_image_copy.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-        buffer_image_copy.imageSubresource.mipLevel       = 0;
-        buffer_image_copy.imageSubresource.baseArrayLayer = 0;
-        buffer_image_copy.imageSubresource.layerCount     = 1;
-        buffer_image_copy.imageOffset                     = {0, 0, 0};
-        buffer_image_copy.imageExtent                     = { static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1};
-        vkCmdCopyBufferToImage(command_buffer.handle, staging_buffer.handle, image.handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &buffer_image_copy);
-      }
-
-      // Barrier
-      {
-        VkImageMemoryBarrier barrier = {};
-        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.srcQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
-        barrier.dstQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
-        barrier.srcAccessMask                   = VK_ACCESS_MEMORY_WRITE_BIT;
-        barrier.dstAccessMask                   = VK_ACCESS_MEMORY_READ_BIT;
-        barrier.oldLayout                       = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        barrier.newLayout                       = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        barrier.image                           = image.handle;
-        barrier.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-        barrier.subresourceRange.baseMipLevel   = 0;
-        barrier.subresourceRange.levelCount     = 1;
-        barrier.subresourceRange.baseArrayLayer = 0;
-        barrier.subresourceRange.layerCount     = 1;
-        vkCmdPipelineBarrier(command_buffer.handle, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-      }
-
-      command_buffer_end(command_buffer);
-
-      Fence fence = {};
-      init_fence(context, fence, false);
-      command_buffer_submit(context, command_buffer, fence);
-      fence_wait_and_reset(context, fence);
-      deinit_fence(context, fence);
-
-      deinit_command_buffer(context, command_buffer);
+      VkImageMemoryBarrier barrier = {};
+      barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+      barrier.srcQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
+      barrier.dstQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
+      barrier.srcAccessMask                   = 0;
+      barrier.dstAccessMask                   = VK_ACCESS_MEMORY_WRITE_BIT;
+      barrier.oldLayout                       = VK_IMAGE_LAYOUT_UNDEFINED;
+      barrier.newLayout                       = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+      barrier.image                           = image.handle;
+      barrier.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+      barrier.subresourceRange.baseMipLevel   = 0;
+      barrier.subresourceRange.levelCount     = 1;
+      barrier.subresourceRange.baseArrayLayer = 0;
+      barrier.subresourceRange.layerCount     = 1;
+      vkCmdPipelineBarrier(command_buffer.handle, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
     }
-    deinit_buffer(context, allocator, staging_buffer);
+
+    // Copy
+    {
+      VkBufferImageCopy buffer_image_copy = {};
+      buffer_image_copy.bufferOffset                    = 0;
+      buffer_image_copy.bufferRowLength                 = 0;
+      buffer_image_copy.bufferImageHeight               = 0;
+      buffer_image_copy.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+      buffer_image_copy.imageSubresource.mipLevel       = 0;
+      buffer_image_copy.imageSubresource.baseArrayLayer = 0;
+      buffer_image_copy.imageSubresource.layerCount     = 1;
+      buffer_image_copy.imageOffset                     = {0, 0, 0};
+      buffer_image_copy.imageExtent                     = { static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1};
+      vkCmdCopyBufferToImage(command_buffer.handle, buffer_get_handle(staging_buffer), image.handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &buffer_image_copy);
+    }
+
+    // Barrier
+    {
+      VkImageMemoryBarrier barrier = {};
+      barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+      barrier.srcQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
+      barrier.dstQueueFamilyIndex             = VK_QUEUE_FAMILY_IGNORED;
+      barrier.srcAccessMask                   = VK_ACCESS_MEMORY_WRITE_BIT;
+      barrier.dstAccessMask                   = VK_ACCESS_MEMORY_READ_BIT;
+      barrier.oldLayout                       = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+      barrier.newLayout                       = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+      barrier.image                           = image.handle;
+      barrier.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+      barrier.subresourceRange.baseMipLevel   = 0;
+      barrier.subresourceRange.levelCount     = 1;
+      barrier.subresourceRange.baseArrayLayer = 0;
+      barrier.subresourceRange.layerCount     = 1;
+      vkCmdPipelineBarrier(command_buffer.handle, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+    }
+
+    command_buffer_end(command_buffer);
+
+    Fence fence = {};
+    init_fence(context, fence, false);
+    command_buffer_submit(context, command_buffer, fence);
+    fence_wait_and_reset(context, fence);
+    deinit_fence(context, fence);
+
+    deinit_command_buffer(context, command_buffer);
+
+    buffer_put(staging_buffer);
   }
 }

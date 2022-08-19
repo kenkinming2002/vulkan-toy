@@ -50,8 +50,8 @@ namespace vulkan
     size_t vertex_count;
     size_t index_count;
 
-    Buffer vertex_buffer;
-    Buffer index_buffer;
+    buffer_t vertex_buffer;
+    buffer_t index_buffer;
   };
 
   void mesh_init(const Context& context, Allocator& allocator, MeshCreateInfo create_info, Mesh& mesh);

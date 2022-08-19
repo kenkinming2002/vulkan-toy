@@ -68,7 +68,7 @@ namespace vulkan
       case DescriptorType::UNIFORM_BUFFER:
         {
           VkDescriptorBufferInfo *buffer_info = new VkDescriptorBufferInfo{};
-          buffer_info->buffer = write_info.descriptors[i].uniform_buffer.buffer.handle;
+          buffer_info->buffer = buffer_get_handle(write_info.descriptors[i].uniform_buffer.buffer);
           buffer_info->offset = 0;
           buffer_info->range  = write_info.descriptors[i].uniform_buffer.size;
           write_descriptor_sets[i].pBufferInfo = buffer_info;

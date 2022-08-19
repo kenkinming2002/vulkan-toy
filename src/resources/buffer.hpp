@@ -2,6 +2,7 @@
 
 #include "allocator.hpp"
 #include "context.hpp"
+#include "ref.hpp"
 
 namespace vulkan
 {
@@ -19,17 +20,14 @@ namespace vulkan
     VkDeviceSize size;
   };
 
-  struct Buffer
-  {
-    VkBuffer         handle;
-    MemoryAllocation allocation;
-  };
+  typedef struct Buffer *buffer_t;
 
-  void init_buffer(const Context& context, Allocator& allocator, BufferCreateInfo create_info, Buffer& buffer);
-  void deinit_buffer(const Context& context, Allocator& allocator, Buffer& buffer);
+  buffer_t buffer_create(const Context *context, Allocator *allocator, BufferType type, size_t size);
+  void buffer_get(buffer_t buffer);
+  void buffer_put(buffer_t buffer);
 
-  void buffer_write(const Context& context, Buffer buffer, const void *data, size_t size);
-  void buffer_copy(VkCommandBuffer command_buffer, Buffer src, Buffer dst, size_t size);
+  VkBuffer buffer_get_handle(buffer_t buffer);
 
-  void write_buffer(const Context& context, Allocator& allocator, Buffer& buffer, const void *data, size_t size);
+  void buffer_copy(VkCommandBuffer command_buffer, buffer_t src, buffer_t dst, size_t size);
+  void buffer_write(VkCommandBuffer command_buffer, buffer_t buffer, const void *data, size_t size);
 }

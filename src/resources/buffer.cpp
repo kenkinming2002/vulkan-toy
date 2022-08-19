@@ -34,84 +34,95 @@ namespace vulkan
     }
   }
 
-  void init_buffer(const Context& context, Allocator& allocator, BufferCreateInfo create_info, Buffer& buffer)
+  struct Buffer
   {
+    Ref ref;
+
+    const Context *context;
+    Allocator     *allocator;
+
+    VkBuffer         handle;
+    MemoryAllocation allocation;
+  };
+
+  static void buffer_free(ref_t ref)
+  {
+    buffer_t buffer = container_of(ref, Buffer, ref);
+
+    deallocate_memory(*buffer->context, *buffer->allocator, buffer->allocation);
+    vkDestroyBuffer(buffer->context->device, buffer->handle, nullptr);
+
+    delete buffer;
+  }
+
+  buffer_t buffer_create(const Context *context, Allocator *allocator, BufferType type, size_t size)
+  {
+    buffer_t buffer = new Buffer {};
+    buffer->ref.count = 1;
+    buffer->ref.free  = &buffer_free;
+
+    buffer->context   = context;
+    buffer->allocator = allocator;
+
     VkBufferCreateInfo buffer_create_info = {};
     buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    buffer_create_info.size        = create_info.size;
-    buffer_create_info.usage       = get_vulkan_buffer_usage(create_info.type);
+    buffer_create_info.size        = size;
+    buffer_create_info.usage       = get_vulkan_buffer_usage(type);
     buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    VK_CHECK(vkCreateBuffer(context.device, &buffer_create_info, nullptr, &buffer.handle));
+    VK_CHECK(vkCreateBuffer(buffer->context->device, &buffer_create_info, nullptr, &buffer->handle));
 
     VkMemoryRequirements memory_requirements = {};
-    vkGetBufferMemoryRequirements(context.device, buffer.handle, &memory_requirements);
+    vkGetBufferMemoryRequirements(buffer->context->device, buffer->handle, &memory_requirements);
 
     MemoryAllocationInfo allocation_info = {};
     allocation_info.type_bits  = memory_requirements.memoryTypeBits;
-    allocation_info.properties = get_vulkan_buffer_memory_properties(create_info.type);
+    allocation_info.properties = get_vulkan_buffer_memory_properties(type);
     allocation_info.size       = memory_requirements.size;
-    allocate_memory(context, allocator, allocation_info, buffer.allocation);
-    VK_CHECK(vkBindBufferMemory(context.device, buffer.handle, buffer.allocation.memory, 0));
+    allocate_memory(*buffer->context, *buffer->allocator, allocation_info, buffer->allocation);
+    VK_CHECK(vkBindBufferMemory(buffer->context->device, buffer->handle, buffer->allocation.memory, 0));
+
+    return buffer;
   }
 
-  void deinit_buffer(const Context& context, Allocator& allocator, Buffer& buffer)
+  void buffer_get(buffer_t buffer)
   {
-    deallocate_memory(context, allocator, buffer.allocation);
-    vkDestroyBuffer(context.device, buffer.handle, nullptr);
-    buffer = {};
+    ref_get(&buffer->ref);
   }
 
-  void buffer_write(const Context& context, Buffer buffer, const void *data, size_t size)
+  void buffer_put(buffer_t buffer)
   {
-    // The memory must be host mappable to be able to use this function
-    void *buffer_data;
-    VK_CHECK(vkMapMemory(context.device, buffer.allocation.memory, 0, size, 0, &buffer_data));
-    memcpy(buffer_data, data, size);
-    vkUnmapMemory(context.device, buffer.allocation.memory);
+    ref_put(&buffer->ref);
   }
 
-  void buffer_copy(VkCommandBuffer command_buffer, Buffer src, Buffer dst, size_t size)
+  VkBuffer buffer_get_handle(buffer_t buffer)
+  {
+    return buffer->handle;
+  }
+
+  void buffer_copy(VkCommandBuffer command_buffer, buffer_t src, buffer_t dst, size_t size)
   {
     VkBufferCopy buffer_copy = {};
     buffer_copy.srcOffset = 0;
     buffer_copy.dstOffset = 0;
     buffer_copy.size      = size;
-    vkCmdCopyBuffer(command_buffer, src.handle, dst.handle, 1, &buffer_copy);
+    vkCmdCopyBuffer(command_buffer, src->handle, dst->handle, 1, &buffer_copy);
   }
 
-  void write_buffer(const Context& context, Allocator& allocator, Buffer& buffer, const void *data, size_t size)
+  void buffer_write(VkCommandBuffer command_buffer, buffer_t buffer, const void *data, size_t size)
   {
-    VkMemoryPropertyFlags memory_properties = allocator.memory_properties.memoryTypes[buffer.allocation.type_index].propertyFlags;
+    VkMemoryPropertyFlags memory_properties = buffer->allocator->memory_properties.memoryTypes[buffer->allocation.type_index].propertyFlags;
     if(memory_properties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
     {
-      buffer_write(context, buffer, data, size);
+      void *buffer_data;
+      VK_CHECK(vkMapMemory(buffer->context->device, buffer->allocation.memory, 0, size, 0, &buffer_data));
+      memcpy(buffer_data, data, size);
+      vkUnmapMemory(buffer->context->device, buffer->allocation.memory);
       return;
     }
 
-    Buffer staging_buffer = {};
-
-    BufferCreateInfo buffer_create_info = {};
-    buffer_create_info.type = BufferType::STAGING_BUFFER;
-    buffer_create_info.size = size;
-    init_buffer(context, allocator, buffer_create_info, staging_buffer);
-    {
-      write_buffer(context, allocator, staging_buffer, data, size);
-
-      CommandBuffer command_buffer = {};
-      init_command_buffer(context, command_buffer);
-
-      command_buffer_begin(command_buffer);
-      buffer_copy(command_buffer.handle, staging_buffer, buffer, size);
-      command_buffer_end(command_buffer);
-
-      Fence fence = {};
-      init_fence(context, fence, false);
-      command_buffer_submit(context, command_buffer, fence);
-      fence_wait_and_reset(context, fence);
-      deinit_fence(context, fence);
-
-      deinit_command_buffer(context, command_buffer);
-    }
-    deinit_buffer(context, allocator, staging_buffer);
+    buffer_t staging_buffer = buffer_create(buffer->context, buffer->allocator, BufferType::STAGING_BUFFER, size);
+    buffer_write(command_buffer, staging_buffer, data, size);
+    buffer_copy(command_buffer, staging_buffer, buffer, size);
+    buffer_put(staging_buffer);
   }
 }

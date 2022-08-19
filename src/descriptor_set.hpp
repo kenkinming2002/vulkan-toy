@@ -31,7 +31,7 @@ namespace vulkan
 
   struct UniformBufferDescriptor
   {
-    Buffer buffer;
+    buffer_t buffer;
     VkDeviceSize size;
   };
 
