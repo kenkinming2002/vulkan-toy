@@ -8,15 +8,12 @@ vulkan_dep = dependency('vulkan')
 glm_dep    = dependency('glm')
 
 srcs = [
-  'src/allocator.cpp',
-  'src/buffer.cpp',
   'src/command_buffer.cpp',
   'src/context.cpp',
   'src/descriptor_set.cpp',
   'src/fence.cpp',
   'src/frame.cpp',
   'src/framebuffer.cpp',
-  'src/image.cpp',
   'src/image_view.cpp',
   'src/impl.cpp',
   'src/main.cpp',
@@ -25,6 +22,9 @@ srcs = [
   'src/render_pass.cpp',
   'src/render_target.cpp',
   'src/renderer.cpp',
+  'src/resources/allocator.cpp',
+  'src/resources/buffer.cpp',
+  'src/resources/image.cpp',
   'src/sampler.cpp',
   'src/semaphore.cpp',
   'src/shader.cpp',
@@ -33,7 +33,9 @@ srcs = [
   'src/vk_check.cpp',
 ]
 
-exe = executable('vulkan', srcs, dependencies : [glfw_dep, vulkan_dep, glm_dep],
+exe = executable('vulkan', srcs,
+  dependencies : [glfw_dep, vulkan_dep, glm_dep],
+  include_directories : 'src',
   install : true)
 
 test('basic', exe)

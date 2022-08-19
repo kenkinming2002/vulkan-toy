@@ -1,9 +1,9 @@
 #pragma once
 
-#include "buffer.hpp"
 #include "context.hpp"
 #include "image_view.hpp"
 #include "input.hpp"
+#include "resources/buffer.hpp"
 #include "sampler.hpp"
 
 namespace vulkan

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "input.hpp"
-#include "buffer.hpp"
+#include "resources/buffer.hpp"
 #include "command_buffer.hpp"
 
 #include <glm/glm.hpp>

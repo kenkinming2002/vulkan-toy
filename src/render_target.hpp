@@ -4,7 +4,7 @@
 #include "context.hpp"
 #include "fence.hpp"
 #include "framebuffer.hpp"
-#include "image.hpp"
+#include "resources/image.hpp"
 #include "image_view.hpp"
 #include "render_pass.hpp"
 #include "semaphore.hpp"

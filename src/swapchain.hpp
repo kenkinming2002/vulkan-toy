@@ -1,8 +1,8 @@
 #pragma once
 
 #include "context.hpp"
-#include "image.hpp"
 #include "image_view.hpp"
+#include "resources/image.hpp"
 #include "semaphore.hpp"
 #include "utils.hpp"
 

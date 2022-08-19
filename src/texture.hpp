@@ -1,10 +1,9 @@
 #pragma once
 
-#include "allocator.hpp"
 #include "context.hpp"
-
-#include "image.hpp"
 #include "image_view.hpp"
+#include "resources/allocator.hpp"
+#include "resources/image.hpp"
 
 namespace vulkan
 {
