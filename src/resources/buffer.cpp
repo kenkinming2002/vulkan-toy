@@ -1,7 +1,5 @@
 #include "buffer.hpp"
 
-#include "command_buffer.hpp"
-#include "fence.hpp"
 #include "allocator.hpp"
 #include "vk_check.hpp"
 

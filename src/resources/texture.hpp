@@ -1,9 +1,11 @@
 #pragma once
 
+#include "allocator.hpp"
+#include "command_buffer.hpp"
 #include "context.hpp"
-#include "resources/allocator.hpp"
-#include "resources/image.hpp"
-#include "resources/image_view.hpp"
+#include "image.hpp"
+#include "image_view.hpp"
+#include "ref.hpp"
 
 namespace vulkan
 {
@@ -20,22 +22,4 @@ namespace vulkan
 
   void texture_write(command_buffer_t command_buffer, texture_t texture, const void *data, size_t width, size_t height, size_t size);
   texture_t texture_load(command_buffer_t command_buffer, const Context *context, Allocator *allocator, const char *file_name);
-
-
-
-  //struct TextureCreateInfo
-  //{
-  //  const void *data;
-  //  size_t width, height;
-  //};
-
-  //struct Texture
-  //{
-  //  image_t      image;
-  //  image_view_t image_view;
-  //};
-
-  //void texture_init(const Context& context, Allocator& allocator, TextureCreateInfo create_info, Texture& texture);
-  //void texture_deinit(const Context& context, Allocator& allocator, Texture& texture);
-  //void texture_load(const Context& context, Allocator& allocator, const char *file_name, Texture& texture);
 }

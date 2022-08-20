@@ -15,12 +15,6 @@ namespace vulkan
     UNIFORM_BUFFER,
   };
 
-  struct BufferCreateInfo
-  {
-    BufferType type;
-    VkDeviceSize size;
-  };
-
   typedef struct Buffer *buffer_t;
 
   buffer_t buffer_create(const Context *context, Allocator *allocator, BufferType type, size_t size);

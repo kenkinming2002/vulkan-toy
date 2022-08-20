@@ -1,8 +1,6 @@
 #include "texture.hpp"
 
-#include "resources/image.hpp"
 #include "stb_image.h"
-#include "command_buffer.hpp"
 
 #include <assert.h>
 

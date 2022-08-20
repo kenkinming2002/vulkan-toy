@@ -15,13 +15,6 @@ namespace vulkan
     STENCIL_ATTACHMENT,
   };
 
-  struct ImageCreateInfo
-  {
-    ImageType  type;
-    VkFormat   format;
-    VkExtent2D extent;
-  };
-
   typedef struct Image *image_t;
 
   image_t image_create(const Context *context, Allocator *allocator, ImageType type, VkFormat format, size_t width, size_t height);

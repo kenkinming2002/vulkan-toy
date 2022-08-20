@@ -1,7 +1,8 @@
 #pragma once
 
 #include "context.hpp"
-#include "resources/image.hpp"
+#include "image.hpp"
+#include "ref.hpp"
 
 namespace vulkan
 {
@@ -10,13 +11,6 @@ namespace vulkan
     COLOR,
     DEPTH,
     STENCIL
-  };
-
-  struct ImageViewCreateInfo
-  {
-    ImageViewType type;
-    VkFormat      format;
-    image_t       image;
   };
 
   typedef struct ImageView *image_view_t;

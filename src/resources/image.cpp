@@ -2,7 +2,6 @@
 
 #include "allocator.hpp"
 #include "buffer.hpp"
-#include "command_buffer.hpp"
 #include "vk_check.hpp"
 
 #include <assert.h>

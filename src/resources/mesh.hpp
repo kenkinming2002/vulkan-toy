@@ -1,8 +1,9 @@
 #pragma once
 
-#include "input.hpp"
-#include "resources/buffer.hpp"
+#include "buffer.hpp"
 #include "command_buffer.hpp"
+#include "input.hpp"
+#include "ref.hpp"
 
 #include <glm/glm.hpp>
 
@@ -30,7 +31,6 @@ namespace vulkan
   mesh_t mesh_load(command_buffer_t command_buffer, const Context *context, Allocator *allocator, const char *file_name);
 
   void mesh_render_simple(command_buffer_t command_buffer, mesh_t mesh);
-
 
   static constexpr vulkan::VertexAttribute VERTEX_ATTRIBUTES[] = {
     { .offset = offsetof(Vertex, pos),    .type = vulkan::VertexAttribute::Type::FLOAT3 },
