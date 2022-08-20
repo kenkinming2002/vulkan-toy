@@ -207,7 +207,7 @@ void application_init(Application& application)
   command_buffer_wait(command_buffer);
   command_buffer_put(command_buffer);
 
-  application.sampler = vulkan::sampler_create_simple(&application.context);
+  application.sampler = vulkan::sampler_create_simple(&application.context, 10); // TODO: Unhardcode this
 
   application.chunk = chunk_generate_random();
   application.chunk_mesh = chunk_generate_mesh(application.context, application.allocator, *application.chunk);
@@ -285,13 +285,13 @@ void application_render(Application& application)
     }
     vulkan::renderer_set_viewport_and_scissor(application.renderer, extent);
 
-    //vulkan::renderer_push_constant(application.renderer, vulkan::ShaderStage::VERTEX, &matrices, 0, sizeof matrices);
-    //vulkan::renderer_bind_descriptor_set(application.renderer, application.descriptor_set);
-    //vulkan::mesh_render_simple(frame.command_buffer, application.mesh);
-
     vulkan::renderer_push_constant(application.renderer, vulkan::ShaderStage::VERTEX, &matrices, 0, sizeof matrices);
     vulkan::renderer_bind_descriptor_set(application.renderer, application.descriptor_set);
-    vulkan::mesh_render_simple(frame.command_buffer, application.chunk_mesh);
+    vulkan::mesh_render_simple(frame.command_buffer, application.mesh);
+
+    //vulkan::renderer_push_constant(application.renderer, vulkan::ShaderStage::VERTEX, &matrices, 0, sizeof matrices);
+    //vulkan::renderer_bind_descriptor_set(application.renderer, application.descriptor_set);
+    //vulkan::mesh_render_simple(frame.command_buffer, application.chunk_mesh);
   }
   vulkan::renderer_end_render(application.renderer);
 

@@ -19,6 +19,7 @@ void main()
   float ambient_strength = 0.0;
   float diffuse_strength = max(dot(fragNormal, light_dir), 0.0);
 
-  outColor = vec4(fragColor, 1.0);
+  //outColor = vec4(fragColor, 1.0);
   //outColor = vec4((ambient_strength + diffuse_strength) * texture(texSampler, fragUV).rgb * fragColor, 1.0);
+  outColor = vec4(texture(texSampler, fragUV).rgb * fragColor, 1.0);
 }

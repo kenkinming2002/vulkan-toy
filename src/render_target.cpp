@@ -21,11 +21,13 @@ namespace vulkan
       ImageType::DEPTH_ATTACHMENT,
       VK_FORMAT_D32_SFLOAT,
       render_target.swapchain.extent.width,
-      render_target.swapchain.extent.height
+      render_target.swapchain.extent.height,
+      1
     );
     render_target.depth_image_view = image_view_create(&context,
       ImageViewType::DEPTH,
       VK_FORMAT_D32_SFLOAT,
+      1,
       render_target.depth_image
     );
 

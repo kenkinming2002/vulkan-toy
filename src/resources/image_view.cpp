@@ -20,7 +20,7 @@ namespace vulkan
     delete image_view;
   }
 
-  image_view_t image_view_create(const Context *context, ImageViewType type, VkFormat format, image_t image)
+  image_view_t image_view_create(const Context *context, ImageViewType type, VkFormat format, size_t mip_levels, image_t image)
   {
     image_view_t image_view = new ImageView {};
     image_view->ref.count = 1;
@@ -44,7 +44,7 @@ namespace vulkan
     case ImageViewType::STENCIL: image_view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_STENCIL_BIT; break;
     }
     image_view_create_info.subresourceRange.baseMipLevel   = 0;
-    image_view_create_info.subresourceRange.levelCount     = 1;
+    image_view_create_info.subresourceRange.levelCount     = mip_levels;
     image_view_create_info.subresourceRange.baseArrayLayer = 0;
     image_view_create_info.subresourceRange.layerCount     = 1;
     VK_CHECK(vkCreateImageView(image_view->context->device, &image_view_create_info, nullptr, &image_view->handle));

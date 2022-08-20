@@ -2,6 +2,9 @@
 
 #include "stb_image.h"
 
+#include <algorithm>
+#include <bit>
+
 #include <assert.h>
 
 namespace vulkan
@@ -28,8 +31,10 @@ namespace vulkan
     texture->ref.count = 1;
     texture->ref.free  = texture_free;
 
-    texture->image      = image_create(context, allocator, image_type, format, width, height);
-    texture->image_view = image_view_create(context, image_view_type, format, texture->image);
+    size_t mip_level = std::bit_width(std::bit_floor(std::max(width, height)));
+
+    texture->image      = image_create(context, allocator, image_type, format, width, height, mip_level);
+    texture->image_view = image_view_create(context, image_view_type, format, mip_level, texture->image);
 
     return texture;
   }
