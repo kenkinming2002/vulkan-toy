@@ -85,9 +85,7 @@ namespace vulkan
       return false;
 
     // Wait and begin commannd buffer recording
-    VK_CHECK(vkWaitForFences(context.device, 1, &frame.fence, VK_TRUE, UINT64_MAX));
-    VK_CHECK(vkResetFences(context.device, 1, &frame.fence));
-
+    command_buffer_wait(frame.command_buffer);
     command_buffer_reset(frame.command_buffer);
     command_buffer_begin(frame.command_buffer);
 
@@ -118,10 +116,7 @@ namespace vulkan
 
     // End command buffer recording and submit
     command_buffer_end(frame.command_buffer);
-    command_buffer_submit(frame.command_buffer, Fence{frame.fence},
-        Semaphore{frame.image_available_semaphore},
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        Semaphore{frame.render_finished_semaphore});
+    command_buffer_submit(frame.command_buffer, frame.image_available_semaphore, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, frame.render_finished_semaphore);
 
     return swapchain_present_image_index(context, render_target.swapchain, frame.render_finished_semaphore, render_target.image_index) == SwapchainResult::SUCCESS;
   }

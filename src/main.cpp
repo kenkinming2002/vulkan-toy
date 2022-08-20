@@ -160,13 +160,8 @@ vulkan::mesh_t chunk_generate_mesh(const vulkan::Context& context, vulkan::Alloc
   vulkan::mesh_write(command_buffer, mesh, data(vertices), data(indices));
 
   command_buffer_end(command_buffer);
-
-  vulkan::Fence fence = {};
-  init_fence(context, fence, false);
-  command_buffer_submit(command_buffer, fence);
-  fence_wait_and_reset(context, fence);
-  deinit_fence(context, fence);
-
+  command_buffer_submit(command_buffer);
+  command_buffer_wait(command_buffer);
   command_buffer_put(command_buffer);
 
   destroy_vector(vertices);
@@ -208,13 +203,8 @@ void application_init(Application& application)
   application.texture = vulkan::texture_load(command_buffer, &application.context, &application.allocator, "viking_room.png");
 
   command_buffer_end(command_buffer);
-
-  vulkan::Fence fence = {};
-  init_fence(application.context, fence, false);
-  command_buffer_submit(command_buffer, fence);
-  fence_wait_and_reset(application.context, fence);
-  deinit_fence(application.context, fence);
-
+  command_buffer_submit(command_buffer);
+  command_buffer_wait(command_buffer);
   command_buffer_put(command_buffer);
 
   application.sampler = vulkan::sampler_create_simple(&application.context);
