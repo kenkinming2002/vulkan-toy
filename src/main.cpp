@@ -104,8 +104,8 @@ Chunk *chunk_generate_random()
     for(size_t y=0; y<CHUNK_SIZE; ++y)
       for(size_t x=0; x<CHUNK_SIZE; ++x)
       {
-        chunk->blocks[z][y][z].valid = (unsigned)rand() % 8 == 0;
-        chunk->blocks[z][y][z].color = glm::vec3(x, y, z) * 2.0f / (float)CHUNK_SIZE;
+        chunk->blocks[z][y][x].valid = (unsigned)rand() % 8 == 0;
+        chunk->blocks[z][y][x].color = glm::vec3(x, y, z) * 2.0f / (float)CHUNK_SIZE;
       }
 
   return chunk;
