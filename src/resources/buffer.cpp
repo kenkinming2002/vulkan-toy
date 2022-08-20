@@ -118,7 +118,17 @@ namespace vulkan
     {
       buffer_t staging_buffer = buffer_create(buffer->context, buffer->allocator, BufferType::STAGING_BUFFER, size);
       buffer_write(command_buffer, staging_buffer, data, size);
-      buffer_copy(command_buffer, staging_buffer, buffer, size);
+
+      VkCommandBuffer handle = command_buffer_get_handle(command_buffer);
+      command_buffer_use(command_buffer, buffer_as_ref(staging_buffer));
+      command_buffer_use(command_buffer, buffer_as_ref(buffer));
+
+      VkBufferCopy buffer_copy = {};
+      buffer_copy.srcOffset = 0;
+      buffer_copy.dstOffset = 0;
+      buffer_copy.size      = size;
+      vkCmdCopyBuffer(handle, buffer_get_handle(staging_buffer), buffer_get_handle(buffer), 1, &buffer_copy);
+
       buffer_put(staging_buffer);
     }
   }

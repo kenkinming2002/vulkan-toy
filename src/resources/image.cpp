@@ -113,10 +113,10 @@ namespace vulkan
     barrier.subresourceRange.layerCount     = 1;
 
     // Barrier
-    barrier.srcAccessMask                   = 0;
-    barrier.dstAccessMask                   = VK_ACCESS_MEMORY_WRITE_BIT;
-    barrier.oldLayout                       = VK_IMAGE_LAYOUT_UNDEFINED;
-    barrier.newLayout                       = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+    barrier.oldLayout     = VK_IMAGE_LAYOUT_UNDEFINED;
+    barrier.newLayout     = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     vkCmdPipelineBarrier(handle, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
     // Copy
@@ -130,13 +130,13 @@ namespace vulkan
     buffer_image_copy.imageSubresource.layerCount     = 1;
     buffer_image_copy.imageOffset                     = {0, 0, 0};
     buffer_image_copy.imageExtent                     = { static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1};
-    vkCmdCopyBufferToImage(handle, buffer_get_handle(staging_buffer), image->handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &buffer_image_copy);
+    vkCmdCopyBufferToImage(handle, buffer_get_handle(staging_buffer), image_get_handle(image), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &buffer_image_copy);
 
     // Barrier
-    barrier.srcAccessMask                   = VK_ACCESS_MEMORY_WRITE_BIT;
-    barrier.dstAccessMask                   = VK_ACCESS_MEMORY_READ_BIT;
-    barrier.oldLayout                       = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    barrier.newLayout                       = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    barrier.oldLayout     = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.newLayout     = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     vkCmdPipelineBarrier(handle, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
     buffer_put(staging_buffer);

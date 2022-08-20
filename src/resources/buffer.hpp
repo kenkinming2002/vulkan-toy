@@ -31,6 +31,5 @@ namespace vulkan
 
   VkBuffer buffer_get_handle(buffer_t buffer);
 
-  void buffer_copy(command_buffer_t command_buffer, buffer_t src, buffer_t dst, size_t size);
   void buffer_write(command_buffer_t command_buffer, buffer_t buffer, const void *data, size_t size);
 }
