@@ -179,8 +179,8 @@ struct Application
   vulkan::Context   context;
   vulkan::Allocator allocator;
 
-  vulkan::mesh_t  mesh;
-  vulkan::Texture texture;
+  vulkan::mesh_t    mesh;
+  vulkan::texture_t texture;
   vulkan::Sampler sampler;
 
   Chunk          *chunk;
@@ -204,7 +204,8 @@ void application_init(Application& application)
   vulkan::command_buffer_t command_buffer = command_buffer_create(&application.context);
   command_buffer_begin(command_buffer);
 
-  application.mesh = vulkan::mesh_load(command_buffer, &application.context, &application.allocator, "viking_room.obj");
+  application.mesh    = vulkan::mesh_load   (command_buffer, &application.context, &application.allocator, "viking_room.obj");
+  application.texture = vulkan::texture_load(command_buffer, &application.context, &application.allocator, "viking_room.png");
 
   command_buffer_end(command_buffer);
 
@@ -216,7 +217,6 @@ void application_init(Application& application)
 
   command_buffer_put(command_buffer);
 
-  vulkan::texture_load(application.context, application.allocator, "viking_room.png", application.texture);
   vulkan::init_sampler_simple(application.context, application.sampler);
 
   application.chunk = chunk_generate_random();
@@ -229,7 +229,7 @@ void application_init(Application& application)
   }, application.descriptor_pool);
 
   const vulkan::Descriptor descriptors[] = {
-    {.type = vulkan::DescriptorType::SAMPLER, .combined_image_sampler = { .image_view = application.texture.image_view, .sampler = application.sampler, }}
+    {.type = vulkan::DescriptorType::SAMPLER, .combined_image_sampler = { .image_view = vulkan::texture_get_image_view(application.texture), .sampler = application.sampler, }}
   };
 
   vulkan::allocate_descriptor_set(application.context, application.descriptor_pool, application.renderer.pipeline.descriptor_set_layout, application.descriptor_set);
@@ -247,7 +247,8 @@ void application_deinit(Application& application)
 
   vulkan::mesh_put(application.mesh);
   vulkan::mesh_put(application.chunk_mesh);
-  vulkan::texture_deinit(application.context, application.allocator, application.texture);
+  vulkan::texture_put(application.texture);
+
   vulkan::deinit_sampler(application.context, application.sampler);
 
   vulkan::renderer_deinit(application.context, application.renderer);
