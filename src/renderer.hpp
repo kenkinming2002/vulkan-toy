@@ -3,6 +3,7 @@
 #include "context.hpp"
 #include "input.hpp"
 #include "pipeline.hpp"
+#include "descriptor_set.hpp"
 #include "render_target.hpp"
 
 namespace vulkan

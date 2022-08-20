@@ -12,14 +12,11 @@ namespace vulkan
     mesh.vertex_buffer = buffer_create(&context, &allocator, vulkan::BufferType::VERTEX_BUFFER, create_info.vertex_count * sizeof create_info.vertices[0]);
     mesh.index_buffer  = buffer_create(&context, &allocator, vulkan::BufferType::INDEX_BUFFER,  create_info.index_count  * sizeof create_info.indices[0]);
 
-    CommandBuffer command_buffer = {};
-    init_command_buffer(context, command_buffer);
+    command_buffer_t command_buffer = command_buffer_create(&context);
 
     command_buffer_begin(command_buffer);
-
-    buffer_write(command_buffer.handle, mesh.vertex_buffer, create_info.vertices, create_info.vertex_count * sizeof create_info.vertices[0]);
-    buffer_write(command_buffer.handle, mesh.index_buffer,  create_info.indices,  create_info.index_count  * sizeof create_info.indices[0]);
-
+    buffer_write(command_buffer, mesh.vertex_buffer, create_info.vertices, create_info.vertex_count * sizeof create_info.vertices[0]);
+    buffer_write(command_buffer, mesh.index_buffer,  create_info.indices,  create_info.index_count  * sizeof create_info.indices[0]);
     command_buffer_end(command_buffer);
 
     Fence fence = {};
@@ -28,7 +25,7 @@ namespace vulkan
     fence_wait_and_reset(context, fence);
     deinit_fence(context, fence);
 
-    deinit_command_buffer(context, command_buffer);
+    command_buffer_put(command_buffer);
   }
 
   void mesh_deinit(const Context& context, Allocator& allocator, Mesh& model)

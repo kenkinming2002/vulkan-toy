@@ -1,6 +1,7 @@
 #pragma once
 
 #include "allocator.hpp"
+#include "command_buffer.hpp"
 #include "context.hpp"
 #include "ref.hpp"
 
@@ -23,11 +24,13 @@ namespace vulkan
   typedef struct Buffer *buffer_t;
 
   buffer_t buffer_create(const Context *context, Allocator *allocator, BufferType type, size_t size);
-  void buffer_get(buffer_t buffer);
-  void buffer_put(buffer_t buffer);
+  ref_t buffer_as_ref(buffer_t buffer);
+
+  inline void buffer_get(buffer_t buffer) { ref_get(buffer_as_ref(buffer)); }
+  inline void buffer_put(buffer_t buffer) { ref_put(buffer_as_ref(buffer));  }
 
   VkBuffer buffer_get_handle(buffer_t buffer);
 
-  void buffer_copy(VkCommandBuffer command_buffer, buffer_t src, buffer_t dst, size_t size);
-  void buffer_write(VkCommandBuffer command_buffer, buffer_t buffer, const void *data, size_t size);
+  void buffer_copy(command_buffer_t command_buffer, buffer_t src, buffer_t dst, size_t size);
+  void buffer_write(command_buffer_t command_buffer, buffer_t buffer, const void *data, size_t size);
 }

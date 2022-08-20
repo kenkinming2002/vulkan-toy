@@ -81,31 +81,24 @@ namespace vulkan
     return image;
   }
 
-  void image_get(image_t image)
-  {
-    ref_get(&image->ref);
-  }
-
-  void image_put(image_t image)
-  {
-    ref_put(&image->ref);
-  }
+  ref_t image_as_ref(image_t image) { return &image->ref; }
 
   VkImage image_get_handle(image_t image)
   {
     return image->handle;
   }
 
-  void image_write(VkCommandBuffer command_buffer, image_t image, const void *data, size_t width, size_t height, size_t size)
+  void image_write(command_buffer_t command_buffer, image_t image, const void *data, size_t width, size_t height, size_t size)
   {
     // Bytes per pixel should be integer
     assert(size / (width * height) * (width * height) == size);
 
-    // NOTE: This should not actually record any command in the command buffer,
-    //       otherwise, we would probably need a buffer memory barrier
-    // TODO: Make this fact explicit
     buffer_t staging_buffer = buffer_create(image->context, image->allocator, BufferType::STAGING_BUFFER, size);
     buffer_write(command_buffer, staging_buffer, data, size);
+
+    VkCommandBuffer handle = command_buffer_get_handle(command_buffer);
+    command_buffer_use(command_buffer, buffer_as_ref(staging_buffer));
+    command_buffer_use(command_buffer, image_as_ref(image));
 
     // TODO: What if we want to copy non color image
     VkImageMemoryBarrier barrier = {};
@@ -124,7 +117,7 @@ namespace vulkan
     barrier.dstAccessMask                   = VK_ACCESS_MEMORY_WRITE_BIT;
     barrier.oldLayout                       = VK_IMAGE_LAYOUT_UNDEFINED;
     barrier.newLayout                       = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+    vkCmdPipelineBarrier(handle, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
     // Copy
     VkBufferImageCopy buffer_image_copy = {};
@@ -137,16 +130,15 @@ namespace vulkan
     buffer_image_copy.imageSubresource.layerCount     = 1;
     buffer_image_copy.imageOffset                     = {0, 0, 0};
     buffer_image_copy.imageExtent                     = { static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1};
-    vkCmdCopyBufferToImage(command_buffer, buffer_get_handle(staging_buffer), image->handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &buffer_image_copy);
+    vkCmdCopyBufferToImage(handle, buffer_get_handle(staging_buffer), image->handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &buffer_image_copy);
 
     // Barrier
     barrier.srcAccessMask                   = VK_ACCESS_MEMORY_WRITE_BIT;
     barrier.dstAccessMask                   = VK_ACCESS_MEMORY_READ_BIT;
     barrier.oldLayout                       = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     barrier.newLayout                       = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+    vkCmdPipelineBarrier(handle, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
-    // TODO: Fix the memory leak
-    //buffer_put(staging_buffer);
+    buffer_put(staging_buffer);
   }
 }

@@ -57,6 +57,8 @@ namespace vulkan
 
   void render_target_deinit(const Context& context, Allocator& allocator, RenderTarget& render_target)
   {
+    (void)allocator;
+
     for(uint32_t i=0; i<render_target.image_count; ++i)
       deinit_framebuffer(context, render_target.framebuffers[i]);
 

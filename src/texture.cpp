@@ -11,13 +11,9 @@ namespace vulkan
   {
     texture.image = image_create(&context, &allocator, ImageType::TEXTURE, VK_FORMAT_R8G8B8A8_SRGB, create_info.width, create_info.height);
 
-    CommandBuffer command_buffer = {};
-    init_command_buffer(context, command_buffer);
-
+    command_buffer_t command_buffer = command_buffer_create(&context);
     command_buffer_begin(command_buffer);
-
-    image_write(command_buffer.handle, texture.image, create_info.data, create_info.width, create_info.height, create_info.width * create_info.height * 4);
-
+    image_write(command_buffer, texture.image, create_info.data, create_info.width, create_info.height, create_info.width * create_info.height * 4);
     command_buffer_end(command_buffer);
 
     Fence fence = {};
@@ -26,7 +22,7 @@ namespace vulkan
     fence_wait_and_reset(context, fence);
     deinit_fence(context, fence);
 
-    deinit_command_buffer(context, command_buffer);
+    command_buffer_put(command_buffer);
 
     vulkan::ImageViewCreateInfo image_view_create_info = {};
     image_view_create_info.type = ImageViewType::COLOR;

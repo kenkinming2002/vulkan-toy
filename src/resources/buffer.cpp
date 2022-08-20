@@ -84,31 +84,27 @@ namespace vulkan
     return buffer;
   }
 
-  void buffer_get(buffer_t buffer)
-  {
-    ref_get(&buffer->ref);
-  }
-
-  void buffer_put(buffer_t buffer)
-  {
-    ref_put(&buffer->ref);
-  }
+  ref_t buffer_as_ref(buffer_t buffer) { return &buffer->ref; }
 
   VkBuffer buffer_get_handle(buffer_t buffer)
   {
     return buffer->handle;
   }
 
-  void buffer_copy(VkCommandBuffer command_buffer, buffer_t src, buffer_t dst, size_t size)
+  void buffer_copy(command_buffer_t command_buffer, buffer_t src, buffer_t dst, size_t size)
   {
+    VkCommandBuffer handle = command_buffer_get_handle(command_buffer);
+    command_buffer_use(command_buffer, buffer_as_ref(src));
+    command_buffer_use(command_buffer, buffer_as_ref(dst));
+
     VkBufferCopy buffer_copy = {};
     buffer_copy.srcOffset = 0;
     buffer_copy.dstOffset = 0;
     buffer_copy.size      = size;
-    vkCmdCopyBuffer(command_buffer, src->handle, dst->handle, 1, &buffer_copy);
+    vkCmdCopyBuffer(handle, src->handle, dst->handle, 1, &buffer_copy);
   }
 
-  void buffer_write(VkCommandBuffer command_buffer, buffer_t buffer, const void *data, size_t size)
+  void buffer_write(command_buffer_t command_buffer, buffer_t buffer, const void *data, size_t size)
   {
     VkMemoryPropertyFlags memory_properties = buffer->allocator->memory_properties.memoryTypes[buffer->allocation.type_index].propertyFlags;
     if(memory_properties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
@@ -117,14 +113,13 @@ namespace vulkan
       VK_CHECK(vkMapMemory(buffer->context->device, buffer->allocation.memory, 0, size, 0, &buffer_data));
       memcpy(buffer_data, data, size);
       vkUnmapMemory(buffer->context->device, buffer->allocation.memory);
-      return;
     }
-
-    buffer_t staging_buffer = buffer_create(buffer->context, buffer->allocator, BufferType::STAGING_BUFFER, size);
-    buffer_write(command_buffer, staging_buffer, data, size);
-    buffer_copy(command_buffer, staging_buffer, buffer, size);
-
-    // TODO: Fix the memory leak
-    //buffer_put(staging_buffer);
+    else
+    {
+      buffer_t staging_buffer = buffer_create(buffer->context, buffer->allocator, BufferType::STAGING_BUFFER, size);
+      buffer_write(command_buffer, staging_buffer, data, size);
+      buffer_copy(command_buffer, staging_buffer, buffer, size);
+      buffer_put(staging_buffer);
+    }
   }
 }
