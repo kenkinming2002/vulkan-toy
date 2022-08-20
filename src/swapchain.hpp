@@ -18,8 +18,8 @@ namespace vulkan
     VkSwapchainKHR handle;
 
     uint32_t  image_count;
-    VkImage   *images;
-    ImageView *image_views;
+    VkImage      *images;
+    image_view_t *image_views;
   };
 
   void init_swapchain(const Context& context, Swapchain& swapchain);

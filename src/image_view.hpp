@@ -19,11 +19,14 @@ namespace vulkan
     image_t       image;
   };
 
-  struct ImageView
-  {
-    VkImageView      handle;
-  };
+  typedef struct ImageView *image_view_t;
 
-  void init_image_view(const Context& context, ImageViewCreateInfo create_info, ImageView& image_view);
-  void deinit_image_view(const Context& context, ImageView& image_view);
+  image_view_t image_view_create(const Context *context, ImageViewType type, VkFormat format, image_t image);
+  image_view_t image_view_create(const Context *context, ImageViewType type, VkFormat format, VkImage image);
+  ref_t image_view_as_ref(image_view_t image_view);
+
+  inline void image_view_get(image_view_t image_view) { ref_get(image_view_as_ref(image_view)); }
+  inline void image_view_put(image_view_t image_view) { ref_put(image_view_as_ref(image_view));  }
+
+  VkImageView image_view_get_handle(image_view_t image_view);
 }

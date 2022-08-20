@@ -24,18 +24,15 @@ namespace vulkan
 
     command_buffer_put(command_buffer);
 
-    vulkan::ImageViewCreateInfo image_view_create_info = {};
-    image_view_create_info.type = ImageViewType::COLOR;
-    image_view_create_info.format = VK_FORMAT_R8G8B8A8_SRGB;
-    image_view_create_info.image  = texture.image;
-    init_image_view(context, image_view_create_info, texture.image_view);
+    texture.image_view = image_view_create(&context, ImageViewType::COLOR, VK_FORMAT_R8G8B8A8_SRGB, texture.image);
 
   }
 
   void texture_deinit(const Context& context, Allocator& allocator, Texture& texture)
   {
+    (void)context;
     (void)allocator;
-    deinit_image_view(context, texture.image_view);
+    image_view_put(texture.image_view);
     image_put(texture.image);
   }
 

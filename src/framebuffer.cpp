@@ -11,7 +11,7 @@ namespace vulkan
   {
     dynarray<VkImageView> attachments = create_dynarray<VkImageView>(create_info.image_view_count);
     for(uint32_t i=0; i<create_info.image_view_count; ++i)
-      attachments[i] = create_info.image_views[i].handle;
+      attachments[i] = image_view_get_handle(create_info.image_views[i]);
 
     VkFramebufferCreateInfo framebuffer_create_info = {};
     framebuffer_create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;

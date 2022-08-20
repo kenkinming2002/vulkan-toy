@@ -37,7 +37,7 @@ namespace vulkan
 
   struct CombinedImageSmaplerDescriptor
   {
-    ImageView image_view;
+    image_view_t image_view;
     Sampler sampler;
   };
 

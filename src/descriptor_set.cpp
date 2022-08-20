@@ -78,7 +78,7 @@ namespace vulkan
         {
           VkDescriptorImageInfo *image_info = new VkDescriptorImageInfo{};
           image_info->imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-          image_info->imageView   = write_info.descriptors[i].combined_image_sampler.image_view.handle;
+          image_info->imageView   = image_view_get_handle(write_info.descriptors[i].combined_image_sampler.image_view);
           image_info->sampler     = write_info.descriptors[i].combined_image_sampler.sampler.handle;
           write_descriptor_sets[i].pImageInfo = image_info;
         }

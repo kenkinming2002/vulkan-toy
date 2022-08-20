@@ -23,17 +23,17 @@ namespace vulkan
       render_target.swapchain.extent.width,
       render_target.swapchain.extent.height
     );
-    init_image_view(context, ImageViewCreateInfo{
-      .type   = ImageViewType::DEPTH,
-      .format = VK_FORMAT_D32_SFLOAT,
-      .image  = render_target.depth_image,
-    }, render_target.depth_image_view);
+    render_target.depth_image_view = image_view_create(&context,
+      ImageViewType::DEPTH,
+      VK_FORMAT_D32_SFLOAT,
+      render_target.depth_image
+    );
 
     // Framebuffers
     render_target.framebuffers = new Framebuffer[render_target.swapchain.image_count];
     for(uint32_t i=0; i<render_target.swapchain.image_count; ++i)
     {
-      const ImageView image_views[] = {
+      const image_view_t image_views[] = {
         render_target.swapchain.image_views[i],
         render_target.depth_image_view,
       };
@@ -65,7 +65,7 @@ namespace vulkan
     delete[] render_target.framebuffers;
 
     image_put(render_target.depth_image);
-    deinit_image_view(context, render_target.depth_image_view);
+    image_view_put(render_target.depth_image_view);
 
     for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
       frame_deinit(context, render_target.frames[i]);

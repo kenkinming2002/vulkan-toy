@@ -119,27 +119,11 @@ namespace vulkan
 
     swapchain.image_count = image_count;
     swapchain.images      = new VkImage[image_count];
-    swapchain.image_views = new ImageView[image_count];
+    swapchain.image_views = new image_view_t[image_count];
 
     vkGetSwapchainImagesKHR(context.device, swapchain.handle, &image_count, swapchain.images);
     for(uint32_t i=0; i<image_count; ++i)
-    {
-      VkImageViewCreateInfo image_view_create_info = {};
-      image_view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-      image_view_create_info.image                           = swapchain.images[i];
-      image_view_create_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
-      image_view_create_info.format                          = swapchain.surface_format.format;
-      image_view_create_info.components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-      image_view_create_info.components.g                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-      image_view_create_info.components.b                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-      image_view_create_info.components.a                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-      image_view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-      image_view_create_info.subresourceRange.baseMipLevel   = 0;
-      image_view_create_info.subresourceRange.levelCount     = 1;
-      image_view_create_info.subresourceRange.baseArrayLayer = 0;
-      image_view_create_info.subresourceRange.layerCount     = 1;
-      VK_CHECK(vkCreateImageView(context.device, &image_view_create_info, nullptr, &swapchain.image_views[i].handle));
-    }
+      swapchain.image_views[i] = image_view_create(&context, ImageViewType::COLOR, swapchain.surface_format.format, swapchain.images[i]);
   }
 
   void deinit_swapchain(const Context& context, Swapchain& swapchain)
@@ -148,7 +132,7 @@ namespace vulkan
     swapchain.images = nullptr;
 
     for(uint32_t i=0; i<swapchain.image_count; ++i)
-      deinit_image_view(context, swapchain.image_views[i]);
+      image_view_put(swapchain.image_views[i]);
 
     swapchain.image_count = 0;
 

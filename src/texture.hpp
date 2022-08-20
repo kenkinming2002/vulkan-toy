@@ -15,8 +15,8 @@ namespace vulkan
 
   struct Texture
   {
-    image_t   image;
-    ImageView image_view;
+    image_t      image;
+    image_view_t image_view;
   };
 
   void texture_init(const Context& context, Allocator& allocator, TextureCreateInfo create_info, Texture& texture);

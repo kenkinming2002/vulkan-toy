@@ -21,7 +21,7 @@ namespace vulkan
 
     RenderPass   render_pass;
     image_t      depth_image;
-    ImageView    depth_image_view;
+    image_view_t depth_image_view;
     Framebuffer *framebuffers;
 
     uint32_t image_index;

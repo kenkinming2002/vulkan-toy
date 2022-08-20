@@ -9,9 +9,9 @@ namespace vulkan
   {
     VkRenderPass      render_pass;
 
-    VkExtent2D        extent;
-    const ImageView  *image_views;
-    uint32_t          image_view_count;
+    VkExtent2D          extent;
+    const image_view_t *image_views;
+    uint32_t            image_view_count;
   };
 
   struct Framebuffer
