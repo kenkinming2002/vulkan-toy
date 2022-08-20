@@ -20,7 +20,7 @@ namespace vulkan
     delete sampler;
   }
 
-  sampler_t sampler_create_simple(const Context *context, size_t mip_levels)
+  sampler_t sampler_create_simple(const Context *context)
   {
     sampler_t sampler = new Sampler {};
     sampler->ref.count = 1;
@@ -47,7 +47,7 @@ namespace vulkan
     sampler_create_info.mipmapMode              = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     sampler_create_info.mipLodBias              = 0.0f;
     sampler_create_info.minLod                  = 0.0f;
-    sampler_create_info.maxLod                  = mip_levels;
+    sampler_create_info.maxLod                  = VK_LOD_CLAMP_NONE;
     VK_CHECK(vkCreateSampler(sampler->context->device, &sampler_create_info, nullptr, &sampler->handle));
 
     return sampler;

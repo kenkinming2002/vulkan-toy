@@ -207,7 +207,7 @@ void application_init(Application& application)
   command_buffer_wait(command_buffer);
   command_buffer_put(command_buffer);
 
-  application.sampler = vulkan::sampler_create_simple(&application.context, 10); // TODO: Unhardcode this
+  application.sampler = vulkan::sampler_create_simple(&application.context);
 
   application.chunk = chunk_generate_random();
   application.chunk_mesh = chunk_generate_mesh(application.context, application.allocator, *application.chunk);
