@@ -25,11 +25,11 @@ srcs = [
   'src/resources/image.cpp',
   'src/resources/image_view.cpp',
   'src/resources/mesh.cpp',
+  'src/resources/texture.cpp',
   'src/sampler.cpp',
   'src/semaphore.cpp',
   'src/shader.cpp',
   'src/swapchain.cpp',
-  'src/texture.cpp',
   'src/vk_check.cpp',
 ]
 

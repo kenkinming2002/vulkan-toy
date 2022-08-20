@@ -5,9 +5,9 @@
 #include "renderer.hpp"
 #include "resources/buffer.hpp"
 #include "resources/mesh.hpp"
+#include "resources/texture.hpp"
 #include "sampler.hpp"
 #include "shader.hpp"
-#include "texture.hpp"
 #include "vk_check.hpp"
 
 #include "tiny_obj_loader.h"
