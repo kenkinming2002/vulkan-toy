@@ -18,7 +18,7 @@ namespace vulkan
 
     Fence fence = {};
     init_fence(context, fence, false);
-    command_buffer_submit(context, command_buffer, fence);
+    command_buffer_submit(command_buffer, fence);
     fence_wait_and_reset(context, fence);
     deinit_fence(context, fence);
 

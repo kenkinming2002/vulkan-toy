@@ -4,39 +4,58 @@
 
 namespace vulkan
 {
-  void mesh_init(const Context& context, Allocator& allocator, MeshCreateInfo create_info, Mesh& mesh)
+  struct Mesh
   {
-    mesh.vertex_count = create_info.vertex_count;
-    mesh.index_count  = create_info.index_count;
+    Ref ref;
 
-    mesh.vertex_buffer = buffer_create(&context, &allocator, vulkan::BufferType::VERTEX_BUFFER, create_info.vertex_count * sizeof create_info.vertices[0]);
-    mesh.index_buffer  = buffer_create(&context, &allocator, vulkan::BufferType::INDEX_BUFFER,  create_info.index_count  * sizeof create_info.indices[0]);
+    const Context *context;
+    Allocator     *allocator;
 
-    command_buffer_t command_buffer = command_buffer_create(&context);
+    size_t vertex_count;
+    size_t index_count;
 
-    command_buffer_begin(command_buffer);
-    buffer_write(command_buffer, mesh.vertex_buffer, create_info.vertices, create_info.vertex_count * sizeof create_info.vertices[0]);
-    buffer_write(command_buffer, mesh.index_buffer,  create_info.indices,  create_info.index_count  * sizeof create_info.indices[0]);
-    command_buffer_end(command_buffer);
+    buffer_t vertex_buffer;
+    buffer_t index_buffer;
+  };
 
-    Fence fence = {};
-    init_fence(context, fence, false);
-    command_buffer_submit(context, command_buffer, fence);
-    fence_wait_and_reset(context, fence);
-    deinit_fence(context, fence);
-
-    command_buffer_put(command_buffer);
+  static void mesh_free(ref_t ref)
+  {
+    mesh_t mesh = container_of(ref, Mesh, ref);
+    buffer_put(mesh->vertex_buffer);
+    buffer_put(mesh->index_buffer);
+    delete mesh;
   }
 
-  void mesh_deinit(const Context& context, Allocator& allocator, Mesh& model)
+  mesh_t mesh_create(const Context *context, Allocator *allocator, size_t vertex_count, size_t index_count)
   {
-    (void)context;
-    (void)allocator;
-    vulkan::buffer_put(model.vertex_buffer);
-    vulkan::buffer_put(model.index_buffer);
+    mesh_t mesh = new Mesh {};
+    mesh->ref.count = 1;
+    mesh->ref.free  = &mesh_free;
+
+    mesh->context   = context;
+    mesh->allocator = allocator;
+
+    mesh->vertex_count = vertex_count;
+    mesh->index_count  = index_count;
+
+    mesh->vertex_buffer = buffer_create(mesh->context, mesh->allocator, BufferType::VERTEX_BUFFER, sizeof(Vertex)   * mesh->vertex_count);
+    mesh->index_buffer  = buffer_create(mesh->context, mesh->allocator, BufferType::INDEX_BUFFER,  sizeof(uint32_t) * mesh->index_count);
+
+    return mesh;
   }
 
-  void mesh_load(const Context& context, Allocator& allocator, const char *file_name, Mesh& mesh)
+  ref_t mesh_as_ref(mesh_t mesh)
+  {
+    return &mesh->ref;
+  }
+
+  void mesh_write(command_buffer_t command_buffer, mesh_t mesh, const Vertex *vertices, const uint32_t *indices)
+  {
+    buffer_write(command_buffer, mesh->vertex_buffer, vertices, sizeof(Vertex)   * mesh->vertex_count);
+    buffer_write(command_buffer, mesh->index_buffer,  indices,  sizeof(uint32_t) * mesh->index_count);
+  }
+
+  mesh_t mesh_load(command_buffer_t command_buffer, const Context *context, Allocator *allocator, const char *file_name)
   {
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
@@ -75,24 +94,23 @@ namespace vulkan
         indices.push_back(indices.size());
       }
 
-    MeshCreateInfo create_info = {
-      .vertices     = vertices.data(),
-      .vertex_count = vertices.size(),
-      .indices     = indices.data(),
-      .index_count = indices.size(),
-    };
-    mesh_init(context, allocator, create_info, mesh);
+    mesh_t mesh = mesh_create(context, allocator, vertices.size(), indices.size());
+    mesh_write(command_buffer, mesh, vertices.data(), indices.data());
+    return mesh;
   }
 
-  void mesh_render_simple(VkCommandBuffer command_buffer, Mesh mesh)
+  void mesh_render_simple(command_buffer_t command_buffer, mesh_t mesh)
   {
     VkDeviceSize offsets[] = {0};
 
-    VkBuffer vertex_buffer_handle = buffer_get_handle(mesh.vertex_buffer);
-    VkBuffer index_buffer_handle  = buffer_get_handle(mesh.index_buffer);
+    VkCommandBuffer handle = command_buffer_get_handle(command_buffer);
+    command_buffer_use(command_buffer, buffer_as_ref(mesh->vertex_buffer));
+    command_buffer_use(command_buffer, buffer_as_ref(mesh->index_buffer));
+    VkBuffer vertex_buffer_handle = buffer_get_handle(mesh->vertex_buffer); // TODO: Consider putting this inside the buffer module
+    VkBuffer index_buffer_handle  = buffer_get_handle(mesh->index_buffer);  // TODO: Consider putting this inside the buffer module
 
-    vkCmdBindVertexBuffers(command_buffer, 0, 1, &vertex_buffer_handle, offsets);
-    vkCmdBindIndexBuffer(command_buffer, index_buffer_handle, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdDrawIndexed(command_buffer, mesh.index_count, 1, 0, 0, 0);
+    vkCmdBindVertexBuffers(handle, 0, 1, &vertex_buffer_handle, offsets);
+    vkCmdBindIndexBuffer(handle, index_buffer_handle, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(handle, mesh->index_count, 1, 0, 0, 0);
   }
 }

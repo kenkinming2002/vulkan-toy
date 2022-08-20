@@ -23,8 +23,8 @@ namespace vulkan
   void command_buffer_reset(command_buffer_t command_buffer);
 
   // TODO: Improve this API
-  void command_buffer_submit(const Context& context, command_buffer_t command_buffer, const Fence& fence);
-  void command_buffer_submit(const Context& context, command_buffer_t command_buffer, const Fence& fence,
+  void command_buffer_submit(command_buffer_t command_buffer, const Fence& fence);
+  void command_buffer_submit(command_buffer_t command_buffer, const Fence& fence,
       Semaphore wait_semaphore, VkPipelineStageFlags wait_stage,
       Semaphore signal_semaphore);
 }

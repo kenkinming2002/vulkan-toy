@@ -18,6 +18,20 @@ namespace vulkan
     glm::vec2 uv;
   };
 
+  typedef struct Mesh *mesh_t;
+
+  mesh_t mesh_create(const Context *context, Allocator *allocator, size_t vertex_count, size_t index_count);
+  ref_t mesh_as_ref(mesh_t mesh);
+
+  inline void mesh_get(mesh_t mesh) { ref_get(mesh_as_ref(mesh)); }
+  inline void mesh_put(mesh_t mesh) { ref_put(mesh_as_ref(mesh));  }
+
+  void mesh_write(command_buffer_t command_buffer, mesh_t mesh, const Vertex *vertices, const uint32_t *indices);
+  mesh_t mesh_load(command_buffer_t command_buffer, const Context *context, Allocator *allocator, const char *file_name);
+
+  void mesh_render_simple(command_buffer_t command_buffer, mesh_t mesh);
+
+
   static constexpr vulkan::VertexAttribute VERTEX_ATTRIBUTES[] = {
     { .offset = offsetof(Vertex, pos),    .type = vulkan::VertexAttribute::Type::FLOAT3 },
     { .offset = offsetof(Vertex, normal), .type = vulkan::VertexAttribute::Type::FLOAT3 },
@@ -36,27 +50,4 @@ namespace vulkan
     .binding_count = std::size(VERTEX_BINDINGS),
   };
 
-  struct MeshCreateInfo
-  {
-    const Vertex *vertices;
-    size_t        vertex_count;
-
-    const uint32_t *indices;
-    size_t          index_count;
-  };
-
-  struct Mesh
-  {
-    size_t vertex_count;
-    size_t index_count;
-
-    buffer_t vertex_buffer;
-    buffer_t index_buffer;
-  };
-
-  void mesh_init(const Context& context, Allocator& allocator, MeshCreateInfo create_info, Mesh& mesh);
-  void mesh_deinit(const Context& context, Allocator& allocator, Mesh& model);
-  void mesh_load(const Context& context, Allocator& allocator, const char *file_name, Mesh& mesh);
-
-  void mesh_render_simple(VkCommandBuffer command_buffer, Mesh mesh);
 }

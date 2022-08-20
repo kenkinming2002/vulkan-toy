@@ -88,10 +88,8 @@ namespace vulkan
     VK_CHECK(vkWaitForFences(context.device, 1, &frame.fence, VK_TRUE, UINT64_MAX));
     VK_CHECK(vkResetFences(context.device, 1, &frame.fence));
 
-    VkCommandBufferBeginInfo begin_info = {};
-    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    VK_CHECK(vkResetCommandBuffer(frame.command_buffer, 0));
-    VK_CHECK(vkBeginCommandBuffer(frame.command_buffer, &begin_info));
+    command_buffer_reset(frame.command_buffer);
+    command_buffer_begin(frame.command_buffer);
 
     VkRenderPassBeginInfo render_pass_begin_info = {};
     render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -108,32 +106,22 @@ namespace vulkan
     render_pass_begin_info.clearValueCount = 2;
     render_pass_begin_info.pClearValues = clear_values;
 
-    vkCmdBeginRenderPass(frame.command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+    VkCommandBuffer handle = command_buffer_get_handle(frame.command_buffer);
+    vkCmdBeginRenderPass(handle, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
     return true;
   }
 
   bool render_target_end_frame(const Context& context, RenderTarget& render_target, const Frame& frame)
   {
-    vkCmdEndRenderPass(frame.command_buffer);
+    VkCommandBuffer handle = command_buffer_get_handle(frame.command_buffer);
+    vkCmdEndRenderPass(handle);
 
     // End command buffer recording and submit
-    VK_CHECK(vkEndCommandBuffer(frame.command_buffer));
-
-    VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-
-    VkSubmitInfo submit_info = {};
-    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-    submit_info.waitSemaphoreCount = 1;
-    submit_info.pWaitSemaphores    = &frame.image_available_semaphore;
-    submit_info.pWaitDstStageMask  = &wait_stage;
-
-    submit_info.signalSemaphoreCount = 1;
-    submit_info.pSignalSemaphores    = &frame.render_finished_semaphore;
-
-    submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers    = &frame.command_buffer;
-    VK_CHECK(vkQueueSubmit(context.queue, 1, &submit_info, frame.fence));
+    command_buffer_end(frame.command_buffer);
+    command_buffer_submit(frame.command_buffer, Fence{frame.fence},
+        Semaphore{frame.image_available_semaphore},
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        Semaphore{frame.render_finished_semaphore});
 
     return swapchain_present_image_index(context, render_target.swapchain, frame.render_finished_semaphore, render_target.image_index) == SwapchainResult::SUCCESS;
   }

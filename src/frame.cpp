@@ -6,12 +6,7 @@ namespace vulkan
 {
   void frame_init(const Context& context, Frame& frame)
   {
-    VkCommandBufferAllocateInfo command_buffer_allocate_info = {};
-    command_buffer_allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    command_buffer_allocate_info.commandPool        = context.command_pool;
-    command_buffer_allocate_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    command_buffer_allocate_info.commandBufferCount = 1;
-    VK_CHECK(vkAllocateCommandBuffers(context.device, &command_buffer_allocate_info, &frame.command_buffer));
+    frame.command_buffer = command_buffer_create(&context);
 
     VkFenceCreateInfo fence_create_info = {};
     fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -26,6 +21,8 @@ namespace vulkan
 
   void frame_deinit(const Context& context, Frame& frame)
   {
+    command_buffer_put(frame.command_buffer);
+
     vkDestroyFence(context.device, frame.fence, nullptr);
     vkDestroySemaphore(context.device, frame.image_available_semaphore, nullptr);
     vkDestroySemaphore(context.device, frame.render_finished_semaphore, nullptr);

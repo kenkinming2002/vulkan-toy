@@ -91,16 +91,16 @@ namespace vulkan
     VK_CHECK(vkEndCommandBuffer(command_buffer->handle));
   }
 
-  void command_buffer_submit(const Context& context, command_buffer_t command_buffer, const Fence& fence)
+  void command_buffer_submit(command_buffer_t command_buffer, const Fence& fence)
   {
     VkSubmitInfo submit_info = {};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit_info.commandBufferCount = 1;
     submit_info.pCommandBuffers    = &command_buffer->handle;
-    VK_CHECK(vkQueueSubmit(context.queue, 1, &submit_info, fence.handle));
+    VK_CHECK(vkQueueSubmit(command_buffer->context->queue, 1, &submit_info, fence.handle));
   }
 
-  void command_buffer_submit(const Context& context, command_buffer_t command_buffer, const Fence& fence,
+  void command_buffer_submit(command_buffer_t command_buffer, const Fence& fence,
       Semaphore wait_semaphore, VkPipelineStageFlags wait_stage,
       Semaphore signal_semaphore)
   {
@@ -117,6 +117,6 @@ namespace vulkan
     submit_info.commandBufferCount = 1;
     submit_info.pCommandBuffers    = &command_buffer->handle;
 
-    VK_CHECK(vkQueueSubmit(context.queue, 1, &submit_info, fence.handle));
+    VK_CHECK(vkQueueSubmit(command_buffer->context->queue, 1, &submit_info, fence.handle));
   }
 }

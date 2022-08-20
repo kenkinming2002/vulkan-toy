@@ -1,12 +1,13 @@
 #pragma once
 
 #include "context.hpp"
+#include "command_buffer.hpp"
 
 namespace vulkan
 {
   struct Frame
   {
-    VkCommandBuffer command_buffer;
+    command_buffer_t command_buffer;
     VkFence         fence;
     VkSemaphore     image_available_semaphore;
     VkSemaphore     render_finished_semaphore;

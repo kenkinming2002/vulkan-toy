@@ -111,7 +111,7 @@ Chunk *chunk_generate_random()
   return chunk;
 }
 
-vulkan::Mesh chunk_generate_mesh(const vulkan::Context& context, vulkan::Allocator& allocator, const Chunk& chunk)
+vulkan::mesh_t chunk_generate_mesh(const vulkan::Context& context, vulkan::Allocator& allocator, const Chunk& chunk)
 {
   vector<vulkan::Vertex> vertices = create_vector<vulkan::Vertex>(1);
   vector<uint32_t>       indices  = create_vector<uint32_t>(1);
@@ -152,14 +152,22 @@ vulkan::Mesh chunk_generate_mesh(const vulkan::Context& context, vulkan::Allocat
   printf("vertices size = %ld\n", size(vertices));
   printf("indices  size = %ld\n", size(indices));
 
-  vulkan::MeshCreateInfo create_info = {};
-  create_info.index_count = size(indices);
-  create_info.indices     = data(indices);
-  create_info.vertex_count = size(vertices);
-  create_info.vertices     = data(vertices);
+  vulkan::mesh_t mesh = vulkan::mesh_create(&context, &allocator, size(vertices), size(indices));
 
-  vulkan::Mesh mesh = {};
-  vulkan::mesh_init(context, allocator, create_info, mesh);
+  vulkan::command_buffer_t command_buffer = command_buffer_create(&context);
+  command_buffer_begin(command_buffer);
+
+  vulkan::mesh_write(command_buffer, mesh, data(vertices), data(indices));
+
+  command_buffer_end(command_buffer);
+
+  vulkan::Fence fence = {};
+  init_fence(context, fence, false);
+  command_buffer_submit(command_buffer, fence);
+  fence_wait_and_reset(context, fence);
+  deinit_fence(context, fence);
+
+  command_buffer_put(command_buffer);
 
   destroy_vector(vertices);
   destroy_vector(indices);
@@ -171,12 +179,12 @@ struct Application
   vulkan::Context   context;
   vulkan::Allocator allocator;
 
-  vulkan::Mesh    mesh;
+  vulkan::mesh_t  mesh;
   vulkan::Texture texture;
   vulkan::Sampler sampler;
 
-  Chunk        *chunk;
-  vulkan::Mesh  chunk_mesh;
+  Chunk          *chunk;
+  vulkan::mesh_t  chunk_mesh;
 
   vulkan::DescriptorPool descriptor_pool;
   vulkan::DescriptorSet  descriptor_set;
@@ -193,7 +201,21 @@ void application_init(Application& application)
   vulkan::render_target_init(application.context, application.allocator, application.render_target);
   vulkan::renderer_init(application.context, application.render_target, RENDERER_CREATE_INFO, application.renderer);
 
-  vulkan::mesh_load(application.context, application.allocator, "viking_room.obj", application.mesh);
+  vulkan::command_buffer_t command_buffer = command_buffer_create(&application.context);
+  command_buffer_begin(command_buffer);
+
+  application.mesh = vulkan::mesh_load(command_buffer, &application.context, &application.allocator, "viking_room.obj");
+
+  command_buffer_end(command_buffer);
+
+  vulkan::Fence fence = {};
+  init_fence(application.context, fence, false);
+  command_buffer_submit(command_buffer, fence);
+  fence_wait_and_reset(application.context, fence);
+  deinit_fence(application.context, fence);
+
+  command_buffer_put(command_buffer);
+
   vulkan::texture_load(application.context, application.allocator, "viking_room.png", application.texture);
   vulkan::init_sampler_simple(application.context, application.sampler);
 
@@ -223,8 +245,8 @@ void application_deinit(Application& application)
 
   vulkan::deinit_descriptor_pool(application.context, application.descriptor_pool);
 
-  vulkan::mesh_deinit(application.context, application.allocator, application.mesh);
-  vulkan::mesh_deinit(application.context, application.allocator, application.chunk_mesh);
+  vulkan::mesh_put(application.mesh);
+  vulkan::mesh_put(application.chunk_mesh);
   vulkan::texture_deinit(application.context, application.allocator, application.texture);
   vulkan::deinit_sampler(application.context, application.sampler);
 
