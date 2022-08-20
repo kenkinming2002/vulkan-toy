@@ -1,7 +1,7 @@
 #pragma once
 
-#include "context.hpp"
-#include "command_buffer.hpp"
+#include "core/context.hpp"
+#include "core/command_buffer.hpp"
 
 namespace vulkan
 {

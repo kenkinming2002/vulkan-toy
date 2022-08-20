@@ -1,7 +1,7 @@
 #pragma once
 
 #include "buffer.hpp"
-#include "command_buffer.hpp"
+#include "core/command_buffer.hpp"
 #include "input.hpp"
 #include "ref.hpp"
 

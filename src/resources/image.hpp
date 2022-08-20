@@ -1,8 +1,8 @@
 #pragma once
 
 #include "allocator.hpp"
-#include "command_buffer.hpp"
-#include "context.hpp"
+#include "core/command_buffer.hpp"
+#include "core/context.hpp"
 #include "ref.hpp"
 
 namespace vulkan

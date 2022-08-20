@@ -8,10 +8,11 @@ vulkan_dep = dependency('vulkan')
 glm_dep    = dependency('glm')
 
 srcs = [
-  'src/command_buffer.cpp',
-  'src/context.cpp',
+  'src/core/command_buffer.cpp',
+  'src/core/context.cpp',
+  'src/core/fence.cpp',
+  'src/core/semaphore.cpp',
   'src/descriptor_set.cpp',
-  'src/fence.cpp',
   'src/frame.cpp',
   'src/framebuffer.cpp',
   'src/impl.cpp',
@@ -27,7 +28,6 @@ srcs = [
   'src/resources/mesh.cpp',
   'src/resources/sampler.cpp',
   'src/resources/texture.cpp',
-  'src/semaphore.cpp',
   'src/shader.cpp',
   'src/swapchain.cpp',
   'src/vk_check.cpp',

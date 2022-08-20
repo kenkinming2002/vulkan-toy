@@ -1,14 +1,14 @@
 #pragma once
 
-#include "command_buffer.hpp"
-#include "context.hpp"
-#include "fence.hpp"
+#include "core/command_buffer.hpp"
+#include "core/context.hpp"
+#include "core/fence.hpp"
 #include "frame.hpp"
 #include "framebuffer.hpp"
 #include "render_pass.hpp"
 #include "resources/image.hpp"
 #include "resources/image_view.hpp"
-#include "semaphore.hpp"
+#include "core/semaphore.hpp"
 #include "swapchain.hpp"
 
 namespace vulkan

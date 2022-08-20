@@ -1,9 +1,9 @@
 #pragma once
 
-#include "context.hpp"
+#include "core/context.hpp"
+#include "core/semaphore.hpp"
 #include "resources/image.hpp"
 #include "resources/image_view.hpp"
-#include "semaphore.hpp"
 #include "utils.hpp"
 
 namespace vulkan
