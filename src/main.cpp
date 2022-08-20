@@ -6,7 +6,7 @@
 #include "resources/buffer.hpp"
 #include "resources/mesh.hpp"
 #include "resources/texture.hpp"
-#include "sampler.hpp"
+#include "resources/sampler.hpp"
 #include "shader.hpp"
 #include "vk_check.hpp"
 
@@ -181,7 +181,7 @@ struct Application
 
   vulkan::mesh_t    mesh;
   vulkan::texture_t texture;
-  vulkan::Sampler sampler;
+  vulkan::sampler_t sampler;
 
   Chunk          *chunk;
   vulkan::mesh_t  chunk_mesh;
@@ -217,7 +217,7 @@ void application_init(Application& application)
 
   command_buffer_put(command_buffer);
 
-  vulkan::init_sampler_simple(application.context, application.sampler);
+  application.sampler = vulkan::sampler_create_simple(&application.context);
 
   application.chunk = chunk_generate_random();
   application.chunk_mesh = chunk_generate_mesh(application.context, application.allocator, *application.chunk);
@@ -248,8 +248,7 @@ void application_deinit(Application& application)
   vulkan::mesh_put(application.mesh);
   vulkan::mesh_put(application.chunk_mesh);
   vulkan::texture_put(application.texture);
-
-  vulkan::deinit_sampler(application.context, application.sampler);
+  vulkan::sampler_put(application.sampler);
 
   vulkan::renderer_deinit(application.context, application.renderer);
   vulkan::render_target_deinit(application.context, application.allocator, application.render_target);

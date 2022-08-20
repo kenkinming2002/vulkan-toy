@@ -4,10 +4,32 @@
 
 namespace vulkan
 {
-  void init_sampler_simple(const Context& context, Sampler& sampler)
+  struct Sampler
   {
+    Ref ref;
+
+    const Context *context;
+
+    VkSampler handle;
+  };
+
+  static void sampler_free(ref_t ref)
+  {
+    sampler_t sampler = container_of(ref, Sampler, ref);
+    vkDestroySampler(sampler->context->device, sampler->handle, nullptr);
+    delete sampler;
+  }
+
+  sampler_t sampler_create_simple(const Context *context)
+  {
+    sampler_t sampler = new Sampler {};
+    sampler->ref.count = 1;
+    sampler->ref.free  = sampler_free;
+
+    sampler->context = context;
+
     VkPhysicalDeviceProperties properties;
-    vkGetPhysicalDeviceProperties(context.physical_device, &properties);
+    vkGetPhysicalDeviceProperties(sampler->context->physical_device, &properties);
 
     VkSamplerCreateInfo sampler_create_info{};
     sampler_create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -26,11 +48,18 @@ namespace vulkan
     sampler_create_info.mipLodBias              = 0.0f;
     sampler_create_info.minLod                  = 0.0f;
     sampler_create_info.maxLod                  = 0.0f;
-    VK_CHECK(vkCreateSampler(context.device, &sampler_create_info, nullptr, &sampler.handle));
+    VK_CHECK(vkCreateSampler(sampler->context->device, &sampler_create_info, nullptr, &sampler->handle));
+
+    return sampler;
   }
 
-  void deinit_sampler(const Context& context, Sampler& sampler)
+  ref_t sampler_as_ref(sampler_t sampler)
   {
-    vkDestroySampler(context.device, sampler.handle, nullptr);
+    return &sampler->ref;
+  }
+
+  VkSampler sampler_get_handle(sampler_t sampler)
+  {
+    return sampler->handle;
   }
 }

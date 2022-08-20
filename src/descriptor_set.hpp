@@ -1,10 +1,10 @@
 #pragma once
 
 #include "context.hpp"
-#include "resources/image_view.hpp"
 #include "input.hpp"
 #include "resources/buffer.hpp"
-#include "sampler.hpp"
+#include "resources/image_view.hpp"
+#include "resources/sampler.hpp"
 
 namespace vulkan
 {
@@ -38,7 +38,7 @@ namespace vulkan
   struct CombinedImageSmaplerDescriptor
   {
     image_view_t image_view;
-    Sampler sampler;
+    sampler_t    sampler;
   };
 
   struct Descriptor
