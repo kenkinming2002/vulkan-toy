@@ -15,19 +15,25 @@ void main()
   vec3  light_pos       = vec3(0.0, 2.0, 2.0);
   vec3  light_color     = vec3(0.2, 0.2, 0.8);
 
-  vec3 ambient_color = texture(texSampler, fragUV).rgb * fragColor;
-  vec3 diffuse_color = texture(texSampler, fragUV).rgb * fragColor;
+  vec3 ambient_color  = texture(texSampler, fragUV).rgb * fragColor;
+  vec3 diffuse_color  = texture(texSampler, fragUV).rgb * fragColor;
+  vec3 specular_color = texture(texSampler, fragUV).rgb * fragColor;
 
   vec3  light_dir      = normalize(light_pos - fragPos);
   float light_distance = length(light_pos - fragPos);
   vec3  normal         = normalize(fragNormal);
 
-  float ambient_strength = 0.0;
-  float diffuse_strength = clamp(dot(fragNormal, light_dir), 0.0, 1.0)  * light_intensity / (light_distance * light_distance);
+  float cos_factor    = clamp(dot(fragNormal, light_dir), 0.0, 1.0);
+  float light_factor = light_intensity / (light_distance * light_distance);
+
+  float ambient_strength  = 0.0;
+  float diffuse_strength  = cos_factor * light_factor;
+  float specular_strength = pow(cos_factor, 5)  * light_factor;
 
   vec3 result_color =
     ambient_color * ambient_strength +
-    diffuse_color * diffuse_strength * light_color;
+    diffuse_color * diffuse_strength * light_color +
+    specular_color * specular_strength * light_color;
 
   outColor = vec4(result_color , 1.0);
 }
