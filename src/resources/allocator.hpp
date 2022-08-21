@@ -4,28 +4,25 @@
 
 namespace vulkan
 {
-  struct Allocator
-  {
-    VkPhysicalDeviceMemoryProperties memory_properties;
-  };
+  typedef struct Allocator    *allocator_t;
+  typedef struct DeviceMemory *device_memory_t;
 
-  void init_allocator(context_t context, Allocator& allocator);
-  void deinit_allocator(context_t context, Allocator& allocator);
+  ref_t allocator_as_ref(allocator_t allocator);
 
-  struct MemoryAllocationInfo
-  {
-    uint32_t              type_bits;
-    VkMemoryPropertyFlags properties;
-    VkDeviceSize          size;
-  };
+  inline void allocator_get(allocator_t allocator) { ref_get(allocator_as_ref(allocator)); }
+  inline void allocator_put(allocator_t allocator) { ref_put(allocator_as_ref(allocator));  }
 
-  struct MemoryAllocation
-  {
-    VkDeviceMemory memory;
-    uint32_t       type_index;
-    VkDeviceSize   size;
-  };
+  ref_t device_memory_as_ref(device_memory_t device_memory);
 
-  void allocate_memory(context_t context, Allocator& allocator, MemoryAllocationInfo info, MemoryAllocation& allocation);
-  void deallocate_memory(context_t context, Allocator& allocator, MemoryAllocation& allocation);
+  inline void device_memory_get(device_memory_t device_memory) { ref_get(device_memory_as_ref(device_memory)); }
+  inline void device_memory_put(device_memory_t device_memory) { ref_put(device_memory_as_ref(device_memory));  }
+
+  VkDeviceMemory device_memory_get_handle(device_memory_t device_memory);
+
+  allocator_t allocator_create(context_t context);
+  device_memory_t device_memory_allocate(allocator_t allocator, uint32_t type_bits, VkMemoryPropertyFlags memory_properties, VkDeviceSize size);
+
+  bool device_memory_mappable(device_memory_t device_memory);
+  void *device_memory_map(device_memory_t device_memory);
+  void device_memory_unmap(device_memory_t device_memory);
 }

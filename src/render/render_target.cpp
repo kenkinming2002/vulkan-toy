@@ -6,7 +6,7 @@
 
 namespace vulkan
 {
-  void render_target_init(context_t context, Allocator& allocator, RenderTarget& render_target)
+  void render_target_init(context_t context, allocator_t allocator, RenderTarget& render_target)
   {
     init_swapchain(context, render_target.swapchain);
 
@@ -17,7 +17,7 @@ namespace vulkan
     }, render_target.render_pass);
 
     // Depth attachment
-    render_target.depth_image = image_create(context, &allocator,
+    render_target.depth_image = image_create(context, allocator,
       ImageType::DEPTH_ATTACHMENT,
       VK_FORMAT_D32_SFLOAT,
       render_target.swapchain.extent.width,
@@ -57,7 +57,7 @@ namespace vulkan
     render_target.frame_index = 0;
   }
 
-  void render_target_deinit(context_t context, Allocator& allocator, RenderTarget& render_target)
+  void render_target_deinit(context_t context, allocator_t allocator, RenderTarget& render_target)
   {
     (void)allocator;
 

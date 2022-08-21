@@ -17,7 +17,7 @@ namespace vulkan
 
   typedef struct Buffer *buffer_t;
 
-  buffer_t buffer_create(context_t context, Allocator *allocator, BufferType type, size_t size);
+  buffer_t buffer_create(context_t context, allocator_t allocator, BufferType type, size_t size);
   ref_t buffer_as_ref(buffer_t buffer);
 
   inline void buffer_get(buffer_t buffer) { ref_get(buffer_as_ref(buffer)); }

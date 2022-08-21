@@ -8,8 +8,8 @@ namespace vulkan
   {
     Ref ref;
 
-    context_t context;
-    Allocator     *allocator;
+    context_t   context;
+    allocator_t allocator;
 
     size_t vertex_count;
     size_t index_count;
@@ -27,7 +27,7 @@ namespace vulkan
     delete mesh;
   }
 
-  mesh_t mesh_create(context_t context, Allocator *allocator, size_t vertex_count, size_t index_count)
+  mesh_t mesh_create(context_t context, allocator_t allocator, size_t vertex_count, size_t index_count)
   {
     mesh_t mesh = new Mesh {};
     mesh->ref.count = 1;
@@ -36,6 +36,7 @@ namespace vulkan
     context_get(context);
     mesh->context   = context;
 
+    allocator_get(allocator);
     mesh->allocator = allocator;
 
     mesh->vertex_count = vertex_count;
@@ -58,7 +59,7 @@ namespace vulkan
     buffer_write(command_buffer, mesh->index_buffer,  indices,  sizeof(uint32_t) * mesh->index_count);
   }
 
-  mesh_t mesh_load(command_buffer_t command_buffer, context_t context, Allocator *allocator, const char *file_name)
+  mesh_t mesh_load(command_buffer_t command_buffer, context_t context, allocator_t allocator, const char *file_name)
   {
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;

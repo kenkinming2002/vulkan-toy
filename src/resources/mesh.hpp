@@ -21,14 +21,14 @@ namespace vulkan
 
   typedef struct Mesh *mesh_t;
 
-  mesh_t mesh_create(context_t context, Allocator *allocator, size_t vertex_count, size_t index_count);
+  mesh_t mesh_create(context_t context, allocator_t allocator, size_t vertex_count, size_t index_count);
   ref_t mesh_as_ref(mesh_t mesh);
 
   inline void mesh_get(mesh_t mesh) { ref_get(mesh_as_ref(mesh)); }
   inline void mesh_put(mesh_t mesh) { ref_put(mesh_as_ref(mesh));  }
 
   void mesh_write(command_buffer_t command_buffer, mesh_t mesh, const Vertex *vertices, const uint32_t *indices);
-  mesh_t mesh_load(command_buffer_t command_buffer, context_t context, Allocator *allocator, const char *file_name);
+  mesh_t mesh_load(command_buffer_t command_buffer, context_t context, allocator_t allocator, const char *file_name);
 
   void mesh_render_simple(command_buffer_t command_buffer, mesh_t mesh);
 

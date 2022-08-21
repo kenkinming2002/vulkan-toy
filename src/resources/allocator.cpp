@@ -2,62 +2,130 @@
 
 #include "vk_check.hpp"
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <vulkan/vulkan_core.h>
 
 namespace vulkan
 {
-  void init_allocator(context_t context, Allocator& allocator)
+  struct Allocator
   {
-    VkPhysicalDevice physical_device = context_get_physical_device(context);
-    vkGetPhysicalDeviceMemoryProperties(physical_device, &allocator.memory_properties);
+    Ref ref;
+
+    context_t context;
+    VkPhysicalDeviceMemoryProperties memory_properties;
+  };
+
+  struct DeviceMemory
+  {
+    Ref ref;
+
+    context_t context;
+
+    VkDeviceMemory handle;
+
+    VkMemoryPropertyFlags properties;
+    VkDeviceSize          size;
+  };
+
+  ref_t allocator_as_ref(allocator_t allocator)
+  {
+    return &allocator->ref;
   }
 
-  void deinit_allocator(context_t context, Allocator& allocator)
+  ref_t device_memory_as_ref(device_memory_t device_memory)
   {
-    (void)context;
-    allocator = {};
+    return &device_memory->ref;
   }
 
-  template<typename T>
-  static bool is_bits_set(T value, T flags)
+  VkDeviceMemory device_memory_get_handle(device_memory_t device_memory)
   {
-    return (value & flags) == flags;
+    return device_memory->handle;
   }
 
-  void allocate_memory(context_t context, Allocator& allocator, MemoryAllocationInfo info, MemoryAllocation& allocation)
+  static void allocator_free(ref_t ref)
   {
-    VkDevice device = context_get_device_handle(context);
+    allocator_t allocator = container_of(ref, Allocator, ref);
+    context_put(allocator->context);
+    delete allocator;
+  }
 
-    for(uint32_t i = 0; i < allocator.memory_properties.memoryTypeCount; i++)
+  allocator_t allocator_create(context_t context)
+  {
+    allocator_t allocator = new Allocator;
+    allocator->ref.count = 1;
+    allocator->ref.free  = allocator_free;
+
+    context_get(context);
+    allocator->context = context;
+
+    VkPhysicalDevice physical_device = context_get_physical_device(allocator->context);
+    vkGetPhysicalDeviceMemoryProperties(physical_device, &allocator->memory_properties);
+
+    return allocator;
+  }
+
+  static void device_memory_free(ref_t ref)
+  {
+    device_memory_t device_memory = container_of(ref, DeviceMemory, ref);
+    context_put(device_memory->context);
+    delete device_memory;
+  }
+
+  template<typename T> static inline bool is_bits_set(T value, T flags) { return (value & flags) == flags; }
+  device_memory_t device_memory_allocate(allocator_t allocator, uint32_t type_bits, VkMemoryPropertyFlags memory_properties, VkDeviceSize size)
+  {
+    device_memory_t device_memory = new DeviceMemory;
+    device_memory->ref.count = 1;
+    device_memory->ref.free  = device_memory_free;
+
+    context_get(allocator->context);
+    device_memory->context = allocator->context;
+
+    VkDevice device = context_get_device_handle(device_memory->context);
+    for(uint32_t type_index = 0; type_index < allocator->memory_properties.memoryTypeCount; ++type_index)
     {
-      if(!is_bits_set<uint32_t>(info.type_bits, 1 << i))
+      if(!is_bits_set<uint32_t>(type_bits, 1 << type_index))
         continue;
 
-      VkMemoryType memory_type = allocator.memory_properties.memoryTypes[i];
-      if(!is_bits_set(memory_type.propertyFlags, info.properties))
+      VkMemoryType memory_type = allocator->memory_properties.memoryTypes[type_index];
+      if(!is_bits_set(memory_type.propertyFlags, memory_properties))
         continue;
 
       VkMemoryAllocateInfo allocate_info = {};
       allocate_info.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-      allocate_info.memoryTypeIndex = i;
-      allocate_info.allocationSize  = info.size;
-      VK_CHECK(vkAllocateMemory(device, &allocate_info, nullptr, &allocation.memory));
+      allocate_info.memoryTypeIndex = type_index;
+      allocate_info.allocationSize  = size;
+      VK_CHECK(vkAllocateMemory(device, &allocate_info, nullptr, &device_memory->handle));
 
-      allocation.type_index = i;
-      allocation.size       = info.size;
-      return;
+      device_memory->properties = memory_type.propertyFlags;
+      device_memory->size       = size;
+      return device_memory;
     }
 
     fprintf(stderr, "No memory type while allocating device memory");
     abort();
   }
 
-  void deallocate_memory(context_t context, Allocator& allocator, MemoryAllocation& allocation)
+  bool device_memory_mappable(device_memory_t device_memory)
   {
-    VkDevice device = context_get_device_handle(context);
+    return device_memory->properties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+  }
 
-    (void)allocator;
-    vkFreeMemory(device, allocation.memory, nullptr);
+  void *device_memory_map(device_memory_t device_memory)
+  {
+    assert(device_memory_mappable(device_memory));
+
+    VkDevice device = context_get_device_handle(device_memory->context);
+    void *data;
+    vkMapMemory(device, device_memory->handle, 0, VK_WHOLE_SIZE, 0, &data);
+    return data;
+  }
+
+  void device_memory_unmap(device_memory_t device_memory)
+  {
+    VkDevice device = context_get_device_handle(device_memory->context);
+    vkUnmapMemory(device, device_memory->handle);
   }
 }

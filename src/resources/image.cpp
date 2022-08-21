@@ -26,14 +26,14 @@ namespace vulkan
   {
     Ref ref;
 
-    context_t context;
-    Allocator     *allocator;
+    context_t   context;
+    allocator_t allocator;
 
     size_t width, height;
     size_t mip_levels;
 
-    VkImage          handle;
-    MemoryAllocation allocation;
+    VkImage         handle;
+    device_memory_t device_memory;
   };
 
   static void image_free(ref_t ref)
@@ -43,14 +43,15 @@ namespace vulkan
     VkDevice device = context_get_device_handle(image->context);
 
     vkDestroyImage(device, image->handle, nullptr);
-    deallocate_memory(image->context, *image->allocator, image->allocation);
+    device_memory_put(image->device_memory);
 
     context_put(image->context);
+    allocator_put(image->allocator);
 
     delete image;
   }
 
-  image_t image_create(context_t context, Allocator *allocator, ImageType type, VkFormat format, size_t width, size_t height, size_t mip_levels)
+  image_t image_create(context_t context, allocator_t allocator, ImageType type, VkFormat format, size_t width, size_t height, size_t mip_levels)
   {
     image_t image = new Image {};
     image->ref.count = 1;
@@ -58,6 +59,8 @@ namespace vulkan
 
     context_get(context);
     image->context   = context;
+
+    allocator_get(allocator);
     image->allocator = allocator;
 
     VkDevice device = context_get_device_handle(image->context);
@@ -86,12 +89,12 @@ namespace vulkan
     VkMemoryRequirements memory_requirements = {};
     vkGetImageMemoryRequirements(device, image->handle, &memory_requirements);
 
-    MemoryAllocationInfo allocation_info = {};
-    allocation_info.type_bits  = memory_requirements.memoryTypeBits;
-    allocation_info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    allocation_info.size       = memory_requirements.size;
-    allocate_memory(image->context, *image->allocator, allocation_info, image->allocation);
-    VK_CHECK(vkBindImageMemory(device, image->handle, image->allocation.memory, 0));
+    image->device_memory = device_memory_allocate(image->allocator,
+        memory_requirements.memoryTypeBits,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        memory_requirements.size);
+
+    VK_CHECK(vkBindImageMemory(device, image->handle, device_memory_get_handle(image->device_memory), 0));
 
     return image;
   }

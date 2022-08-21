@@ -109,7 +109,7 @@ Chunk *chunk_generate_random()
   return chunk;
 }
 
-vulkan::mesh_t chunk_generate_mesh(vulkan::context_t context, vulkan::Allocator& allocator, const Chunk& chunk)
+vulkan::mesh_t chunk_generate_mesh(vulkan::context_t context, vulkan::allocator_t allocator, const Chunk& chunk)
 {
   vector<vulkan::Vertex> vertices = create_vector<vulkan::Vertex>(1);
   vector<uint32_t>       indices  = create_vector<uint32_t>(1);
@@ -150,7 +150,7 @@ vulkan::mesh_t chunk_generate_mesh(vulkan::context_t context, vulkan::Allocator&
   printf("vertices size = %ld\n", size(vertices));
   printf("indices  size = %ld\n", size(indices));
 
-  vulkan::mesh_t mesh = vulkan::mesh_create(context, &allocator, size(vertices), size(indices));
+  vulkan::mesh_t mesh = vulkan::mesh_create(context, allocator, size(vertices), size(indices));
 
   vulkan::command_buffer_t command_buffer = vulkan::command_buffer_create(context);
   command_buffer_begin(command_buffer);
@@ -169,8 +169,8 @@ vulkan::mesh_t chunk_generate_mesh(vulkan::context_t context, vulkan::Allocator&
 
 struct Application
 {
-  vulkan::context_t context;
-  vulkan::Allocator allocator;
+  vulkan::context_t   context;
+  vulkan::allocator_t allocator;
 
   vulkan::mesh_t    mesh;
   vulkan::texture_t texture;
@@ -189,8 +189,7 @@ struct Application
 void application_init(Application& application)
 {
   application.context = vulkan::context_create(APPLICATION_NAME, ENGINE_NAME, WINDOW_NAME, WINDOW_WIDTH, WINDOW_HEIGHT);
-
-  vulkan::init_allocator(application.context, application.allocator);
+  application.allocator = vulkan::allocator_create(application.context);
 
   vulkan::render_target_init(application.context, application.allocator, application.render_target);
   vulkan::renderer_init(application.context, application.render_target, RENDERER_CREATE_INFO, application.renderer);
@@ -198,8 +197,8 @@ void application_init(Application& application)
   vulkan::command_buffer_t command_buffer = command_buffer_create(application.context);
   command_buffer_begin(command_buffer);
 
-  application.mesh    = vulkan::mesh_load   (command_buffer, application.context, &application.allocator, "viking_room.obj");
-  application.texture = vulkan::texture_load(command_buffer, application.context, &application.allocator, "viking_room.png");
+  application.mesh    = vulkan::mesh_load   (command_buffer, application.context, application.allocator, "viking_room.obj");
+  application.texture = vulkan::texture_load(command_buffer, application.context, application.allocator, "viking_room.png");
 
   command_buffer_end(command_buffer);
   command_buffer_submit(command_buffer);
@@ -243,7 +242,7 @@ void application_deinit(Application& application)
   vulkan::renderer_deinit(application.context, application.renderer);
   vulkan::render_target_deinit(application.context, application.allocator, application.render_target);
 
-  vulkan::deinit_allocator(application.context, application.allocator);
+  vulkan::allocator_put(application.allocator);
   vulkan::context_put(application.context);
 }
 

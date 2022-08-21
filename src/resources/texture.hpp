@@ -11,7 +11,7 @@ namespace vulkan
 {
   typedef struct Texture *texture_t;
 
-  texture_t texture_create(context_t context, Allocator *allocator, ImageType image_type, ImageViewType image_view_type, VkFormat format, size_t width, size_t height);
+  texture_t texture_create(context_t context, allocator_t allocator, ImageType image_type, ImageViewType image_view_type, VkFormat format, size_t width, size_t height);
   ref_t texture_as_ref(texture_t texture);
 
   inline void texture_get(texture_t texture) { ref_get(texture_as_ref(texture)); }
@@ -21,5 +21,5 @@ namespace vulkan
   image_view_t texture_get_image_view(texture_t texture);
 
   void texture_write(command_buffer_t command_buffer, texture_t texture, const void *data, size_t width, size_t height, size_t size);
-  texture_t texture_load(command_buffer_t command_buffer, context_t context, Allocator *allocator, const char *file_name);
+  texture_t texture_load(command_buffer_t command_buffer, context_t context, allocator_t allocator, const char *file_name);
 }
