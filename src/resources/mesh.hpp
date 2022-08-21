@@ -2,8 +2,8 @@
 
 #include "buffer.hpp"
 #include "core/command_buffer.hpp"
-#include "input.hpp"
 #include "ref.hpp"
+#include "render/input.hpp"
 
 #include <glm/glm.hpp>
 
