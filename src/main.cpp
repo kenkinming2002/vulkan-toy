@@ -46,13 +46,12 @@ struct Matrices
 };
 
 // Constant sections
-static constexpr vulkan::ContextCreateInfo CONTEXT_CREATE_INFO = {
-  .application_name = "Vulkan",
-  .engine_name      = "Engine",
-  .window_name      = "Vulkan",
-  .width            = 1080,
-  .height           = 720,
-};
+static constexpr const char *APPLICATION_NAME = "Vulkan";
+static constexpr const char *ENGINE_NAME      = "Engine";
+static constexpr const char *WINDOW_NAME      = "Vulkan";
+static constexpr const unsigned WINDOW_WIDTH  = 1080;
+static constexpr const unsigned WINDOW_HEIGHT = 720;
+
 static constexpr const char *VERTEX_SHADER_FILE_NAME   = "shaders/vert.spv";
 static constexpr const char *FRAGMENT_SHADER_FILE_NAME = "shaders/frag.spv";
 
@@ -111,7 +110,7 @@ Chunk *chunk_generate_random()
   return chunk;
 }
 
-vulkan::mesh_t chunk_generate_mesh(const vulkan::Context& context, vulkan::Allocator& allocator, const Chunk& chunk)
+vulkan::mesh_t chunk_generate_mesh(vulkan::context_t context, vulkan::Allocator& allocator, const Chunk& chunk)
 {
   vector<vulkan::Vertex> vertices = create_vector<vulkan::Vertex>(1);
   vector<uint32_t>       indices  = create_vector<uint32_t>(1);
@@ -152,9 +151,9 @@ vulkan::mesh_t chunk_generate_mesh(const vulkan::Context& context, vulkan::Alloc
   printf("vertices size = %ld\n", size(vertices));
   printf("indices  size = %ld\n", size(indices));
 
-  vulkan::mesh_t mesh = vulkan::mesh_create(&context, &allocator, size(vertices), size(indices));
+  vulkan::mesh_t mesh = vulkan::mesh_create(context, &allocator, size(vertices), size(indices));
 
-  vulkan::command_buffer_t command_buffer = command_buffer_create(&context);
+  vulkan::command_buffer_t command_buffer = vulkan::command_buffer_create(context);
   command_buffer_begin(command_buffer);
 
   vulkan::mesh_write(command_buffer, mesh, data(vertices), data(indices));
@@ -171,7 +170,7 @@ vulkan::mesh_t chunk_generate_mesh(const vulkan::Context& context, vulkan::Alloc
 
 struct Application
 {
-  vulkan::Context   context;
+  vulkan::context_t context;
   vulkan::Allocator allocator;
 
   vulkan::mesh_t    mesh;
@@ -190,24 +189,25 @@ struct Application
 
 void application_init(Application& application)
 {
-  vulkan::init_context(CONTEXT_CREATE_INFO, application.context);
+  application.context = vulkan::context_create(APPLICATION_NAME, ENGINE_NAME, WINDOW_NAME, WINDOW_WIDTH, WINDOW_HEIGHT);
+
   vulkan::init_allocator(application.context, application.allocator);
 
   vulkan::render_target_init(application.context, application.allocator, application.render_target);
   vulkan::renderer_init(application.context, application.render_target, RENDERER_CREATE_INFO, application.renderer);
 
-  vulkan::command_buffer_t command_buffer = command_buffer_create(&application.context);
+  vulkan::command_buffer_t command_buffer = command_buffer_create(application.context);
   command_buffer_begin(command_buffer);
 
-  application.mesh    = vulkan::mesh_load   (command_buffer, &application.context, &application.allocator, "viking_room.obj");
-  application.texture = vulkan::texture_load(command_buffer, &application.context, &application.allocator, "viking_room.png");
+  application.mesh    = vulkan::mesh_load   (command_buffer, application.context, &application.allocator, "viking_room.obj");
+  application.texture = vulkan::texture_load(command_buffer, application.context, &application.allocator, "viking_room.png");
 
   command_buffer_end(command_buffer);
   command_buffer_submit(command_buffer);
   command_buffer_wait(command_buffer);
   command_buffer_put(command_buffer);
 
-  application.sampler = vulkan::sampler_create_simple(&application.context);
+  application.sampler = vulkan::sampler_create_simple(application.context);
 
   application.chunk = chunk_generate_random();
   application.chunk_mesh = chunk_generate_mesh(application.context, application.allocator, *application.chunk);
@@ -231,7 +231,8 @@ void application_init(Application& application)
 
 void application_deinit(Application& application)
 {
-  vkDeviceWaitIdle(application.context.device);
+  VkDevice device = vulkan::context_get_device_handle(application.context);
+  vkDeviceWaitIdle(device);
 
   vulkan::deinit_descriptor_pool(application.context, application.descriptor_pool);
 
@@ -244,7 +245,7 @@ void application_deinit(Application& application)
   vulkan::render_target_deinit(application.context, application.allocator, application.render_target);
 
   vulkan::deinit_allocator(application.context, application.allocator);
-  vulkan::deinit_context(application.context);
+  vulkan::context_put(application.context);
 }
 
 void application_update(Application& application)
@@ -258,7 +259,8 @@ void application_render(Application& application)
   vulkan::Frame frame = {};
   while(!vulkan::render_target_begin_frame(application.context, application.render_target, frame))
   {
-    vkDeviceWaitIdle(application.context.device);
+    VkDevice device = vulkan::context_get_device_handle(application.context);
+    vkDeviceWaitIdle(device);
 
     vulkan::renderer_deinit(application.context, application.renderer);
     vulkan::render_target_deinit(application.context, application.allocator, application.render_target);
@@ -298,7 +300,8 @@ void application_render(Application& application)
   // Present frame
   if(!vulkan::render_target_end_frame(application.context, application.render_target, frame))
   {
-    vkDeviceWaitIdle(application.context.device);
+    VkDevice device = vulkan::context_get_device_handle(application.context);
+    vkDeviceWaitIdle(device);
 
     vulkan::renderer_deinit(application.context, application.renderer);
     vulkan::render_target_deinit(application.context, application.allocator, application.render_target);

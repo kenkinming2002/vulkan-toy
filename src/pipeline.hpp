@@ -27,6 +27,6 @@ namespace vulkan
   };
 
   // TODO: Use pipeline cache
-  void init_pipeline2(const Context& context, PipelineCreateInfo2 create_info, Pipeline2& pipeline);
-  void deinit_pipeline2(const Context& context, Pipeline2& pipeline);
+  void init_pipeline2(context_t context, PipelineCreateInfo2 create_info, Pipeline2& pipeline);
+  void deinit_pipeline2(context_t context, Pipeline2& pipeline);
 }

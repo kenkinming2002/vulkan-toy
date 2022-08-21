@@ -22,8 +22,8 @@ namespace vulkan
     image_view_t *image_views;
   };
 
-  void init_swapchain(const Context& context, Swapchain& swapchain);
-  void deinit_swapchain(const Context& context, Swapchain& swapchain);
+  void init_swapchain(context_t context, Swapchain& swapchain);
+  void deinit_swapchain(context_t context, Swapchain& swapchain);
 
   enum class SwapchainResult
   {
@@ -31,6 +31,6 @@ namespace vulkan
     SUBOPTIMAL,
     OUT_OF_DATE,
   };
-  SwapchainResult swapchain_next_image_index(const Context& context, const Swapchain& swapchain, VkSemaphore signal_semaphore, uint32_t& image_index);
-  SwapchainResult swapchain_present_image_index(const Context& context, const Swapchain& swapchain, VkSemaphore wait_semaphore, uint32_t image_index);
+  SwapchainResult swapchain_next_image_index(context_t context, const Swapchain& swapchain, VkSemaphore signal_semaphore, uint32_t& image_index);
+  SwapchainResult swapchain_present_image_index(context_t context, const Swapchain& swapchain, VkSemaphore wait_semaphore, uint32_t image_index);
 }

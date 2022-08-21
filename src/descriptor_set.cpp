@@ -17,8 +17,10 @@ namespace vulkan
     }
   }
 
-  void init_descriptor_pool(const Context& context, DescriptorPoolCreateInfo create_info, DescriptorPool& descriptor_pool)
+  void init_descriptor_pool(context_t context, DescriptorPoolCreateInfo create_info, DescriptorPool& descriptor_pool)
   {
+    VkDevice device = context_get_device_handle(context);
+
     VkDescriptorPoolSize *pool_sizes = new VkDescriptorPoolSize[create_info.descriptor_input.binding_count];
     for(uint32_t i=0; i<create_info.descriptor_input.binding_count; ++i)
     {
@@ -31,28 +33,34 @@ namespace vulkan
     pool_create_info.poolSizeCount = create_info.descriptor_input.binding_count;
     pool_create_info.pPoolSizes    = pool_sizes;
     pool_create_info.maxSets       = create_info.count;
-    VK_CHECK(vkCreateDescriptorPool(context.device, &pool_create_info, nullptr, &descriptor_pool.handle));
+    VK_CHECK(vkCreateDescriptorPool(device, &pool_create_info, nullptr, &descriptor_pool.handle));
 
     delete[] pool_sizes;
   }
 
-  void deinit_descriptor_pool(const Context& context, DescriptorPool& descriptor_pool)
+  void deinit_descriptor_pool(context_t context, DescriptorPool& descriptor_pool)
   {
-    vkDestroyDescriptorPool(context.device, descriptor_pool.handle, nullptr);
+    VkDevice device = context_get_device_handle(context);
+
+    vkDestroyDescriptorPool(device, descriptor_pool.handle, nullptr);
   }
 
-  void allocate_descriptor_set(const Context& context, DescriptorPool descriptor_pool, VkDescriptorSetLayout descriptor_set_layout, DescriptorSet& descriptor_set)
+  void allocate_descriptor_set(context_t context, DescriptorPool descriptor_pool, VkDescriptorSetLayout descriptor_set_layout, DescriptorSet& descriptor_set)
   {
+    VkDevice device = context_get_device_handle(context);
+
     VkDescriptorSetAllocateInfo alloc_info = {};
     alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     alloc_info.descriptorPool     = descriptor_pool.handle;
     alloc_info.descriptorSetCount = 1;
     alloc_info.pSetLayouts        = &descriptor_set_layout;
-    VK_CHECK(vkAllocateDescriptorSets(context.device, &alloc_info, &descriptor_set.handle));
+    VK_CHECK(vkAllocateDescriptorSets(device, &alloc_info, &descriptor_set.handle));
   }
 
-  void write_descriptor_set(const Context& context, DescriptorSet descriptor_set, DescriptorSetWriteInfo write_info)
+  void write_descriptor_set(context_t context, DescriptorSet descriptor_set, DescriptorSetWriteInfo write_info)
   {
+    VkDevice device = context_get_device_handle(context);
+
     VkWriteDescriptorSet *write_descriptor_sets = new VkWriteDescriptorSet[write_info.descriptor_count];
     for(uint32_t i=0; i<write_info.descriptor_count; ++i)
     {
@@ -86,7 +94,7 @@ namespace vulkan
       }
     }
 
-    vkUpdateDescriptorSets(context.device, write_info.descriptor_count, write_descriptor_sets, 0, nullptr);
+    vkUpdateDescriptorSets(device, write_info.descriptor_count, write_descriptor_sets, 0, nullptr);
 
     for(uint32_t i=0; i<write_info.descriptor_count; ++i)
     {

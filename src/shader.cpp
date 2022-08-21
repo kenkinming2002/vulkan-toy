@@ -51,22 +51,27 @@ namespace vulkan
     return content;
   }
 
-  void load_shader(const Context& context, const char *file_name, Shader& shader)
+  void load_shader(context_t context, const char *file_name, Shader& shader)
   {
+    VkDevice device = context_get_device_handle(context);
+
     dynarray<char> code = read_file(file_name);
 
     VkShaderModuleCreateInfo shader_module_create_info = {};
     shader_module_create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     shader_module_create_info.codeSize = size(code);
     shader_module_create_info.pCode    = reinterpret_cast<const uint32_t*>(data(code));
-    VK_CHECK(vkCreateShaderModule(context.device, &shader_module_create_info, nullptr, &shader.handle));
+    VK_CHECK(vkCreateShaderModule(device, &shader_module_create_info, nullptr, &shader.handle));
 
     destroy_dynarray(code);
   }
 
-  void deinit_shader(const Context& context, Shader& shader)
+  void deinit_shader(context_t context, Shader& shader)
   {
-    vkDestroyShaderModule(context.device, shader.handle, nullptr);
+    VkDevice device = context_get_device_handle(context);
+
+    vkDestroyShaderModule(device, shader.handle, nullptr);
+
     shader = {};
   }
 }

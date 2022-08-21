@@ -18,6 +18,6 @@ namespace vulkan
   };
 
   // Init simple render pass with single subpass, single color and depth attachment and no multi-sampling
-  void init_render_pass_simple(const Context& context, RenderPassCreateInfoSimple create_info, RenderPass& render_pass);
-  void deinit_render_pass(const Context& context, RenderPass& render_pass);
+  void init_render_pass_simple(context_t context, RenderPassCreateInfoSimple create_info, RenderPass& render_pass);
+  void deinit_render_pass(context_t context, RenderPass& render_pass);
 }

@@ -19,6 +19,6 @@ namespace vulkan
     VkFramebuffer handle;
   };
 
-  void init_framebuffer(const Context& context, FramebufferCreateInfo create_info, Framebuffer& framebuffer);
-  void deinit_framebuffer(const Context& context, Framebuffer& framebuffer);
+  void init_framebuffer(context_t context, FramebufferCreateInfo create_info, Framebuffer& framebuffer);
+  void deinit_framebuffer(context_t context, Framebuffer& framebuffer);
 }

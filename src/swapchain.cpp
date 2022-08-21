@@ -42,13 +42,17 @@ namespace vulkan
     return present_modes[0];
   }
 
-  void init_swapchain(const Context& context, Swapchain& swapchain)
+  void init_swapchain(context_t context, Swapchain& swapchain)
   {
+    VkSurfaceKHR     surface         = context_get_surface(context);
+    VkPhysicalDevice physical_device = context_get_physical_device(context);
+    VkDevice         device          = context_get_device_handle(context);
+
     // Capabilities
     uint32_t min_image_count;
     {
       VkSurfaceCapabilitiesKHR capabilities = {};
-      VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context.physical_device, context.surface, &capabilities));
+      VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &capabilities));
 
       // Image count
       min_image_count = capabilities.minImageCount + 1;
@@ -74,9 +78,9 @@ namespace vulkan
     // Surface format
     {
       uint32_t count;
-      VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(context.physical_device, context.surface, &count, nullptr));
+      VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &count, nullptr));
       VkSurfaceFormatKHR *surface_formats = new VkSurfaceFormatKHR[count] {};
-      VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(context.physical_device, context.surface, &count, surface_formats));
+      VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &count, surface_formats));
       swapchain.surface_format = swapchain_select_surface_format(surface_formats, count);
       delete[] surface_formats;
     }
@@ -84,9 +88,9 @@ namespace vulkan
     // Present mode
     {
       uint32_t count;
-      VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(context.physical_device, context.surface, &count, nullptr));
+      VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &count, nullptr));
       VkPresentModeKHR *present_modes = new VkPresentModeKHR[count];
-      VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(context.physical_device, context.surface, &count, present_modes));
+      VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &count, present_modes));
       swapchain.present_mode = swapchain_select_present_mode(present_modes, count);
       delete[] present_modes;
     }
@@ -95,7 +99,7 @@ namespace vulkan
     {
       VkSwapchainCreateInfoKHR create_info = {};
       create_info.sType                 = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-      create_info.surface               = context.surface;
+      create_info.surface               = surface;
       create_info.imageExtent           = swapchain.extent;
       create_info.minImageCount         = min_image_count;
       create_info.imageFormat           = swapchain.surface_format.format;
@@ -110,24 +114,26 @@ namespace vulkan
       create_info.presentMode           = swapchain.present_mode;
       create_info.clipped               = VK_TRUE;
       create_info.oldSwapchain          = VK_NULL_HANDLE;
-      VK_CHECK(vkCreateSwapchainKHR(context.device, &create_info, nullptr, &swapchain.handle));
+      VK_CHECK(vkCreateSwapchainKHR(device, &create_info, nullptr, &swapchain.handle));
     }
 
     // 3: Retrive images
     uint32_t image_count;
-    vkGetSwapchainImagesKHR(context.device, swapchain.handle, &image_count, nullptr);
+    vkGetSwapchainImagesKHR(device, swapchain.handle, &image_count, nullptr);
 
     swapchain.image_count = image_count;
     swapchain.images      = new VkImage[image_count];
     swapchain.image_views = new image_view_t[image_count];
 
-    vkGetSwapchainImagesKHR(context.device, swapchain.handle, &image_count, swapchain.images);
+    vkGetSwapchainImagesKHR(device, swapchain.handle, &image_count, swapchain.images);
     for(uint32_t i=0; i<image_count; ++i)
-      swapchain.image_views[i] = image_view_create(&context, ImageViewType::COLOR, swapchain.surface_format.format, swapchain.images[i]);
+      swapchain.image_views[i] = image_view_create(context, ImageViewType::COLOR, swapchain.surface_format.format, swapchain.images[i]);
   }
 
-  void deinit_swapchain(const Context& context, Swapchain& swapchain)
+  void deinit_swapchain(context_t context, Swapchain& swapchain)
   {
+    VkDevice device = context_get_device_handle(context);
+
     delete[] swapchain.images;
     swapchain.images = nullptr;
 
@@ -139,14 +145,16 @@ namespace vulkan
     delete[] swapchain.image_views;
     swapchain.image_views = nullptr;
 
-    vkDestroySwapchainKHR(context.device, swapchain.handle, nullptr);
+    vkDestroySwapchainKHR(device, swapchain.handle, nullptr);
     swapchain.handle = nullptr;
     swapchain = {};
   }
 
-  SwapchainResult swapchain_next_image_index(const Context& context, const Swapchain& swapchain, VkSemaphore signal_semaphore, uint32_t& image_index)
+  SwapchainResult swapchain_next_image_index(context_t context, const Swapchain& swapchain, VkSemaphore signal_semaphore, uint32_t& image_index)
   {
-    VkResult result = vkAcquireNextImageKHR(context.device, swapchain.handle, UINT64_MAX, signal_semaphore, VK_NULL_HANDLE, &image_index);
+    VkDevice device = context_get_device_handle(context);
+
+    VkResult result = vkAcquireNextImageKHR(device, swapchain.handle, UINT64_MAX, signal_semaphore, VK_NULL_HANDLE, &image_index);
     switch(result)
     {
     default:
@@ -159,8 +167,10 @@ namespace vulkan
     }
   }
 
-  SwapchainResult swapchain_present_image_index(const Context& context, const Swapchain& swapchain, VkSemaphore wait_semaphore, uint32_t image_index)
+  SwapchainResult swapchain_present_image_index(context_t context, const Swapchain& swapchain, VkSemaphore wait_semaphore, uint32_t image_index)
   {
+    VkQueue queue = context_get_queue_handle(context);
+
     VkPresentInfoKHR present_info = {};
     present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     present_info.waitSemaphoreCount = 1;
@@ -170,7 +180,7 @@ namespace vulkan
     present_info.pImageIndices  = &image_index;
     present_info.pResults       = nullptr;
 
-    VkResult result = vkQueuePresentKHR(context.queue, &present_info);
+    VkResult result = vkQueuePresentKHR(queue, &present_info);
     switch(result)
     {
     default:

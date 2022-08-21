@@ -9,6 +9,6 @@ namespace vulkan
     VkShaderModule handle;
   };
 
-  void load_shader(const Context& context, const char *file_name, Shader& shader);
-  void deinit_shader(const Context& context, Shader& shader);
+  void load_shader(context_t context, const char *file_name, Shader& shader);
+  void deinit_shader(context_t context, Shader& shader);
 }

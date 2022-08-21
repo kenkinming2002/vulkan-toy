@@ -22,7 +22,7 @@ namespace vulkan
   {
     Ref ref;
 
-    const Context *context;
+    context_t context;
 
     CommandBufferState state;
 
@@ -37,38 +37,47 @@ namespace vulkan
   {
     command_buffer_t command_buffer = container_of(ref, CommandBuffer, ref);
 
+    VkDevice      device       = context_get_device_handle(command_buffer->context);
+    VkCommandPool command_pool = context_get_default_command_pool(command_buffer->context);
+
     for(size_t i=0; i<command_buffer->resource_count; ++i)
       ref_put(command_buffer->resources[i]);
     command_buffer->resource_count = 0;
 
-    vkFreeCommandBuffers(command_buffer->context->device, command_buffer->context->command_pool, 1, &command_buffer->handle);
-    vkDestroyFence(command_buffer->context->device, command_buffer->fence, nullptr);
+    vkFreeCommandBuffers(device, command_pool, 1, &command_buffer->handle);
+    vkDestroyFence(device, command_buffer->fence, nullptr);
+
+    context_put(command_buffer->context);
 
     delete command_buffer;
   }
 
-  command_buffer_t command_buffer_create(const Context *context, bool initial_state_pending)
+  command_buffer_t command_buffer_create(context_t context, bool initial_state_pending)
   {
     command_buffer_t command_buffer = new CommandBuffer{};
     command_buffer->ref.count = 1;
     command_buffer->ref.free  = &command_buffer_free;
 
+    context_get(context);
     command_buffer->context = context;
+
+    VkDevice      device       = context_get_device_handle(command_buffer->context);
+    VkCommandPool command_pool = context_get_default_command_pool(command_buffer->context);
 
     command_buffer->state          = initial_state_pending ? CommandBufferState::PENDING : CommandBufferState::INITIAL;
     command_buffer->resource_count = 0;
 
     VkCommandBufferAllocateInfo command_buffer_allocate_info = {};
     command_buffer_allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    command_buffer_allocate_info.commandPool        = command_buffer->context->command_pool;
+    command_buffer_allocate_info.commandPool        = command_pool;
     command_buffer_allocate_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     command_buffer_allocate_info.commandBufferCount = 1;
-    VK_CHECK(vkAllocateCommandBuffers(command_buffer->context->device, &command_buffer_allocate_info, &command_buffer->handle));
+    VK_CHECK(vkAllocateCommandBuffers(device, &command_buffer_allocate_info, &command_buffer->handle));
 
     VkFenceCreateInfo fence_create_info = {};
     fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fence_create_info.flags = initial_state_pending ? VK_FENCE_CREATE_SIGNALED_BIT : 0;
-    VK_CHECK(vkCreateFence(command_buffer->context->device, &fence_create_info, nullptr, &command_buffer->fence));
+    VK_CHECK(vkCreateFence(device, &fence_create_info, nullptr, &command_buffer->fence));
 
     return command_buffer;
   }
@@ -114,17 +123,21 @@ namespace vulkan
 
   void command_buffer_submit(command_buffer_t command_buffer)
   {
+    VkQueue queue = context_get_queue_handle(command_buffer->context);
+
     assert(command_buffer->state == CommandBufferState::EXECUTABLE);
     VkSubmitInfo submit_info = {};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit_info.commandBufferCount = 1;
     submit_info.pCommandBuffers    = &command_buffer->handle;
-    VK_CHECK(vkQueueSubmit(command_buffer->context->queue, 1, &submit_info, command_buffer->fence));
+    VK_CHECK(vkQueueSubmit(queue, 1, &submit_info, command_buffer->fence));
     command_buffer->state = CommandBufferState::PENDING;
   }
 
   void command_buffer_submit(command_buffer_t command_buffer, VkSemaphore wait_semaphore, VkPipelineStageFlags wait_stage, VkSemaphore signal_semaphore)
   {
+    VkQueue queue = context_get_queue_handle(command_buffer->context);
+
     assert(command_buffer->state == CommandBufferState::EXECUTABLE);
     VkSubmitInfo submit_info = {};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -135,15 +148,17 @@ namespace vulkan
     submit_info.pSignalSemaphores    = &signal_semaphore;
     submit_info.commandBufferCount = 1;
     submit_info.pCommandBuffers    = &command_buffer->handle;
-    VK_CHECK(vkQueueSubmit(command_buffer->context->queue, 1, &submit_info, command_buffer->fence));
+    VK_CHECK(vkQueueSubmit(queue, 1, &submit_info, command_buffer->fence));
     command_buffer->state = CommandBufferState::PENDING;
   }
 
   void command_buffer_wait(command_buffer_t command_buffer)
   {
+    VkDevice device = context_get_device_handle(command_buffer->context);
+
     assert(command_buffer->state == CommandBufferState::PENDING);
-    VK_CHECK(vkWaitForFences(command_buffer->context->device, 1, &command_buffer->fence, VK_TRUE, UINT64_MAX));
-    VK_CHECK(vkResetFences(command_buffer->context->device, 1, &command_buffer->fence));
+    VK_CHECK(vkWaitForFences(device, 1, &command_buffer->fence, VK_TRUE, UINT64_MAX));
+    VK_CHECK(vkResetFences(device, 1, &command_buffer->fence));
     command_buffer->state = CommandBufferState::EXECUTABLE;
   }
 

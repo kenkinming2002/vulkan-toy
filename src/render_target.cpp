@@ -6,7 +6,7 @@
 
 namespace vulkan
 {
-  void render_target_init(const Context& context, Allocator& allocator, RenderTarget& render_target)
+  void render_target_init(context_t context, Allocator& allocator, RenderTarget& render_target)
   {
     init_swapchain(context, render_target.swapchain);
 
@@ -17,14 +17,14 @@ namespace vulkan
     }, render_target.render_pass);
 
     // Depth attachment
-    render_target.depth_image = image_create(&context, &allocator,
+    render_target.depth_image = image_create(context, &allocator,
       ImageType::DEPTH_ATTACHMENT,
       VK_FORMAT_D32_SFLOAT,
       render_target.swapchain.extent.width,
       render_target.swapchain.extent.height,
       1
     );
-    render_target.depth_image_view = image_view_create(&context,
+    render_target.depth_image_view = image_view_create(context,
       ImageViewType::DEPTH,
       VK_FORMAT_D32_SFLOAT,
       1,
@@ -57,7 +57,7 @@ namespace vulkan
     render_target.frame_index = 0;
   }
 
-  void render_target_deinit(const Context& context, Allocator& allocator, RenderTarget& render_target)
+  void render_target_deinit(context_t context, Allocator& allocator, RenderTarget& render_target)
   {
     (void)allocator;
 
@@ -76,7 +76,7 @@ namespace vulkan
     deinit_swapchain(context, render_target.swapchain);
   }
 
-  bool render_target_begin_frame(const Context& context, RenderTarget& render_target, Frame& frame)
+  bool render_target_begin_frame(context_t context, RenderTarget& render_target, Frame& frame)
   {
     // Acquire frame resource
     frame = render_target.frames[render_target.frame_index];
@@ -111,7 +111,7 @@ namespace vulkan
     return true;
   }
 
-  bool render_target_end_frame(const Context& context, RenderTarget& render_target, const Frame& frame)
+  bool render_target_end_frame(context_t context, RenderTarget& render_target, const Frame& frame)
   {
     VkCommandBuffer handle = command_buffer_get_handle(frame.command_buffer);
     vkCmdEndRenderPass(handle);

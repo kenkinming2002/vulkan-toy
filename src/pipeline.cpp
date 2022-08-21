@@ -44,8 +44,10 @@ namespace vulkan
     }
   }
 
-  static inline void init_pipeline2_descriptor_set_layout(const Context& context, PipelineCreateInfo2 create_info, Pipeline2& pipeline)
+  static inline void init_pipeline2_descriptor_set_layout(context_t context, PipelineCreateInfo2 create_info, Pipeline2& pipeline)
   {
+    VkDevice device = context_get_device_handle(context);
+
     dynarray<VkDescriptorSetLayoutBinding> layout_bindings = create_dynarray<VkDescriptorSetLayoutBinding>(create_info.descriptor_input.binding_count);
     for(uint32_t i=0; i<create_info.descriptor_input.binding_count; ++i)
     {
@@ -62,13 +64,15 @@ namespace vulkan
     descriptor_set_layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     descriptor_set_layout_create_info.bindingCount = size(layout_bindings);
     descriptor_set_layout_create_info.pBindings    = data(layout_bindings);
-    VK_CHECK(vkCreateDescriptorSetLayout(context.device, &descriptor_set_layout_create_info, nullptr, &pipeline.descriptor_set_layout));
+    VK_CHECK(vkCreateDescriptorSetLayout(device, &descriptor_set_layout_create_info, nullptr, &pipeline.descriptor_set_layout));
 
     destroy_dynarray(layout_bindings);
   }
 
-  static inline void init_pipeline2_pipeline_layout(const Context& context, PipelineCreateInfo2 create_info, Pipeline2& pipeline)
+  static inline void init_pipeline2_pipeline_layout(context_t context, PipelineCreateInfo2 create_info, Pipeline2& pipeline)
   {
+    VkDevice device = context_get_device_handle(context);
+
     dynarray<VkPushConstantRange> push_constant_ranges = create_dynarray<VkPushConstantRange>(create_info.push_constant_input.range_count);
     for(uint32_t i=0; i<create_info.push_constant_input.range_count; ++i)
     {
@@ -86,13 +90,15 @@ namespace vulkan
     pipeline_layout_create_info.pSetLayouts            = &pipeline.descriptor_set_layout;
     pipeline_layout_create_info.pushConstantRangeCount = size(push_constant_ranges);
     pipeline_layout_create_info.pPushConstantRanges    = data(push_constant_ranges);
-    VK_CHECK(vkCreatePipelineLayout(context.device, &pipeline_layout_create_info, nullptr, &pipeline.pipeline_layout));
+    VK_CHECK(vkCreatePipelineLayout(device, &pipeline_layout_create_info, nullptr, &pipeline.pipeline_layout));
 
     destroy_dynarray(push_constant_ranges);
   }
 
-  void init_pipeline2(const Context& context, PipelineCreateInfo2 create_info, Pipeline2& pipeline)
+  void init_pipeline2(context_t context, PipelineCreateInfo2 create_info, Pipeline2& pipeline)
   {
+    VkDevice device = context_get_device_handle(context);
+
     init_pipeline2_descriptor_set_layout(context, create_info, pipeline);
     init_pipeline2_pipeline_layout(context, create_info, pipeline);
 
@@ -242,13 +248,15 @@ namespace vulkan
     graphics_pipeline_create_info.subpass             = 0;
     graphics_pipeline_create_info.basePipelineHandle = VK_NULL_HANDLE;
     graphics_pipeline_create_info.basePipelineIndex  = -1;
-    VK_CHECK(vkCreateGraphicsPipelines(context.device, VK_NULL_HANDLE, 1, &graphics_pipeline_create_info, nullptr, &pipeline.handle));
+    VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &graphics_pipeline_create_info, nullptr, &pipeline.handle));
   }
 
-  void deinit_pipeline2(const Context& context, Pipeline2& pipeline)
+  void deinit_pipeline2(context_t context, Pipeline2& pipeline)
   {
-    vkDestroyPipeline(context.device, pipeline.handle, nullptr);
-    vkDestroyPipelineLayout(context.device, pipeline.pipeline_layout, nullptr);
-    vkDestroyDescriptorSetLayout(context.device, pipeline.descriptor_set_layout, nullptr);
+    VkDevice device = context_get_device_handle(context);
+
+    vkDestroyPipeline(device, pipeline.handle, nullptr);
+    vkDestroyPipelineLayout(device, pipeline.pipeline_layout, nullptr);
+    vkDestroyDescriptorSetLayout(device, pipeline.descriptor_set_layout, nullptr);
   }
 }

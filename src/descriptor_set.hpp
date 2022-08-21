@@ -19,15 +19,15 @@ namespace vulkan
     VkDescriptorPool handle;
   };
 
-  void init_descriptor_pool(const Context& context, DescriptorPoolCreateInfo create_info, DescriptorPool& descriptor_pool);
-  void deinit_descriptor_pool(const Context& context, DescriptorPool& descriptor_pool);
+  void init_descriptor_pool(context_t context, DescriptorPoolCreateInfo create_info, DescriptorPool& descriptor_pool);
+  void deinit_descriptor_pool(context_t context, DescriptorPool& descriptor_pool);
 
   struct DescriptorSet
   {
     VkDescriptorSet handle;
   };
 
-  void allocate_descriptor_set(const Context& context, DescriptorPool descriptor_pool, VkDescriptorSetLayout descriptor_set_layout, DescriptorSet& descriptor_set);
+  void allocate_descriptor_set(context_t context, DescriptorPool descriptor_pool, VkDescriptorSetLayout descriptor_set_layout, DescriptorSet& descriptor_set);
 
   struct UniformBufferDescriptor
   {
@@ -57,5 +57,5 @@ namespace vulkan
     uint32_t          descriptor_count;
   };
 
-  void write_descriptor_set(const Context& context, DescriptorSet descriptor_set, DescriptorSetWriteInfo write_info);
+  void write_descriptor_set(context_t context, DescriptorSet descriptor_set, DescriptorSetWriteInfo write_info);
 }

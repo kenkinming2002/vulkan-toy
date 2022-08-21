@@ -25,7 +25,7 @@ namespace vulkan
     delete texture;
   }
 
-  texture_t texture_create(const Context *context, Allocator *allocator, ImageType image_type, ImageViewType image_view_type, VkFormat format, size_t width, size_t height)
+  texture_t texture_create(context_t context, Allocator *allocator, ImageType image_type, ImageViewType image_view_type, VkFormat format, size_t width, size_t height)
   {
     texture_t texture = new Texture {};
     texture->ref.count = 1;
@@ -59,7 +59,7 @@ namespace vulkan
     image_write(command_buffer, texture->image, data, width, height, size);
   }
 
-  texture_t texture_load(command_buffer_t command_buffer, const Context *context, Allocator *allocator, const char *file_name)
+  texture_t texture_load(command_buffer_t command_buffer, context_t context, Allocator *allocator, const char *file_name)
   {
     int width, height, n;
     unsigned char *data = stbi_load(file_name, &width, &height, &n, STBI_rgb_alpha);

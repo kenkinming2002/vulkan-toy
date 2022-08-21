@@ -10,6 +10,6 @@ namespace vulkan
     VkSemaphore handle;
   };
 
-  void init_semaphore(const Context& context, Semaphore& semaphore);
-  void deinit_semaphore(const Context& context, Semaphore& semaphore);
+  void init_semaphore(context_t context, Semaphore& semaphore);
+  void deinit_semaphore(context_t context, Semaphore& semaphore);
 }

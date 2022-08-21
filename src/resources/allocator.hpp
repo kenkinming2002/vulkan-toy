@@ -9,8 +9,8 @@ namespace vulkan
     VkPhysicalDeviceMemoryProperties memory_properties;
   };
 
-  void init_allocator(const Context& context, Allocator& allocator);
-  void deinit_allocator(const Context& context, Allocator& allocator);
+  void init_allocator(context_t context, Allocator& allocator);
+  void deinit_allocator(context_t context, Allocator& allocator);
 
   struct MemoryAllocationInfo
   {
@@ -26,6 +26,6 @@ namespace vulkan
     VkDeviceSize   size;
   };
 
-  void allocate_memory(const Context& context, Allocator& allocator, MemoryAllocationInfo info, MemoryAllocation& allocation);
-  void deallocate_memory(const Context& context, Allocator& allocator, MemoryAllocation& allocation);
+  void allocate_memory(context_t context, Allocator& allocator, MemoryAllocationInfo info, MemoryAllocation& allocation);
+  void deallocate_memory(context_t context, Allocator& allocator, MemoryAllocation& allocation);
 }

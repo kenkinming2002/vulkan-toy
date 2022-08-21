@@ -6,8 +6,10 @@
 
 namespace vulkan
 {
-  void init_render_pass_simple(const Context& context, RenderPassCreateInfoSimple create_info, RenderPass& render_pass)
+  void init_render_pass_simple(context_t context, RenderPassCreateInfoSimple create_info, RenderPass& render_pass)
   {
+    VkDevice device = context_get_device_handle(context);
+
     VkAttachmentDescription color_attachment_description = {};
     color_attachment_description.format         = create_info.color_format;
     color_attachment_description.samples        = VK_SAMPLE_COUNT_1_BIT;
@@ -65,12 +67,14 @@ namespace vulkan
     render_pass_create_info.dependencyCount = 1;
     render_pass_create_info.pDependencies   = &subpass_dependency;
 
-    VK_CHECK(vkCreateRenderPass(context.device, &render_pass_create_info, nullptr, &render_pass.handle));
+    VK_CHECK(vkCreateRenderPass(device, &render_pass_create_info, nullptr, &render_pass.handle));
   }
 
-  void deinit_render_pass(const Context& context, RenderPass& render_pass)
+  void deinit_render_pass(context_t context, RenderPass& render_pass)
   {
-    vkDestroyRenderPass(context.device, render_pass.handle, nullptr);
+    VkDevice device = context_get_device_handle(context);
+
+    vkDestroyRenderPass(device, render_pass.handle, nullptr);
     render_pass = {};
   }
 }

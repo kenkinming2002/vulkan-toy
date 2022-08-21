@@ -36,7 +36,7 @@ namespace vulkan
   {
     Ref ref;
 
-    const Context *context;
+    context_t context;
     Allocator     *allocator;
 
     VkBuffer         handle;
@@ -47,37 +47,44 @@ namespace vulkan
   {
     buffer_t buffer = container_of(ref, Buffer, ref);
 
-    deallocate_memory(*buffer->context, *buffer->allocator, buffer->allocation);
-    vkDestroyBuffer(buffer->context->device, buffer->handle, nullptr);
+    VkDevice device = context_get_device_handle(buffer->context);
+
+    deallocate_memory(buffer->context, *buffer->allocator, buffer->allocation);
+    vkDestroyBuffer(device, buffer->handle, nullptr);
+
+    context_put(buffer->context);
 
     delete buffer;
   }
 
-  buffer_t buffer_create(const Context *context, Allocator *allocator, BufferType type, size_t size)
+  buffer_t buffer_create(context_t context, Allocator *allocator, BufferType type, size_t size)
   {
     buffer_t buffer = new Buffer {};
     buffer->ref.count = 1;
     buffer->ref.free  = &buffer_free;
 
+    context_get(context);
     buffer->context   = context;
     buffer->allocator = allocator;
+
+    VkDevice device = context_get_device_handle(buffer->context);
 
     VkBufferCreateInfo buffer_create_info = {};
     buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     buffer_create_info.size        = size;
     buffer_create_info.usage       = get_vulkan_buffer_usage(type);
     buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    VK_CHECK(vkCreateBuffer(buffer->context->device, &buffer_create_info, nullptr, &buffer->handle));
+    VK_CHECK(vkCreateBuffer(device, &buffer_create_info, nullptr, &buffer->handle));
 
     VkMemoryRequirements memory_requirements = {};
-    vkGetBufferMemoryRequirements(buffer->context->device, buffer->handle, &memory_requirements);
+    vkGetBufferMemoryRequirements(device, buffer->handle, &memory_requirements);
 
     MemoryAllocationInfo allocation_info = {};
     allocation_info.type_bits  = memory_requirements.memoryTypeBits;
     allocation_info.properties = get_vulkan_buffer_memory_properties(type);
     allocation_info.size       = memory_requirements.size;
-    allocate_memory(*buffer->context, *buffer->allocator, allocation_info, buffer->allocation);
-    VK_CHECK(vkBindBufferMemory(buffer->context->device, buffer->handle, buffer->allocation.memory, 0));
+    allocate_memory(buffer->context, *buffer->allocator, allocation_info, buffer->allocation);
+    VK_CHECK(vkBindBufferMemory(device, buffer->handle, buffer->allocation.memory, 0));
 
     return buffer;
   }
@@ -107,10 +114,12 @@ namespace vulkan
     VkMemoryPropertyFlags memory_properties = buffer->allocator->memory_properties.memoryTypes[buffer->allocation.type_index].propertyFlags;
     if(memory_properties & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
     {
+      VkDevice device = context_get_device_handle(buffer->context);
+
       void *buffer_data;
-      VK_CHECK(vkMapMemory(buffer->context->device, buffer->allocation.memory, 0, size, 0, &buffer_data));
+      VK_CHECK(vkMapMemory(device, buffer->allocation.memory, 0, size, 0, &buffer_data));
       memcpy(buffer_data, data, size);
-      vkUnmapMemory(buffer->context->device, buffer->allocation.memory);
+      vkUnmapMemory(device, buffer->allocation.memory);
     }
     else
     {

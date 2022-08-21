@@ -12,6 +12,6 @@ namespace vulkan
     VkSemaphore     render_finished_semaphore;
   };
 
-  void frame_init(const Context& context, Frame& frame);
-  void frame_deinit(const Context& context, Frame& frame);
+  void frame_init(context_t context, Frame& frame);
+  void frame_deinit(context_t context, Frame& frame);
 }

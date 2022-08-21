@@ -12,7 +12,7 @@ namespace vulkan
     }
   }
 
-  void renderer_init(const Context& context, const RenderTarget& render_target, RendererCreateInfo create_info, Renderer& renderer)
+  void renderer_init(context_t context, const RenderTarget& render_target, RendererCreateInfo create_info, Renderer& renderer)
   {
     Shader vertex_shader = {};
     Shader fragment_shader = {};
@@ -33,7 +33,7 @@ namespace vulkan
     deinit_shader(context, fragment_shader);
   }
 
-  void renderer_deinit(const Context& context, Renderer& renderer)
+  void renderer_deinit(context_t context, Renderer& renderer)
   {
     vulkan::deinit_pipeline2(context, renderer.pipeline);
   }

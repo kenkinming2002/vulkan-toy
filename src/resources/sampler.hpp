@@ -7,7 +7,7 @@ namespace vulkan
 {
   typedef struct Sampler *sampler_t;
 
-  sampler_t sampler_create_simple(const Context *context);
+  sampler_t sampler_create_simple(context_t context);
   ref_t sampler_as_ref(sampler_t sampler);
 
   inline void sampler_get(sampler_t sampler) { ref_get(sampler_as_ref(sampler)); }

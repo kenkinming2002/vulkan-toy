@@ -31,10 +31,10 @@ namespace vulkan
     size_t frame_index;
   };
 
-  void render_target_init(const Context& context, Allocator& allocator, RenderTarget& render_target);
-  void render_target_deinit(const Context& context, Allocator& allocator, RenderTarget& render_target);
+  void render_target_init(context_t context, Allocator& allocator, RenderTarget& render_target);
+  void render_target_deinit(context_t context, Allocator& allocator, RenderTarget& render_target);
 
-  bool render_target_begin_frame(const Context& context, RenderTarget& render_target, Frame& frame);
-  bool render_target_end_frame(const Context& context, RenderTarget& render_target, const Frame& frame);
+  bool render_target_begin_frame(context_t context, RenderTarget& render_target, Frame& frame);
+  bool render_target_end_frame(context_t context, RenderTarget& render_target, const Frame& frame);
 }
 

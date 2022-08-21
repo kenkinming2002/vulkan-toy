@@ -15,8 +15,8 @@ namespace vulkan
 
   typedef struct ImageView *image_view_t;
 
-  image_view_t image_view_create(const Context *context, ImageViewType type, VkFormat format, size_t mip_levels, image_t image);
-  image_view_t image_view_create(const Context *context, ImageViewType type, VkFormat format, VkImage image);
+  image_view_t image_view_create(context_t context, ImageViewType type, VkFormat format, size_t mip_levels, image_t image);
+  image_view_t image_view_create(context_t context, ImageViewType type, VkFormat format, VkImage image);
   ref_t image_view_as_ref(image_view_t image_view);
 
   inline void image_view_get(image_view_t image_view) { ref_get(image_view_as_ref(image_view)); }

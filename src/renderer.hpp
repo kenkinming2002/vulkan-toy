@@ -24,8 +24,8 @@ namespace vulkan
     const Frame *current_frame;
   };
 
-  void renderer_init(const Context& context, const RenderTarget& render_target, RendererCreateInfo create_info, Renderer& renderer);
-  void renderer_deinit(const Context& context, Renderer& renderer);
+  void renderer_init(context_t context, const RenderTarget& render_target, RendererCreateInfo create_info, Renderer& renderer);
+  void renderer_deinit(context_t context, Renderer& renderer);
 
   void renderer_begin_render(Renderer& renderer, const Frame& frame);
   void renderer_end_render(Renderer& renderer);
