@@ -16,10 +16,14 @@ layout(location = 2) out vec2 fragUV;
 layout(location = 3) out vec3 fragPos;
 
 void main() {
-    gl_Position = matrices.mvp * vec4(inPosition, 1.0);
+    mat4 mvp_matrix    = matrices.mvp;
+    mat4 model_matrix  = matrices.model;
+    mat3 normal_matrix = mat3(transpose(inverse(model_matrix)));
 
-    fragNormal = inNormal;
+    gl_Position = mvp_matrix * vec4(inPosition, 1.0);
+
+    fragNormal = normal_matrix * inNormal;
     fragColor  = inColor;
     fragUV     = inUV;
-    fragPos    = vec3(matrices.model * vec4(inPosition, 1.0));
+    fragPos    = vec3(model_matrix * vec4(inPosition, 1.0));
 }
