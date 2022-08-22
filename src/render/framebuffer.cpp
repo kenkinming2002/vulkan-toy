@@ -24,6 +24,8 @@ namespace vulkan
     framebuffer_create_info.height          = create_info.extent.height;
     framebuffer_create_info.layers          = 1;
     VK_CHECK(vkCreateFramebuffer(device, &framebuffer_create_info, nullptr, &framebuffer.handle));
+
+    destroy_dynarray(attachments);
   }
 
   void deinit_framebuffer(context_t context, Framebuffer& framebuffer)

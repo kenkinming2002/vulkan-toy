@@ -165,6 +165,8 @@ vulkan::mesh_t chunk_generate_mesh(vulkan::context_t context, vulkan::allocator_
 
 struct Application
 {
+  Chunk *chunk;
+
   vulkan::mesh_layout_t mesh_layout;
 
   vulkan::context_t   context;
@@ -174,7 +176,6 @@ struct Application
   vulkan::texture_t texture;
   vulkan::sampler_t sampler;
 
-  Chunk          *chunk;
   vulkan::mesh_t  chunk_mesh;
 
   vulkan::DescriptorPool descriptor_pool;
@@ -236,6 +237,8 @@ void application_init(Application& application)
 
 void application_deinit(Application& application)
 {
+  delete application.chunk;
+
   VkDevice device = vulkan::context_get_device_handle(application.context);
   vkDeviceWaitIdle(device);
 
