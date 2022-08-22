@@ -72,14 +72,6 @@ static constexpr vulkan::PushConstantInput PUSH_CONSTANT_INPUT = {
   .range_count = std::size(PUSH_CONSTANT_RANGES),
 };
 
-static constexpr vulkan::RendererCreateInfo RENDERER_CREATE_INFO = {
-  .vertex_shader_file_name   = VERTEX_SHADER_FILE_NAME,
-  .fragment_shader_file_name = FRAGMENT_SHADER_FILE_NAME,
-  .vertex_input              = vulkan::VERTEX_INPUT,
-  .descriptor_input          = DESCRIPTOR_INPUT,
-  .push_constant_input       = PUSH_CONSTANT_INPUT,
-};
-
 struct Block
 {
   bool valid;
@@ -173,6 +165,8 @@ vulkan::mesh_t chunk_generate_mesh(vulkan::context_t context, vulkan::allocator_
 
 struct Application
 {
+  vulkan::mesh_layout_t mesh_layout;
+
   vulkan::context_t   context;
   vulkan::allocator_t allocator;
 
@@ -196,6 +190,15 @@ void application_init(Application& application)
   application.allocator = vulkan::allocator_create(application.context);
 
   vulkan::render_target_init(application.context, application.allocator, application.render_target);
+
+  application.mesh_layout = vulkan::mesh_layout_create_default();
+  const vulkan::RendererCreateInfo RENDERER_CREATE_INFO = {
+    .mesh_layout               = application.mesh_layout,
+    .vertex_shader_file_name   = VERTEX_SHADER_FILE_NAME,
+    .fragment_shader_file_name = FRAGMENT_SHADER_FILE_NAME,
+    .descriptor_input          = DESCRIPTOR_INPUT,
+    .push_constant_input       = PUSH_CONSTANT_INPUT,
+  };
   vulkan::renderer_init(application.context, application.render_target, RENDERER_CREATE_INFO, application.renderer);
 
   vulkan::command_buffer_t command_buffer = command_buffer_create(application.context);
@@ -244,6 +247,9 @@ void application_deinit(Application& application)
   vulkan::sampler_put(application.sampler);
 
   vulkan::renderer_deinit(application.context, application.renderer);
+
+  vulkan::mesh_layout_put(application.mesh_layout);
+
   vulkan::render_target_deinit(application.context, application.allocator, application.render_target);
 
   vulkan::allocator_put(application.allocator);
@@ -257,6 +263,14 @@ void application_update(Application& application)
 
 void application_render(Application& application)
 {
+  const vulkan::RendererCreateInfo RENDERER_CREATE_INFO = {
+    .mesh_layout               = application.mesh_layout,
+    .vertex_shader_file_name   = VERTEX_SHADER_FILE_NAME,
+    .fragment_shader_file_name = FRAGMENT_SHADER_FILE_NAME,
+    .descriptor_input          = DESCRIPTOR_INPUT,
+    .push_constant_input       = PUSH_CONSTANT_INPUT,
+  };
+
   // Acquire frame
   vulkan::Frame frame = {};
   while(!vulkan::render_target_begin_frame(application.context, application.render_target, frame))

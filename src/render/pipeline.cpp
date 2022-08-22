@@ -102,46 +102,7 @@ namespace vulkan
     init_pipeline2_descriptor_set_layout(context, create_info, pipeline);
     init_pipeline2_pipeline_layout(context, create_info, pipeline);
 
-    VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info = {};
-    vertex_input_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertex_input_state_create_info.vertexBindingDescriptionCount   = 0;
-    vertex_input_state_create_info.pVertexBindingDescriptions      = nullptr;
-    vertex_input_state_create_info.vertexAttributeDescriptionCount = 0;
-    vertex_input_state_create_info.pVertexAttributeDescriptions    = nullptr;
-
-    std::vector<VkVertexInputBindingDescription>   vertex_input_binding_descriptions;
-    std::vector<VkVertexInputAttributeDescription> vertex_input_attribute_descriptions;
-
-    {
-      const VertexInput vertex_input = create_info.vertex_input;
-      for(uint32_t binding = 0; binding < create_info.vertex_input.binding_count; ++binding)
-      {
-        const VertexBinding vertex_binding = vertex_input.bindings[binding];
-        for(uint32_t location = 0; location < vertex_binding.attribute_count; ++location)
-        {
-          const VertexAttribute vertex_attribute = vertex_binding.attributes[location];
-
-          VkVertexInputAttributeDescription vertex_input_attribute_description = {};
-          vertex_input_attribute_description.binding  = binding;
-          vertex_input_attribute_description.location = location;
-          vertex_input_attribute_description.format   = to_vulkan_format(vertex_attribute.type);
-          vertex_input_attribute_description.offset   = vertex_attribute.offset;
-          vertex_input_attribute_descriptions.push_back(vertex_input_attribute_description);
-        }
-
-        VkVertexInputBindingDescription vertex_input_binding_description = {};
-        vertex_input_binding_description.binding   = binding;
-        vertex_input_binding_description.stride    = vertex_binding.stride;
-        vertex_input_binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-        vertex_input_binding_descriptions.push_back(vertex_input_binding_description);
-      }
-    }
-
-    vertex_input_state_create_info.vertexBindingDescriptionCount = vertex_input_binding_descriptions.size();
-    vertex_input_state_create_info.pVertexBindingDescriptions    = vertex_input_binding_descriptions.data();
-
-    vertex_input_state_create_info.vertexAttributeDescriptionCount = vertex_input_attribute_descriptions.size();
-    vertex_input_state_create_info.pVertexAttributeDescriptions    = vertex_input_attribute_descriptions.data();
+    const VkPipelineVertexInputStateCreateInfo *vertex_input_state_create_info = mesh_layout_get_vulkan_pipeline_vertex_input_state_create_info(create_info.mesh_layout);
 
     VkPipelineInputAssemblyStateCreateInfo input_assembly_state_create_info = {};
     input_assembly_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -235,7 +196,7 @@ namespace vulkan
     graphics_pipeline_create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     graphics_pipeline_create_info.stageCount          = 2;
     graphics_pipeline_create_info.pStages             = shader_stage_create_infos;
-    graphics_pipeline_create_info.pVertexInputState   = &vertex_input_state_create_info;
+    graphics_pipeline_create_info.pVertexInputState   = vertex_input_state_create_info;
     graphics_pipeline_create_info.pInputAssemblyState = &input_assembly_state_create_info;
     graphics_pipeline_create_info.pViewportState      = &pipeline_viewport_state_create_info;
     graphics_pipeline_create_info.pRasterizationState = &rasterizer_state_create_info;

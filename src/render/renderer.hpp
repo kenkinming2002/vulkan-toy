@@ -1,19 +1,21 @@
 #pragma once
 
 #include "core/context.hpp"
+#include "descriptor_set.hpp"
 #include "input.hpp"
 #include "pipeline.hpp"
-#include "descriptor_set.hpp"
 #include "render_target.hpp"
+#include "resources/mesh.hpp"
 
 namespace vulkan
 {
   struct RendererCreateInfo
   {
+    mesh_layout_t mesh_layout;
+
     const char* vertex_shader_file_name;
     const char* fragment_shader_file_name;
 
-    VertexInput       vertex_input;
     DescriptorInput   descriptor_input;
     PushConstantInput push_constant_input;
   };

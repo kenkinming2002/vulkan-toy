@@ -107,6 +107,11 @@ namespace vulkan
     return &mesh_layout->ref;
   }
 
+  const VkPipelineVertexInputStateCreateInfo *mesh_layout_get_vulkan_pipeline_vertex_input_state_create_info(mesh_layout_t mesh_layout)
+  {
+    return &mesh_layout->vertex_input_state_create_info;
+  }
+
   static constexpr VertexAttributeDescription VERTEX_ATTRIBUTE_DESCRIPTIONS[] = {
     { .offset = offsetof(Vertex, pos),    .type = vulkan::VertexAttributeDescription::Type::FLOAT3 },
     { .offset = offsetof(Vertex, normal), .type = vulkan::VertexAttributeDescription::Type::FLOAT3 },

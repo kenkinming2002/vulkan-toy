@@ -53,6 +53,8 @@ namespace vulkan
   inline void mesh_layout_get(mesh_layout_t mesh_layout) { ref_get(mesh_layout_as_ref(mesh_layout)); }
   inline void mesh_layout_put(mesh_layout_t mesh_layout) { ref_put(mesh_layout_as_ref(mesh_layout));  }
 
+  const VkPipelineVertexInputStateCreateInfo *mesh_layout_get_vulkan_pipeline_vertex_input_state_create_info(mesh_layout_t mesh_layout);
+
   mesh_layout_t mesh_layout_create_default();
 
   struct Vertex

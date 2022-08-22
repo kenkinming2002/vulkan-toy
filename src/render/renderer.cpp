@@ -22,9 +22,9 @@ namespace vulkan
 
     init_pipeline2(context, PipelineCreateInfo2{
       .render_pass         = render_target.render_pass,
+      .mesh_layout         = create_info.mesh_layout,
       .vertex_shader       = vertex_shader,
       .fragment_shader     = fragment_shader,
-      .vertex_input        = create_info.vertex_input,
       .descriptor_input    = create_info.descriptor_input,
       .push_constant_input = create_info.push_constant_input,
     }, renderer.pipeline);

@@ -3,6 +3,7 @@
 #include "core/context.hpp"
 #include "input.hpp"
 #include "render_pass.hpp"
+#include "resources/mesh.hpp"
 #include "shader.hpp"
 
 namespace vulkan
@@ -18,10 +19,11 @@ namespace vulkan
   {
     RenderPass render_pass;
 
+    mesh_layout_t mesh_layout;
+
     Shader vertex_shader;
     Shader fragment_shader;
 
-    VertexInput       vertex_input;
     DescriptorInput   descriptor_input;
     PushConstantInput push_constant_input;
   };
