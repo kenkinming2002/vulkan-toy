@@ -150,12 +150,16 @@ vulkan::mesh_t chunk_generate_mesh(vulkan::context_t context, vulkan::allocator_
   printf("vertices size = %ld\n", size(vertices));
   printf("indices  size = %ld\n", size(indices));
 
-  vulkan::mesh_t mesh = vulkan::mesh_create(context, allocator, size(vertices), size(indices));
+  vulkan::mesh_layout_t mesh_layout = vulkan::mesh_layout_create_default();
+  vulkan::mesh_t        mesh        = vulkan::mesh_create(context, allocator, mesh_layout, size(vertices), size(indices));
+  vulkan::mesh_layout_put(mesh_layout);
 
   vulkan::command_buffer_t command_buffer = vulkan::command_buffer_create(context);
   command_buffer_begin(command_buffer);
 
-  vulkan::mesh_write(command_buffer, mesh, data(vertices), data(indices));
+  const void     *_vertices[] = { data(vertices) };
+  const uint32_t *_indices    = data(indices);
+  vulkan::mesh_write(command_buffer, mesh, _vertices, _indices);
 
   command_buffer_end(command_buffer);
   command_buffer_submit(command_buffer);
