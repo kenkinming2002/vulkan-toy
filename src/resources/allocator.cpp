@@ -69,7 +69,11 @@ namespace vulkan
   static void device_memory_free(ref_t ref)
   {
     device_memory_t device_memory = container_of(ref, DeviceMemory, ref);
+
+    VkDevice device = context_get_device_handle(device_memory->context);
+    vkFreeMemory(device, device_memory->handle, nullptr);
     context_put(device_memory->context);
+
     delete device_memory;
   }
 
