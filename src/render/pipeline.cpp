@@ -9,20 +9,6 @@
 
 namespace vulkan
 {
-  static VkFormat to_vulkan_format(VertexAttribute::Type type)
-  {
-    switch(type)
-    {
-    case VertexAttribute::Type::FLOAT1: return VK_FORMAT_R32_SFLOAT;
-    case VertexAttribute::Type::FLOAT2: return VK_FORMAT_R32G32_SFLOAT;
-    case VertexAttribute::Type::FLOAT3: return VK_FORMAT_R32G32B32_SFLOAT;
-    case VertexAttribute::Type::FLOAT4: return VK_FORMAT_R32G32B32A32_SFLOAT;
-    default:
-      fprintf(stderr, "Unknown vertex attribute type\n");
-      abort();
-    }
-  }
-
   // Descriptor set layout
   static VkDescriptorType to_vulkan_descriptor_type(DescriptorType type)
   {

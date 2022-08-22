@@ -79,23 +79,4 @@ namespace vulkan
   mesh_t mesh_load(command_buffer_t command_buffer, context_t context, allocator_t allocator, const char *file_name);
 
   void mesh_render_simple(command_buffer_t command_buffer, mesh_t mesh);
-
-  static constexpr vulkan::VertexAttribute VERTEX_ATTRIBUTES[] = {
-    { .offset = offsetof(Vertex, pos),    .type = vulkan::VertexAttribute::Type::FLOAT3 },
-    { .offset = offsetof(Vertex, normal), .type = vulkan::VertexAttribute::Type::FLOAT3 },
-    { .offset = offsetof(Vertex, color),  .type = vulkan::VertexAttribute::Type::FLOAT3 },
-    { .offset = offsetof(Vertex, uv),     .type = vulkan::VertexAttribute::Type::FLOAT2 },
-  };
-
-  static constexpr vulkan::VertexBinding VERTEX_BINDINGS[] = {{
-    .stride          = sizeof(Vertex),
-      .attributes      = VERTEX_ATTRIBUTES,
-      .attribute_count = std::size(VERTEX_ATTRIBUTES),
-  }};
-
-  static constexpr vulkan::VertexInput VERTEX_INPUT = {
-    .bindings      = VERTEX_BINDINGS,
-    .binding_count = std::size(VERTEX_BINDINGS),
-  };
-
 }
