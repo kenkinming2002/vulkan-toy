@@ -1,6 +1,6 @@
 #pragma once
 
-#include "resources/ref.hpp"
+#include "ref.hpp"
 
 #include <vulkan/vulkan.h>
 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "context.hpp"
-#include "resources/ref.hpp"
+#include "ref.hpp"
 
 
 namespace vulkan
