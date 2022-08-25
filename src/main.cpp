@@ -1,6 +1,5 @@
 #include "core/command_buffer.hpp"
 #include "core/context.hpp"
-#include "render/descriptor_set.hpp"
 #include "render/render_target.hpp"
 #include "render/renderer.hpp"
 #include "render/shader.hpp"
@@ -8,7 +7,6 @@
 #include "resources/material.hpp"
 #include "resources/mesh.hpp"
 #include "resources/sampler.hpp"
-#include "resources/texture.hpp"
 
 #include "tiny_obj_loader.h"
 #include "stb_image.h"

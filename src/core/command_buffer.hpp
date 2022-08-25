@@ -1,9 +1,7 @@
 #pragma once
 
 #include "context.hpp"
-#include "fence.hpp"
 #include "resources/ref.hpp"
-#include "semaphore.hpp"
 
 
 namespace vulkan

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "core/context.hpp"
-#include "core/semaphore.hpp"
 #include "resources/image.hpp"
 #include "resources/image_view.hpp"
 #include "utils.hpp"

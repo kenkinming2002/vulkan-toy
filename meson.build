@@ -10,11 +10,8 @@ glm_dep    = dependency('glm')
 srcs = [
   'src/core/command_buffer.cpp',
   'src/core/context.cpp',
-  'src/core/fence.cpp',
-  'src/core/semaphore.cpp',
   'src/impl.cpp',
   'src/main.cpp',
-  'src/render/descriptor_set.cpp',
   'src/render/frame.cpp',
   'src/render/framebuffer.cpp',
   'src/render/pipeline.cpp',
@@ -30,7 +27,6 @@ srcs = [
   'src/resources/material.cpp',
   'src/resources/mesh.cpp',
   'src/resources/sampler.cpp',
-  'src/resources/texture.cpp',
   'src/vk_check.cpp',
 ]
 

@@ -58,14 +58,6 @@ namespace vulkan
     vkCmdPushConstants(handle, renderer.pipeline.pipeline_layout, to_vulkan_stage_flags(shader_stage), offset, size, data);
   }
 
-  void renderer_bind_descriptor_set(Renderer& renderer, DescriptorSet descriptor_set)
-  {
-    assert(renderer.current_frame);
-
-    VkCommandBuffer handle = command_buffer_get_handle(renderer.current_frame->command_buffer);
-    vkCmdBindDescriptorSets(handle, VK_PIPELINE_BIND_POINT_GRAPHICS, renderer.pipeline.pipeline_layout, 0, 1, &descriptor_set.handle, 0, nullptr);
-  }
-
   void renderer_set_viewport_and_scissor(Renderer& renderer, VkExtent2D extent)
   {
     assert(renderer.current_frame);

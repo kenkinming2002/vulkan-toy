@@ -1,7 +1,6 @@
 #pragma once
 
 #include "core/context.hpp"
-#include "descriptor_set.hpp"
 #include "input.hpp"
 #include "pipeline.hpp"
 #include "render_target.hpp"
@@ -33,7 +32,6 @@ namespace vulkan
   void renderer_end_render(Renderer& renderer);
 
   void renderer_push_constant(Renderer& renderer, ShaderStage shader_stage, void *data, size_t offset, size_t size);
-  void renderer_bind_descriptor_set(Renderer& renderer, DescriptorSet descriptor_set);
   void renderer_set_viewport_and_scissor(Renderer& renderer, VkExtent2D extent);
 
   void renderer_use_material(Renderer& renderer, material_t material);
