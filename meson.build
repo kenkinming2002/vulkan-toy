@@ -27,6 +27,7 @@ srcs = [
   'src/resources/buffer.cpp',
   'src/resources/image.cpp',
   'src/resources/image_view.cpp',
+  'src/resources/material.cpp',
   'src/resources/mesh.cpp',
   'src/resources/sampler.cpp',
   'src/resources/texture.cpp',

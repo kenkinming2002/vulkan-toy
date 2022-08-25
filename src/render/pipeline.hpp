@@ -4,27 +4,27 @@
 #include "input.hpp"
 #include "render_pass.hpp"
 #include "resources/mesh.hpp"
+#include "resources/material.hpp"
 #include "shader.hpp"
 
 namespace vulkan
 {
   struct Pipeline2
   {
-    VkDescriptorSetLayout descriptor_set_layout; // TODO: Allow more then 1 descriptor set layout
-    VkPipelineLayout      pipeline_layout;
-    VkPipeline            handle;
+    VkPipelineLayout pipeline_layout;
+    VkPipeline       handle;
   };
 
   struct PipelineCreateInfo2
   {
     RenderPass render_pass;
 
-    mesh_layout_t mesh_layout;
+    mesh_layout_t     mesh_layout;
+    material_layout_t material_layout;
 
     Shader vertex_shader;
     Shader fragment_shader;
 
-    DescriptorInput   descriptor_input;
     PushConstantInput push_constant_input;
   };
 

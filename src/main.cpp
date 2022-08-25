@@ -5,6 +5,7 @@
 #include "render/renderer.hpp"
 #include "render/shader.hpp"
 #include "resources/buffer.hpp"
+#include "resources/material.hpp"
 #include "resources/mesh.hpp"
 #include "resources/sampler.hpp"
 #include "resources/texture.hpp"
@@ -167,19 +168,16 @@ struct Application
 {
   Chunk *chunk;
 
-  vulkan::mesh_layout_t mesh_layout;
+  vulkan::mesh_layout_t     mesh_layout;
+  vulkan::material_layout_t material_layout;
 
   vulkan::context_t   context;
   vulkan::allocator_t allocator;
 
-  vulkan::mesh_t    mesh;
-  vulkan::texture_t texture;
-  vulkan::sampler_t sampler;
+  vulkan::mesh_t     mesh;
+  vulkan::material_t material;
 
   vulkan::mesh_t  chunk_mesh;
-
-  vulkan::DescriptorPool descriptor_pool;
-  vulkan::DescriptorSet  descriptor_set;
 
   vulkan::RenderTarget render_target;
   vulkan::Renderer     renderer;
@@ -192,12 +190,13 @@ void application_init(Application& application)
 
   vulkan::render_target_init(application.context, application.allocator, application.render_target);
 
-  application.mesh_layout = vulkan::mesh_layout_create_default();
+  application.mesh_layout     = vulkan::mesh_layout_create_default();
+  application.material_layout = vulkan::material_layout_create_default(application.context);
   const vulkan::RendererCreateInfo RENDERER_CREATE_INFO = {
     .mesh_layout               = application.mesh_layout,
+    .material_layout           = application.material_layout,
     .vertex_shader_file_name   = VERTEX_SHADER_FILE_NAME,
     .fragment_shader_file_name = FRAGMENT_SHADER_FILE_NAME,
-    .descriptor_input          = DESCRIPTOR_INPUT,
     .push_constant_input       = PUSH_CONSTANT_INPUT,
   };
   vulkan::renderer_init(application.context, application.render_target, RENDERER_CREATE_INFO, application.renderer);
@@ -205,34 +204,17 @@ void application_init(Application& application)
   vulkan::command_buffer_t command_buffer = command_buffer_create(application.context);
   command_buffer_begin(command_buffer);
 
-  application.mesh    = vulkan::mesh_load   (command_buffer, application.context, application.allocator, "viking_room.obj");
-  application.texture = vulkan::texture_load(command_buffer, application.context, application.allocator, "viking_room.png");
+  application.mesh     = vulkan::mesh_load   (command_buffer, application.context, application.allocator, "viking_room.obj");
+  application.material = vulkan::material_load(command_buffer, application.context, application.allocator, "viking_room.png");
 
   command_buffer_end(command_buffer);
   command_buffer_submit(command_buffer);
   command_buffer_wait(command_buffer);
   command_buffer_put(command_buffer);
 
-  application.sampler = vulkan::sampler_create_simple(application.context);
-
-  application.chunk = chunk_generate_random();
+  application.chunk      = chunk_generate_random();
   application.chunk_mesh = chunk_generate_mesh(application.context, application.allocator, *application.chunk);
 
-  // Descriptor pool
-  vulkan::init_descriptor_pool(application.context, vulkan::DescriptorPoolCreateInfo{
-    .descriptor_input = DESCRIPTOR_INPUT,
-    .count            = 1,
-  }, application.descriptor_pool);
-
-  const vulkan::Descriptor descriptors[] = {
-    {.type = vulkan::DescriptorType::SAMPLER, .combined_image_sampler = { .image_view = vulkan::texture_get_image_view(application.texture), .sampler = application.sampler, }}
-  };
-
-  vulkan::allocate_descriptor_set(application.context, application.descriptor_pool, application.renderer.pipeline.descriptor_set_layout, application.descriptor_set);
-  vulkan::write_descriptor_set(application.context, application.descriptor_set, vulkan::DescriptorSetWriteInfo{
-    .descriptors      = descriptors,
-    .descriptor_count = std::size(descriptors),
-  });
 }
 
 void application_deinit(Application& application)
@@ -242,16 +224,14 @@ void application_deinit(Application& application)
   VkDevice device = vulkan::context_get_device_handle(application.context);
   vkDeviceWaitIdle(device);
 
-  vulkan::deinit_descriptor_pool(application.context, application.descriptor_pool);
-
   vulkan::mesh_put(application.mesh);
   vulkan::mesh_put(application.chunk_mesh);
-  vulkan::texture_put(application.texture);
-  vulkan::sampler_put(application.sampler);
+  vulkan::material_put(application.material);
 
   vulkan::renderer_deinit(application.context, application.renderer);
 
   vulkan::mesh_layout_put(application.mesh_layout);
+  vulkan::material_layout_put(application.material_layout);
 
   vulkan::render_target_deinit(application.context, application.allocator, application.render_target);
 
@@ -268,9 +248,9 @@ void application_render(Application& application)
 {
   const vulkan::RendererCreateInfo RENDERER_CREATE_INFO = {
     .mesh_layout               = application.mesh_layout,
+    .material_layout           = application.material_layout,
     .vertex_shader_file_name   = VERTEX_SHADER_FILE_NAME,
     .fragment_shader_file_name = FRAGMENT_SHADER_FILE_NAME,
-    .descriptor_input          = DESCRIPTOR_INPUT,
     .push_constant_input       = PUSH_CONSTANT_INPUT,
   };
 
@@ -307,11 +287,11 @@ void application_render(Application& application)
     vulkan::renderer_set_viewport_and_scissor(application.renderer, extent);
 
     vulkan::renderer_push_constant(application.renderer, vulkan::ShaderStage::VERTEX, &matrices, 0, sizeof matrices);
-    vulkan::renderer_bind_descriptor_set(application.renderer, application.descriptor_set);
+    vulkan::renderer_use_material(application.renderer, application.material);
     vulkan::mesh_render_simple(frame.command_buffer, application.mesh);
 
     //vulkan::renderer_push_constant(application.renderer, vulkan::ShaderStage::VERTEX, &matrices, 0, sizeof matrices);
-    //vulkan::renderer_bind_descriptor_set(application.renderer, application.descriptor_set);
+    //vulkan::renderer_use_material(application.renderer, application.material);
     //vulkan::mesh_render_simple(frame.command_buffer, application.chunk_mesh);
   }
   vulkan::renderer_end_render(application.renderer);

@@ -30,31 +30,6 @@ namespace vulkan
     }
   }
 
-  static inline void init_pipeline2_descriptor_set_layout(context_t context, PipelineCreateInfo2 create_info, Pipeline2& pipeline)
-  {
-    VkDevice device = context_get_device_handle(context);
-
-    dynarray<VkDescriptorSetLayoutBinding> layout_bindings = create_dynarray<VkDescriptorSetLayoutBinding>(create_info.descriptor_input.binding_count);
-    for(uint32_t i=0; i<create_info.descriptor_input.binding_count; ++i)
-    {
-      VkDescriptorSetLayoutBinding layout_binding = {};
-      layout_binding.binding            = i;
-      layout_binding.descriptorType     = to_vulkan_descriptor_type(create_info.descriptor_input.bindings[i].type);
-      layout_binding.descriptorCount    = 1;
-      layout_binding.stageFlags         = to_vulkan_stage_flags(create_info.descriptor_input.bindings[i].stage);
-      layout_binding.pImmutableSamplers = nullptr;
-      layout_bindings[i] = layout_binding;
-    }
-
-    VkDescriptorSetLayoutCreateInfo descriptor_set_layout_create_info = {};
-    descriptor_set_layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    descriptor_set_layout_create_info.bindingCount = size(layout_bindings);
-    descriptor_set_layout_create_info.pBindings    = data(layout_bindings);
-    VK_CHECK(vkCreateDescriptorSetLayout(device, &descriptor_set_layout_create_info, nullptr, &pipeline.descriptor_set_layout));
-
-    destroy_dynarray(layout_bindings);
-  }
-
   static inline void init_pipeline2_pipeline_layout(context_t context, PipelineCreateInfo2 create_info, Pipeline2& pipeline)
   {
     VkDevice device = context_get_device_handle(context);
@@ -70,10 +45,12 @@ namespace vulkan
       assert(push_constant_ranges[i].stageFlags == VK_SHADER_STAGE_VERTEX_BIT);
     }
 
+    VkDescriptorSetLayout descriptor_set_layout = material_layout_get_descriptor_set_layout(create_info.material_layout);
+
     VkPipelineLayoutCreateInfo pipeline_layout_create_info = {};
     pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipeline_layout_create_info.setLayoutCount         = 1;
-    pipeline_layout_create_info.pSetLayouts            = &pipeline.descriptor_set_layout;
+    pipeline_layout_create_info.pSetLayouts            = &descriptor_set_layout;
     pipeline_layout_create_info.pushConstantRangeCount = size(push_constant_ranges);
     pipeline_layout_create_info.pPushConstantRanges    = data(push_constant_ranges);
     VK_CHECK(vkCreatePipelineLayout(device, &pipeline_layout_create_info, nullptr, &pipeline.pipeline_layout));
@@ -85,7 +62,6 @@ namespace vulkan
   {
     VkDevice device = context_get_device_handle(context);
 
-    init_pipeline2_descriptor_set_layout(context, create_info, pipeline);
     init_pipeline2_pipeline_layout(context, create_info, pipeline);
 
     const VkPipelineVertexInputStateCreateInfo *vertex_input_state_create_info = mesh_layout_get_vulkan_pipeline_vertex_input_state_create_info(create_info.mesh_layout);
@@ -204,6 +180,5 @@ namespace vulkan
 
     vkDestroyPipeline(device, pipeline.handle, nullptr);
     vkDestroyPipelineLayout(device, pipeline.pipeline_layout, nullptr);
-    vkDestroyDescriptorSetLayout(device, pipeline.descriptor_set_layout, nullptr);
   }
 }

@@ -23,9 +23,9 @@ namespace vulkan
     init_pipeline2(context, PipelineCreateInfo2{
       .render_pass         = render_target.render_pass,
       .mesh_layout         = create_info.mesh_layout,
+      .material_layout     = create_info.material_layout,
       .vertex_shader       = vertex_shader,
       .fragment_shader     = fragment_shader,
-      .descriptor_input    = create_info.descriptor_input,
       .push_constant_input = create_info.push_constant_input,
     }, renderer.pipeline);
 
@@ -85,5 +85,15 @@ namespace vulkan
     scissor.offset = {0, 0};
     scissor.extent = extent;
     vkCmdSetScissor(handle, 0, 1, &scissor);
+  }
+
+  void renderer_use_material(Renderer& renderer, material_t material)
+  {
+    assert(renderer.current_frame);
+
+    VkCommandBuffer handle = command_buffer_get_handle(renderer.current_frame->command_buffer);
+
+    VkDescriptorSet descriptor_set = material_get_descriptor_set(material);
+    vkCmdBindDescriptorSets(handle, VK_PIPELINE_BIND_POINT_GRAPHICS, renderer.pipeline.pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
   }
 }
