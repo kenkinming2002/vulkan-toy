@@ -15,15 +15,9 @@ namespace vulkan
     STENCIL_ATTACHMENT,
   };
 
-  typedef struct Image *image_t;
+  REF_DECLARE(Image, image_t);
 
   image_t image_create(context_t context, allocator_t allocator, ImageType type, VkFormat format, size_t width, size_t height, size_t mip_levels);
-  ref_t image_as_ref(image_t image);
-
-  inline void image_get(image_t image) { ref_get(image_as_ref(image)); }
-  inline void image_put(image_t image) { ref_put(image_as_ref(image));  }
-
   VkImage image_get_handle(image_t image);
-
   void image_write(command_buffer_t command_buffer, image_t image, const void *data, size_t width, size_t height, size_t size);
 }

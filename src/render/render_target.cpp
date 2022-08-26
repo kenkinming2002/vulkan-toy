@@ -66,8 +66,8 @@ namespace vulkan
 
     delete[] render_target.framebuffers;
 
-    image_put(render_target.depth_image);
-    image_view_put(render_target.depth_image_view);
+    put(render_target.depth_image);
+    put(render_target.depth_image_view);
 
     for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
       frame_deinit(context, render_target.frames[i]);

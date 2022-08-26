@@ -17,13 +17,9 @@ namespace vulkan
     unsigned width, height;
   };
 
-  typedef struct Context *context_t;
+  REF_DECLARE(Context, context_t);
 
   context_t context_create(const char *application_name, const char *engine_name, const char *window_name, unsigned width, unsigned height);
-  ref_t context_as_ref(context_t context);
-
-  inline void context_get(context_t context) { ref_get(context_as_ref(context)); }
-  inline void context_put(context_t context) { ref_put(context_as_ref(context));  }
 
   VkSurfaceKHR context_get_surface(context_t context);
   VkPhysicalDevice context_get_physical_device(context_t context);

@@ -138,7 +138,7 @@ namespace vulkan
     swapchain.images = nullptr;
 
     for(uint32_t i=0; i<swapchain.image_count; ++i)
-      image_view_put(swapchain.image_views[i]);
+      put(swapchain.image_views[i]);
 
     swapchain.image_count = 0;
 

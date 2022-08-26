@@ -7,6 +7,8 @@
 
 namespace vulkan
 {
+  REF_DECLARE(Buffer, buffer_t);
+
   enum class BufferType
   {
     STAGING_BUFFER,
@@ -15,15 +17,7 @@ namespace vulkan
     UNIFORM_BUFFER,
   };
 
-  typedef struct Buffer *buffer_t;
-
   buffer_t buffer_create(context_t context, allocator_t allocator, BufferType type, size_t size);
-  ref_t buffer_as_ref(buffer_t buffer);
-
-  inline void buffer_get(buffer_t buffer) { ref_get(buffer_as_ref(buffer)); }
-  inline void buffer_put(buffer_t buffer) { ref_put(buffer_as_ref(buffer));  }
-
   VkBuffer buffer_get_handle(buffer_t buffer);
-
   void buffer_write(command_buffer_t command_buffer, buffer_t buffer, const void *data, size_t size);
 }

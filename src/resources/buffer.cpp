@@ -42,6 +42,7 @@ namespace vulkan
     VkBuffer        handle;
     device_memory_t device_memory;
   };
+  REF_DEFINE(Buffer, buffer_t, ref);
 
   static void buffer_free(ref_t ref)
   {
@@ -50,10 +51,9 @@ namespace vulkan
     VkDevice device = context_get_device_handle(buffer->context);
 
     vkDestroyBuffer(device, buffer->handle, nullptr);
-    device_memory_put(buffer->device_memory);
-
-    context_put(buffer->context);
-    allocator_put(buffer->allocator);
+    put(buffer->device_memory);
+    put(buffer->context);
+    put(buffer->allocator);
 
     delete buffer;
   }
@@ -64,9 +64,9 @@ namespace vulkan
     buffer->ref.count = 1;
     buffer->ref.free  = &buffer_free;
 
-    context_get(context);
+    get(context);
     buffer->context = context;
-    allocator_get(allocator);
+    get(allocator);
     buffer->allocator = allocator;
 
     VkDevice device = context_get_device_handle(buffer->context);
@@ -91,8 +91,6 @@ namespace vulkan
     return buffer;
   }
 
-  ref_t buffer_as_ref(buffer_t buffer) { return &buffer->ref; }
-
   VkBuffer buffer_get_handle(buffer_t buffer)
   {
     return buffer->handle;
@@ -101,8 +99,8 @@ namespace vulkan
   void buffer_copy(command_buffer_t command_buffer, buffer_t src, buffer_t dst, size_t size)
   {
     VkCommandBuffer handle = command_buffer_get_handle(command_buffer);
-    command_buffer_use(command_buffer, buffer_as_ref(src));
-    command_buffer_use(command_buffer, buffer_as_ref(dst));
+    command_buffer_use(command_buffer, as_ref(src));
+    command_buffer_use(command_buffer, as_ref(dst));
 
     VkBufferCopy buffer_copy = {};
     buffer_copy.srcOffset = 0;
@@ -125,8 +123,8 @@ namespace vulkan
       buffer_write(command_buffer, staging_buffer, data, size);
 
       VkCommandBuffer handle = command_buffer_get_handle(command_buffer);
-      command_buffer_use(command_buffer, buffer_as_ref(staging_buffer));
-      command_buffer_use(command_buffer, buffer_as_ref(buffer));
+      command_buffer_use(command_buffer, as_ref(staging_buffer));
+      command_buffer_use(command_buffer, as_ref(buffer));
 
       VkBufferCopy buffer_copy = {};
       buffer_copy.srcOffset = 0;
@@ -134,7 +132,7 @@ namespace vulkan
       buffer_copy.size      = size;
       vkCmdCopyBuffer(handle, buffer_get_handle(staging_buffer), buffer_get_handle(buffer), 1, &buffer_copy);
 
-      buffer_put(staging_buffer);
+      put(staging_buffer);
     }
   }
 }

@@ -35,6 +35,7 @@ namespace vulkan
     VkImage         handle;
     device_memory_t device_memory;
   };
+  REF_DEFINE(Image, image_t, ref);
 
   static void image_free(ref_t ref)
   {
@@ -43,10 +44,9 @@ namespace vulkan
     VkDevice device = context_get_device_handle(image->context);
 
     vkDestroyImage(device, image->handle, nullptr);
-    device_memory_put(image->device_memory);
-
-    context_put(image->context);
-    allocator_put(image->allocator);
+    put(image->device_memory);
+    put(image->context);
+    put(image->allocator);
 
     delete image;
   }
@@ -57,10 +57,10 @@ namespace vulkan
     image->ref.count = 1;
     image->ref.free  = &image_free;
 
-    context_get(context);
+    get(context);
     image->context   = context;
 
-    allocator_get(allocator);
+    get(allocator);
     image->allocator = allocator;
 
     VkDevice device = context_get_device_handle(image->context);
@@ -99,8 +99,6 @@ namespace vulkan
     return image;
   }
 
-  ref_t image_as_ref(image_t image) { return &image->ref; }
-
   VkImage image_get_handle(image_t image)
   {
     return image->handle;
@@ -115,8 +113,8 @@ namespace vulkan
     buffer_write(command_buffer, staging_buffer, data, size);
 
     VkCommandBuffer handle = command_buffer_get_handle(command_buffer);
-    command_buffer_use(command_buffer, buffer_as_ref(staging_buffer));
-    command_buffer_use(command_buffer, image_as_ref(image));
+    command_buffer_use(command_buffer, as_ref(staging_buffer));
+    command_buffer_use(command_buffer, as_ref(image));
 
     // TODO: What if we want to copy non color image
     VkImageMemoryBarrier barrier = {};
@@ -207,6 +205,6 @@ namespace vulkan
     barrier.newLayout                     = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     vkCmdPipelineBarrier(handle, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
-    buffer_put(staging_buffer);
+    put(staging_buffer);
   }
 }

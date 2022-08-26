@@ -143,7 +143,7 @@ vulkan::mesh_t chunk_generate_mesh(vulkan::context_t context, vulkan::allocator_
 
   vulkan::mesh_layout_t mesh_layout = vulkan::mesh_layout_create_default();
   vulkan::mesh_t        mesh        = vulkan::mesh_create(context, allocator, mesh_layout, size(vertices), size(indices));
-  vulkan::mesh_layout_put(mesh_layout);
+  vulkan::put(mesh_layout);
 
   vulkan::command_buffer_t command_buffer = vulkan::command_buffer_create(context);
   command_buffer_begin(command_buffer);
@@ -155,7 +155,7 @@ vulkan::mesh_t chunk_generate_mesh(vulkan::context_t context, vulkan::allocator_
   command_buffer_end(command_buffer);
   command_buffer_submit(command_buffer);
   command_buffer_wait(command_buffer);
-  command_buffer_put(command_buffer);
+  put(command_buffer);
 
   destroy_vector(vertices);
   destroy_vector(indices);
@@ -208,7 +208,7 @@ void application_init(Application& application)
   command_buffer_end(command_buffer);
   command_buffer_submit(command_buffer);
   command_buffer_wait(command_buffer);
-  command_buffer_put(command_buffer);
+  put(command_buffer);
 
   application.chunk      = chunk_generate_random();
   application.chunk_mesh = chunk_generate_mesh(application.context, application.allocator, *application.chunk);
@@ -222,19 +222,19 @@ void application_deinit(Application& application)
   VkDevice device = vulkan::context_get_device_handle(application.context);
   vkDeviceWaitIdle(device);
 
-  vulkan::mesh_put(application.mesh);
-  vulkan::mesh_put(application.chunk_mesh);
-  vulkan::material_put(application.material);
+  vulkan::put(application.mesh);
+  vulkan::put(application.chunk_mesh);
+  vulkan::put(application.material);
 
   vulkan::renderer_deinit(application.context, application.renderer);
 
-  vulkan::mesh_layout_put(application.mesh_layout);
-  vulkan::material_layout_put(application.material_layout);
+  vulkan::put(application.mesh_layout);
+  vulkan::put(application.material_layout);
 
   vulkan::render_target_deinit(application.context, application.allocator, application.render_target);
 
-  vulkan::allocator_put(application.allocator);
-  vulkan::context_put(application.context);
+  vulkan::put(application.allocator);
+  vulkan::put(application.context);
 }
 
 void application_update(Application& application)

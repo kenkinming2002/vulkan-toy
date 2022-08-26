@@ -6,12 +6,9 @@
 
 namespace vulkan
 {
-  typedef struct CommandBuffer *command_buffer_t;
+  REF_DECLARE(CommandBuffer, command_buffer_t);
 
   command_buffer_t command_buffer_create(context_t context, bool initial_state_pending = false);
-  void command_buffer_get(command_buffer_t command_buffer);
-  void command_buffer_put(command_buffer_t command_buffer);
-
   VkCommandBuffer command_buffer_get_handle(command_buffer_t command_buffer);
 
   void command_buffer_use(command_buffer_t command_buffer, ref_t resource);

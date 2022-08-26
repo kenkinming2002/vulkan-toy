@@ -12,6 +12,7 @@ namespace vulkan
     const MeshLayoutDescription *description;
     VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info;
   };
+  REF_DEFINE(MeshLayout, mesh_layout_t, ref);
 
   void mesh_layout_free(ref_t ref)
   {
@@ -102,16 +103,6 @@ namespace vulkan
     return mesh_layout;
   }
 
-  ref_t mesh_layout_as_ref(mesh_layout_t mesh_layout)
-  {
-    return &mesh_layout->ref;
-  }
-
-  const VkPipelineVertexInputStateCreateInfo *mesh_layout_get_vulkan_pipeline_vertex_input_state_create_info(mesh_layout_t mesh_layout)
-  {
-    return &mesh_layout->vertex_input_state_create_info;
-  }
-
   static constexpr VertexAttributeDescription VERTEX_ATTRIBUTE_DESCRIPTIONS[] = {
     { .offset = offsetof(Vertex, pos),    .type = vulkan::VertexAttributeDescription::Type::FLOAT3 },
     { .offset = offsetof(Vertex, normal), .type = vulkan::VertexAttributeDescription::Type::FLOAT3 },
@@ -139,6 +130,10 @@ namespace vulkan
     return mesh_layout_compile(&MESH_LAYOUT_DESCRIPTION);
   }
 
+  const VkPipelineVertexInputStateCreateInfo *mesh_layout_get_vulkan_pipeline_vertex_input_state_create_info(mesh_layout_t mesh_layout)
+  {
+    return &mesh_layout->vertex_input_state_create_info;
+  }
 
   // Mesh
   struct Mesh
@@ -156,6 +151,7 @@ namespace vulkan
     buffer_t *vertex_buffers;
     buffer_t index_buffer;
   };
+  REF_DEFINE(Mesh, mesh_t, ref);
 
   static void mesh_free(ref_t ref)
   {
@@ -164,15 +160,14 @@ namespace vulkan
     const size_t vertex_buffer_count = mesh->layout->description->vertex_layout.binding_count;
     printf("vertex buffer count = %zu\n", vertex_buffer_count);
     for(size_t i=0; i<vertex_buffer_count; ++i)
-      buffer_put(mesh->vertex_buffers[i]);
+      put(mesh->vertex_buffers[i]);
 
     delete[] mesh->vertex_buffers;
 
-    buffer_put(mesh->index_buffer);
-
-    mesh_layout_put(mesh->layout);
-    allocator_put(mesh->allocator);
-    context_put(mesh->context);
+    put(mesh->index_buffer);
+    put(mesh->layout);
+    put(mesh->allocator);
+    put(mesh->context);
 
     delete mesh;
   }
@@ -183,13 +178,13 @@ namespace vulkan
     mesh->ref.count = 1;
     mesh->ref.free  = &mesh_free;
 
-    context_get(context);
+    get(context);
     mesh->context = context;
 
-    allocator_get(allocator);
+    get(allocator);
     mesh->allocator = allocator;
 
-    mesh_layout_get(mesh_layout);
+    get(mesh_layout);
     mesh->layout = mesh_layout;
 
     mesh->vertex_count = vertex_count;
@@ -209,11 +204,6 @@ namespace vulkan
     mesh->index_buffer = buffer_create(mesh->context, mesh->allocator, BufferType::INDEX_BUFFER,  sizeof(uint32_t) * mesh->index_count);
 
     return mesh;
-  }
-
-  ref_t mesh_as_ref(mesh_t mesh)
-  {
-    return &mesh->ref;
   }
 
   void mesh_write(command_buffer_t command_buffer, mesh_t mesh, const void **vertices, const uint32_t *indices)
@@ -271,7 +261,7 @@ namespace vulkan
 
     mesh_layout_t mesh_layout = mesh_layout_create_default();
     mesh_t        mesh        = mesh_create(context, allocator, mesh_layout, vertices.size(), indices.size());
-    mesh_layout_put(mesh_layout);
+    put(mesh_layout);
 
     const uint32_t *_indices    = indices.data();
     const void     *_vertices[] = { vertices.data() };
@@ -289,7 +279,7 @@ namespace vulkan
     VkBuffer     *vertex_buffers = new VkBuffer[vertex_buffer_count];
     for(size_t i=0; i<vertex_buffer_count; ++i)
     {
-      command_buffer_use(command_buffer, buffer_as_ref(mesh->vertex_buffers[i]));
+      command_buffer_use(command_buffer, as_ref(mesh->vertex_buffers[i]));
 
       offsets[i] = 0;
       vertex_buffers[i] = buffer_get_handle(mesh->vertex_buffers[i]);
@@ -300,7 +290,7 @@ namespace vulkan
     delete[] vertex_buffers;
 
     // Index buffers
-    command_buffer_use(command_buffer, buffer_as_ref(mesh->index_buffer));
+    command_buffer_use(command_buffer, as_ref(mesh->index_buffer));
     vkCmdBindIndexBuffer(handle, buffer_get_handle(mesh->index_buffer), 0, VK_INDEX_TYPE_UINT32);
 
     vkCmdDrawIndexed(handle, mesh->index_count, 1, 0, 0, 0);

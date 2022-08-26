@@ -10,16 +10,6 @@
 namespace vulkan
 {
   // Descriptor set layout
-  static VkDescriptorType to_vulkan_descriptor_type(DescriptorType type)
-  {
-    switch(type)
-    {
-    case DescriptorType::UNIFORM_BUFFER: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    case DescriptorType::SAMPLER:        return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    default: assert(false && "Unreachable");
-    }
-  }
-
   static VkShaderStageFlags to_vulkan_stage_flags(ShaderStage stage)
   {
     switch(stage)

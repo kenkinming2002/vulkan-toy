@@ -42,20 +42,14 @@ namespace vulkan
     VertexLayoutDescription vertex_layout;
   };
 
-  // Layout
-  typedef struct MeshLayout *mesh_layout_t;
+  REF_DECLARE(MeshLayout, mesh_layout_t);
+  REF_DECLARE(Mesh,       mesh_t);
 
   // TODO: We do not need to take a context_t but it may be a good idea to do
   //       so for consistency with material layout.
   mesh_layout_t mesh_layout_compile(const MeshLayoutDescription *mesh_layout_description);
-  ref_t mesh_layout_as_ref(mesh_layout_t mesh_layout);
-
-  inline void mesh_layout_get(mesh_layout_t mesh_layout) { ref_get(mesh_layout_as_ref(mesh_layout)); }
-  inline void mesh_layout_put(mesh_layout_t mesh_layout) { ref_put(mesh_layout_as_ref(mesh_layout));  }
-
-  const VkPipelineVertexInputStateCreateInfo *mesh_layout_get_vulkan_pipeline_vertex_input_state_create_info(mesh_layout_t mesh_layout);
-
   mesh_layout_t mesh_layout_create_default();
+  const VkPipelineVertexInputStateCreateInfo *mesh_layout_get_vulkan_pipeline_vertex_input_state_create_info(mesh_layout_t mesh_layout);
 
   struct Vertex
   {
@@ -65,18 +59,8 @@ namespace vulkan
     glm::vec2 uv;
   };
 
-  // Mesh
-  // TODO: Make mesh independent of the vertex type used
-  typedef struct Mesh *mesh_t;
-
   mesh_t mesh_create(context_t context, allocator_t allocator, mesh_layout_t mesh_layout, size_t vertex_count, size_t index_count);
-  ref_t mesh_as_ref(mesh_t mesh);
-
-  inline void mesh_get(mesh_t mesh) { ref_get(mesh_as_ref(mesh)); }
-  inline void mesh_put(mesh_t mesh) { ref_put(mesh_as_ref(mesh));  }
-
   void mesh_write(command_buffer_t command_buffer, mesh_t mesh, const void **vertices, const uint32_t *indices);
   mesh_t mesh_load(command_buffer_t command_buffer, context_t context, allocator_t allocator, const char *file_name);
-
   void mesh_render_simple(command_buffer_t command_buffer, mesh_t mesh);
 }

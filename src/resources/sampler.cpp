@@ -12,6 +12,7 @@ namespace vulkan
 
     VkSampler handle;
   };
+  REF_DEFINE(Sampler, sampler_t, ref);
 
   static void sampler_free(ref_t ref)
   {
@@ -20,7 +21,7 @@ namespace vulkan
     VkDevice device = context_get_device_handle(sampler->context);
     vkDestroySampler(device, sampler->handle, nullptr);
 
-    context_put(sampler->context);
+    put(sampler->context);
     delete sampler;
   }
 
@@ -30,7 +31,7 @@ namespace vulkan
     sampler->ref.count = 1;
     sampler->ref.free  = sampler_free;
 
-    context_get(context);
+    get(context);
     sampler->context = context;
 
     VkPhysicalDevice physical_device = context_get_physical_device(sampler->context);
@@ -59,11 +60,6 @@ namespace vulkan
     VK_CHECK(vkCreateSampler(device, &sampler_create_info, nullptr, &sampler->handle));
 
     return sampler;
-  }
-
-  ref_t sampler_as_ref(sampler_t sampler)
-  {
-    return &sampler->ref;
   }
 
   VkSampler sampler_get_handle(sampler_t sampler)

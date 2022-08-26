@@ -16,6 +16,7 @@ namespace vulkan
     context_t context;
     VkPhysicalDeviceMemoryProperties memory_properties;
   };
+  REF_DEFINE(Allocator, allocator_t, ref);
 
   struct DeviceMemory
   {
@@ -28,26 +29,12 @@ namespace vulkan
     VkMemoryPropertyFlags properties;
     VkDeviceSize          size;
   };
-
-  ref_t allocator_as_ref(allocator_t allocator)
-  {
-    return &allocator->ref;
-  }
-
-  ref_t device_memory_as_ref(device_memory_t device_memory)
-  {
-    return &device_memory->ref;
-  }
-
-  VkDeviceMemory device_memory_get_handle(device_memory_t device_memory)
-  {
-    return device_memory->handle;
-  }
+  REF_DEFINE(DeviceMemory, device_memory_t, ref);
 
   static void allocator_free(ref_t ref)
   {
     allocator_t allocator = container_of(ref, Allocator, ref);
-    context_put(allocator->context);
+    put(allocator->context);
     delete allocator;
   }
 
@@ -57,7 +44,7 @@ namespace vulkan
     allocator->ref.count = 1;
     allocator->ref.free  = allocator_free;
 
-    context_get(context);
+    get(context);
     allocator->context = context;
 
     VkPhysicalDevice physical_device = context_get_physical_device(allocator->context);
@@ -72,7 +59,7 @@ namespace vulkan
 
     VkDevice device = context_get_device_handle(device_memory->context);
     vkFreeMemory(device, device_memory->handle, nullptr);
-    context_put(device_memory->context);
+    put(device_memory->context);
 
     delete device_memory;
   }
@@ -84,7 +71,7 @@ namespace vulkan
     device_memory->ref.count = 1;
     device_memory->ref.free  = device_memory_free;
 
-    context_get(allocator->context);
+    get(allocator->context);
     device_memory->context = allocator->context;
 
     VkDevice device = context_get_device_handle(device_memory->context);
@@ -110,6 +97,11 @@ namespace vulkan
 
     fprintf(stderr, "No memory type while allocating device memory");
     abort();
+  }
+
+  VkDeviceMemory device_memory_get_handle(device_memory_t device_memory)
+  {
+    return device_memory->handle;
   }
 
   bool device_memory_mappable(device_memory_t device_memory)

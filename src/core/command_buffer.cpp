@@ -17,7 +17,6 @@ namespace vulkan
     INVALID,
   };
 
-
   struct CommandBuffer
   {
     Ref ref;
@@ -32,6 +31,7 @@ namespace vulkan
     VkCommandBuffer handle;
     VkFence         fence;
   };
+  REF_DEFINE(CommandBuffer, command_buffer_t, ref);
 
   static void command_buffer_free(ref_t ref)
   {
@@ -47,7 +47,7 @@ namespace vulkan
     vkFreeCommandBuffers(device, command_pool, 1, &command_buffer->handle);
     vkDestroyFence(device, command_buffer->fence, nullptr);
 
-    context_put(command_buffer->context);
+    put(command_buffer->context);
 
     delete command_buffer;
   }
@@ -58,7 +58,7 @@ namespace vulkan
     command_buffer->ref.count = 1;
     command_buffer->ref.free  = &command_buffer_free;
 
-    context_get(context);
+    get(context);
     command_buffer->context = context;
 
     VkDevice      device       = context_get_device_handle(command_buffer->context);
@@ -80,16 +80,6 @@ namespace vulkan
     VK_CHECK(vkCreateFence(device, &fence_create_info, nullptr, &command_buffer->fence));
 
     return command_buffer;
-  }
-
-  void command_buffer_get(command_buffer_t command_buffer)
-  {
-    ref_get(&command_buffer->ref);
-  }
-
-  void command_buffer_put(command_buffer_t command_buffer)
-  {
-    ref_put(&command_buffer->ref);
   }
 
   VkCommandBuffer command_buffer_get_handle(command_buffer_t command_buffer)

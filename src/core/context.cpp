@@ -30,6 +30,7 @@ namespace vulkan
 
     VkCommandPool   command_pool;
   };
+  REF_DEFINE(Context, context_t, ref);
 
   static std::span<const char*> glfw_get_required_instance_extensions()
   {
@@ -141,11 +142,6 @@ namespace vulkan
     }
 
     return context;
-  }
-
-  ref_t context_as_ref(context_t context)
-  {
-    return &context->ref;
   }
 
   VkSurfaceKHR context_get_surface(context_t context)

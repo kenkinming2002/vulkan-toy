@@ -12,6 +12,7 @@ namespace vulkan
 
     VkImageView handle;
   };
+  REF_DEFINE(ImageView, image_view_t, ref);
 
   static void image_view_free(ref_t ref)
   {
@@ -20,7 +21,7 @@ namespace vulkan
     VkDevice device = context_get_device_handle(image_view->context);
     vkDestroyImageView(device, image_view->handle, nullptr);
 
-    context_put(image_view->context);
+    put(image_view->context);
 
     delete image_view;
   }
@@ -31,7 +32,7 @@ namespace vulkan
     image_view->ref.count = 1;
     image_view->ref.free  = &image_view_free;
 
-    context_get(context);
+    get(context);
     image_view->context = context;
 
     VkDevice device = context_get_device_handle(image_view->context);
@@ -66,7 +67,7 @@ namespace vulkan
     image_view->ref.count = 1;
     image_view->ref.free  = &image_view_free;
 
-    context_get(context);
+    get(context);
     image_view->context = context;
 
     VkDevice device = context_get_device_handle(image_view->context);
@@ -93,11 +94,6 @@ namespace vulkan
     VK_CHECK(vkCreateImageView(device, &image_view_create_info, nullptr, &image_view->handle));
 
     return image_view;
-  }
-
-  ref_t image_view_as_ref(image_view_t image_view)
-  {
-    return &image_view->ref;
   }
 
   VkImageView image_view_get_handle(image_view_t image_view)

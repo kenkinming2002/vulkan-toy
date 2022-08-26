@@ -20,7 +20,7 @@ namespace vulkan
   {
     VkDevice device = context_get_device_handle(context);
 
-    command_buffer_put(frame.command_buffer);
+    put(frame.command_buffer);
 
     vkDestroySemaphore(device, frame.image_available_semaphore, nullptr);
     vkDestroySemaphore(device, frame.render_finished_semaphore, nullptr);

@@ -20,12 +20,13 @@ namespace vulkan
 
     VkDescriptorSetLayout descriptor_set_layout;
   };
+  REF_DEFINE(MaterialLayout, material_layout_t, ref);
 
   static void material_layout_free(ref_t ref)
   {
     material_layout_t material_layout = container_of(ref, MaterialLayout, ref);
 
-    context_put(material_layout->context);
+    put(material_layout->context);
     VkDevice device = context_get_device_handle(material_layout->context);
     vkDestroyDescriptorSetLayout(device, material_layout->descriptor_set_layout, nullptr);
 
@@ -38,7 +39,7 @@ namespace vulkan
     material_layout->ref.count = 1;
     material_layout->ref.free  = material_layout_free;
 
-    context_get(context);
+    get(context);
     material_layout->context = context;
 
     material_layout->description = material_layout_description;
@@ -59,11 +60,6 @@ namespace vulkan
     VK_CHECK(vkCreateDescriptorSetLayout(device, &descriptor_set_layout_create_info, nullptr, &material_layout->descriptor_set_layout));
 
     return material_layout;
-  }
-
-  ref_t material_layout_as_ref(material_layout_t material_layout)
-  {
-    return &material_layout->ref;
   }
 
   static constexpr MaterialLayoutDescription MATERIAL_LAYOUT_DESCRIPTION = {
@@ -94,6 +90,7 @@ namespace vulkan
     VkDescriptorPool descriptor_pool; // TODO: Figure out a way to shared descriptor pool across multiple material
     VkDescriptorSet  descriptor_set;
   };
+  REF_DEFINE(Material, material_t, ref);
 
   static void material_free(ref_t ref)
   {
@@ -102,11 +99,11 @@ namespace vulkan
     VkDevice device = context_get_device_handle(material->context);
     vkDestroyDescriptorPool(device, material->descriptor_pool, nullptr);
 
-    context_put(material->context);
-    material_layout_put(material->layout);
-    image_put(material->image);
-    image_view_put(material->image_view);
-    sampler_put(material->sampler);
+    put(material->context);
+    put(material->layout);
+    put(material->image);
+    put(material->image_view);
+    put(material->sampler);
 
     delete material;
   }
@@ -117,19 +114,19 @@ namespace vulkan
     material->ref.count = 1;
     material->ref.free  = material_free;
 
-    context_get(context);
+    get(context);
     material->context = context;
 
-    material_layout_get(material_layout);
+    get(material_layout);
     material->layout = material_layout;
 
-    image_get(image);
+    get(image);
     material->image = image;
 
-    image_view_get(image_view);
+    get(image_view);
     material->image_view = image_view;
 
-    sampler_get(sampler);
+    get(sampler);
     material->sampler = sampler;
 
     VkDevice device = context_get_device_handle(material->context);
@@ -173,11 +170,6 @@ namespace vulkan
     return material;
   }
 
-  ref_t material_as_ref(material_t material)
-  {
-    return &material->ref;
-  }
-
   material_t material_load(command_buffer_t command_buffer, context_t context, allocator_t allocator, const char *file_name)
   {
     int x, y, n;
@@ -199,10 +191,10 @@ namespace vulkan
     material_layout_t material_layout = material_layout_create_default(context);
     material_t        material        = material_create(context, material_layout, image, image_view, sampler);
 
-    image_put(image);
-    image_view_put(image_view);
-    sampler_put(sampler);
-    material_layout_put(material_layout);
+    put(image);
+    put(image_view);
+    put(sampler);
+    put(material_layout);
 
     return material;
   }
