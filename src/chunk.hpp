@@ -40,7 +40,7 @@ inline Chunk *chunk_generate_random()
   return chunk;
 }
 
-inline vulkan::mesh_t chunk_generate_mesh(vulkan::context_t context, vulkan::allocator_t allocator, const Chunk& chunk)
+inline vulkan::mesh_t chunk_generate_mesh(vulkan::command_buffer_t command_buffer, vulkan::context_t context, vulkan::allocator_t allocator, const Chunk& chunk)
 {
   vector<vulkan::Vertex> vertices = create_vector<vulkan::Vertex>(1);
   vector<uint32_t>       indices  = create_vector<uint32_t>(1);
@@ -85,17 +85,9 @@ inline vulkan::mesh_t chunk_generate_mesh(vulkan::context_t context, vulkan::all
   vulkan::mesh_t        mesh        = vulkan::mesh_create(context, allocator, mesh_layout, size(vertices), size(indices));
   vulkan::put(mesh_layout);
 
-  vulkan::command_buffer_t command_buffer = vulkan::command_buffer_create(context);
-  command_buffer_begin(command_buffer);
-
   const void     *_vertices[] = { data(vertices) };
   const uint32_t *_indices    = data(indices);
   vulkan::mesh_write(command_buffer, mesh, _vertices, _indices);
-
-  command_buffer_end(command_buffer);
-  command_buffer_submit(command_buffer);
-  command_buffer_wait(command_buffer);
-  put(command_buffer);
 
   destroy_vector(vertices);
   destroy_vector(indices);

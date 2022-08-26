@@ -78,34 +78,33 @@ void application_init(Application& application)
 {
   application.context = vulkan::context_create(APPLICATION_NAME, ENGINE_NAME, WINDOW_NAME, WINDOW_WIDTH, WINDOW_HEIGHT);
   application.allocator = vulkan::allocator_create(application.context);
-
-  vulkan::render_target_init(application.context, application.allocator, application.render_target);
-
-  application.mesh_layout     = vulkan::mesh_layout_create_default();
-  application.material_layout = vulkan::material_layout_create_default(application.context);
-  const vulkan::RendererCreateInfo RENDERER_CREATE_INFO = {
-    .mesh_layout               = application.mesh_layout,
-    .material_layout           = application.material_layout,
-    .vertex_shader_file_name   = VERTEX_SHADER_FILE_NAME,
-    .fragment_shader_file_name = FRAGMENT_SHADER_FILE_NAME,
-    .push_constant_input       = PUSH_CONSTANT_INPUT,
-  };
-  vulkan::renderer_init(application.context, application.render_target, RENDERER_CREATE_INFO, application.renderer);
-
   vulkan::command_buffer_t command_buffer = command_buffer_create(application.context);
   command_buffer_begin(command_buffer);
+  {
+    vulkan::render_target_init(application.context, application.allocator, application.render_target);
 
-  application.mesh     = vulkan::mesh_load   (command_buffer, application.context, application.allocator, "viking_room.obj");
-  application.material = vulkan::material_load(command_buffer, application.context, application.allocator, "viking_room.png");
+    application.mesh_layout     = vulkan::mesh_layout_create_default();
+    application.material_layout = vulkan::material_layout_create_default(application.context);
+    const vulkan::RendererCreateInfo RENDERER_CREATE_INFO = {
+      .mesh_layout               = application.mesh_layout,
+      .material_layout           = application.material_layout,
+      .vertex_shader_file_name   = VERTEX_SHADER_FILE_NAME,
+      .fragment_shader_file_name = FRAGMENT_SHADER_FILE_NAME,
+      .push_constant_input       = PUSH_CONSTANT_INPUT,
+    };
+    vulkan::renderer_init(application.context, application.render_target, RENDERER_CREATE_INFO, application.renderer);
 
-  command_buffer_end(command_buffer);
-  command_buffer_submit(command_buffer);
-  command_buffer_wait(command_buffer);
+    application.mesh     = vulkan::mesh_load   (command_buffer, application.context, application.allocator, "viking_room.obj");
+    application.material = vulkan::material_load(command_buffer, application.context, application.allocator, "viking_room.png");
+
+    application.chunk      = chunk_generate_random();
+    application.chunk_mesh = chunk_generate_mesh(command_buffer, application.context, application.allocator, *application.chunk);
+
+    command_buffer_end(command_buffer);
+    command_buffer_submit(command_buffer);
+    command_buffer_wait(command_buffer);
+  }
   put(command_buffer);
-
-  application.chunk      = chunk_generate_random();
-  application.chunk_mesh = chunk_generate_mesh(application.context, application.allocator, *application.chunk);
-
 }
 
 void application_deinit(Application& application)
@@ -181,9 +180,9 @@ void application_render(Application& application)
     vulkan::renderer_use_material(application.renderer, application.material);
     vulkan::mesh_render_simple(frame.command_buffer, application.mesh);
 
-    //vulkan::renderer_push_constant(application.renderer, vulkan::ShaderStage::VERTEX, &matrices, 0, sizeof matrices);
-    //vulkan::renderer_use_material(application.renderer, application.material);
-    //vulkan::mesh_render_simple(frame.command_buffer, application.chunk_mesh);
+    vulkan::renderer_push_constant(application.renderer, vulkan::ShaderStage::VERTEX, &matrices, 0, sizeof matrices);
+    vulkan::renderer_use_material(application.renderer, application.material);
+    vulkan::mesh_render_simple(frame.command_buffer, application.chunk_mesh);
   }
   vulkan::renderer_end_render(application.renderer);
 
