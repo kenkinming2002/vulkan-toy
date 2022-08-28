@@ -177,12 +177,8 @@ void application_render(Application& application)
     vulkan::renderer_set_viewport_and_scissor(application.renderer, extent);
 
     vulkan::renderer_push_constant(application.renderer, vulkan::ShaderStage::VERTEX, &matrices, 0, sizeof matrices);
-    vulkan::renderer_use_material(application.renderer, application.material);
-    vulkan::mesh_render_simple(frame.command_buffer, application.mesh);
-
-    vulkan::renderer_push_constant(application.renderer, vulkan::ShaderStage::VERTEX, &matrices, 0, sizeof matrices);
-    vulkan::renderer_use_material(application.renderer, application.material);
-    vulkan::mesh_render_simple(frame.command_buffer, application.chunk_mesh);
+    vulkan::renderer_draw(application.renderer, application.material, application.mesh);
+    vulkan::renderer_draw(application.renderer, application.material, application.chunk_mesh);
   }
   vulkan::renderer_end_render(application.renderer);
 

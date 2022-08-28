@@ -34,5 +34,5 @@ namespace vulkan
   void renderer_push_constant(Renderer& renderer, ShaderStage shader_stage, void *data, size_t offset, size_t size);
   void renderer_set_viewport_and_scissor(Renderer& renderer, VkExtent2D extent);
 
-  void renderer_use_material(Renderer& renderer, material_t material);
+  void renderer_draw(Renderer& renderer, material_t material, mesh_t mesh);
 }

@@ -79,7 +79,7 @@ namespace vulkan
     vkCmdSetScissor(handle, 0, 1, &scissor);
   }
 
-  void renderer_use_material(Renderer& renderer, material_t material)
+  void renderer_draw(Renderer& renderer, material_t material, mesh_t mesh)
   {
     assert(renderer.current_frame);
 
@@ -87,5 +87,26 @@ namespace vulkan
 
     VkDescriptorSet descriptor_set = material_get_descriptor_set(material);
     vkCmdBindDescriptorSets(handle, VK_PIPELINE_BIND_POINT_GRAPHICS, renderer.pipeline.pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
+
+    size_t vertex_buffer_count;
+    buffer_t *vertex_buffers = mesh_get_vertex_buffers(mesh, vertex_buffer_count);
+    for(size_t i=0; i<vertex_buffer_count; ++i)
+    {
+      VkDeviceSize offsets[] = {0};
+
+      buffer_t vertex_buffer        = vertex_buffers[i];
+      VkBuffer vertex_buffer_handle = buffer_get_handle(vertex_buffer);
+      vkCmdBindVertexBuffers(handle, i, 1, &vertex_buffer_handle, offsets);
+      command_buffer_use(renderer.current_frame->command_buffer, as_ref(vertex_buffer));
+    }
+
+    buffer_t index_buffer = mesh_get_index_buffer(mesh);
+    VkBuffer index_buffer_handle = buffer_get_handle(index_buffer);
+    vkCmdBindIndexBuffer(handle, index_buffer_handle, 0, VK_INDEX_TYPE_UINT32);
+    command_buffer_use(renderer.current_frame->command_buffer, as_ref(index_buffer));
+
+    // Index buffers
+    size_t index_count = mesh_get_index_count(mesh);
+    vkCmdDrawIndexed(handle, index_count, 1, 0, 0, 0);
   }
 }

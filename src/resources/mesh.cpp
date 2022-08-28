@@ -269,30 +269,19 @@ namespace vulkan
     return mesh;
   }
 
-  void mesh_render_simple(command_buffer_t command_buffer, mesh_t mesh)
+  buffer_t *mesh_get_vertex_buffers(mesh_t mesh, size_t& count)
   {
-    VkCommandBuffer handle = command_buffer_get_handle(command_buffer);
+    count = mesh->layout->description->vertex_layout.binding_count;
+    return mesh->vertex_buffers;
+  }
 
-    // Vertex buffers
-    const size_t vertex_buffer_count = mesh->layout->description->vertex_layout.binding_count;
-    VkDeviceSize *offsets        = new VkDeviceSize[vertex_buffer_count];
-    VkBuffer     *vertex_buffers = new VkBuffer[vertex_buffer_count];
-    for(size_t i=0; i<vertex_buffer_count; ++i)
-    {
-      command_buffer_use(command_buffer, as_ref(mesh->vertex_buffers[i]));
+  buffer_t mesh_get_index_buffer(mesh_t mesh)
+  {
+    return mesh->index_buffer;
+  }
 
-      offsets[i] = 0;
-      vertex_buffers[i] = buffer_get_handle(mesh->vertex_buffers[i]);
-    }
-    vkCmdBindVertexBuffers(handle, 0, 1, vertex_buffers, offsets);
-
-    delete[] offsets;
-    delete[] vertex_buffers;
-
-    // Index buffers
-    command_buffer_use(command_buffer, as_ref(mesh->index_buffer));
-    vkCmdBindIndexBuffer(handle, buffer_get_handle(mesh->index_buffer), 0, VK_INDEX_TYPE_UINT32);
-
-    vkCmdDrawIndexed(handle, mesh->index_count, 1, 0, 0, 0);
+  size_t mesh_get_index_count(mesh_t mesh)
+  {
+    return mesh->index_count;
   }
 }

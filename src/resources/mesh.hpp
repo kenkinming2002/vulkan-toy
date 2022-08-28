@@ -62,5 +62,8 @@ namespace vulkan
   mesh_t mesh_create(context_t context, allocator_t allocator, mesh_layout_t mesh_layout, size_t vertex_count, size_t index_count);
   void mesh_write(command_buffer_t command_buffer, mesh_t mesh, const void **vertices, const uint32_t *indices);
   mesh_t mesh_load(command_buffer_t command_buffer, context_t context, allocator_t allocator, const char *file_name);
-  void mesh_render_simple(command_buffer_t command_buffer, mesh_t mesh);
+
+  buffer_t *mesh_get_vertex_buffers(mesh_t mesh, size_t& count);
+  buffer_t mesh_get_index_buffer(mesh_t mesh);
+  size_t mesh_get_index_count(mesh_t mesh);
 }
