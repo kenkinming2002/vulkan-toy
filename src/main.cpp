@@ -71,8 +71,26 @@ struct Application
   vulkan::mesh_t  chunk_mesh;
 
   vulkan::RenderTarget render_target;
-  vulkan::Renderer     renderer;
+  vulkan::renderer_t   renderer;
 };
+
+void application_on_render_target_invalidate(Application& application)
+{
+  VkDevice device = vulkan::context_get_device_handle(application.context);
+  vkDeviceWaitIdle(device);
+
+  vulkan::render_target_deinit(application.context, application.allocator, application.render_target);
+  vulkan::render_target_init(application.context, application.allocator, application.render_target);
+
+  vulkan::renderer_destroy(application.renderer);
+  application.renderer = vulkan::renderer_create(application.context,
+      application.render_target,
+      application.mesh_layout,
+      application.material_layout,
+      VERTEX_SHADER_FILE_NAME,
+      FRAGMENT_SHADER_FILE_NAME,
+      PUSH_CONSTANT_INPUT);
+}
 
 void application_init(Application& application)
 {
@@ -85,14 +103,13 @@ void application_init(Application& application)
 
     application.mesh_layout     = vulkan::mesh_layout_create_default();
     application.material_layout = vulkan::material_layout_create_default(application.context);
-    const vulkan::RendererCreateInfo RENDERER_CREATE_INFO = {
-      .mesh_layout               = application.mesh_layout,
-      .material_layout           = application.material_layout,
-      .vertex_shader_file_name   = VERTEX_SHADER_FILE_NAME,
-      .fragment_shader_file_name = FRAGMENT_SHADER_FILE_NAME,
-      .push_constant_input       = PUSH_CONSTANT_INPUT,
-    };
-    vulkan::renderer_init(application.context, application.render_target, RENDERER_CREATE_INFO, application.renderer);
+    application.renderer = vulkan::renderer_create(application.context,
+        application.render_target,
+        application.mesh_layout,
+        application.material_layout,
+        VERTEX_SHADER_FILE_NAME,
+        FRAGMENT_SHADER_FILE_NAME,
+        PUSH_CONSTANT_INPUT);
 
     application.mesh     = vulkan::mesh_load   (command_buffer, application.context, application.allocator, "viking_room.obj");
     application.material = vulkan::material_load(command_buffer, application.context, application.allocator, "viking_room.png");
@@ -118,7 +135,7 @@ void application_deinit(Application& application)
   vulkan::put(application.chunk_mesh);
   vulkan::put(application.material);
 
-  vulkan::renderer_deinit(application.context, application.renderer);
+  vulkan::renderer_destroy(application.renderer);
 
   vulkan::put(application.mesh_layout);
   vulkan::put(application.material_layout);
@@ -134,30 +151,12 @@ void application_update(Application& application)
   vulkan::context_handle_events(application.context);
 }
 
-void application_render(Application& application)
+bool application_render(Application& application)
 {
-  const vulkan::RendererCreateInfo RENDERER_CREATE_INFO = {
-    .mesh_layout               = application.mesh_layout,
-    .material_layout           = application.material_layout,
-    .vertex_shader_file_name   = VERTEX_SHADER_FILE_NAME,
-    .fragment_shader_file_name = FRAGMENT_SHADER_FILE_NAME,
-    .push_constant_input       = PUSH_CONSTANT_INPUT,
-  };
-
   // Acquire frame
   const vulkan::Frame *frame = vulkan::render_target_begin_frame(application.context, application.render_target);
-  while(!frame)
-  {
-    VkDevice device = vulkan::context_get_device_handle(application.context);
-    vkDeviceWaitIdle(device);
-
-    vulkan::renderer_deinit(application.context, application.renderer);
-    vulkan::render_target_deinit(application.context, application.allocator, application.render_target);
-    vulkan::render_target_init(application.context, application.allocator, application.render_target);
-    vulkan::renderer_init(application.context, application.render_target, RENDERER_CREATE_INFO, application.renderer);
-
-    frame = vulkan::render_target_begin_frame(application.context, application.render_target);
-  }
+  if(!frame)
+    return false;
 
   // Rendering
   vulkan::renderer_begin_render(application.renderer, frame);
@@ -185,16 +184,7 @@ void application_render(Application& application)
   vulkan::renderer_end_render(application.renderer);
 
   // Present frame
-  if(!vulkan::render_target_end_frame(application.context, application.render_target, frame))
-  {
-    VkDevice device = vulkan::context_get_device_handle(application.context);
-    vkDeviceWaitIdle(device);
-
-    vulkan::renderer_deinit(application.context, application.renderer);
-    vulkan::render_target_deinit(application.context, application.allocator, application.render_target);
-    vulkan::render_target_init(application.context, application.allocator, application.render_target);
-    vulkan::renderer_init(application.context, application.render_target, RENDERER_CREATE_INFO, application.renderer);
-  }
+  return vulkan::render_target_end_frame(application.context, application.render_target, frame);
 }
 
 void application_run(Application& application)
@@ -202,7 +192,8 @@ void application_run(Application& application)
   while(!vulkan::context_should_destroy(application.context))
   {
     application_update(application);
-    application_render(application);
+    if(!application_render(application))
+      application_on_render_target_invalidate(application);
   }
 }
 
