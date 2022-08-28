@@ -145,8 +145,8 @@ void application_render(Application& application)
   };
 
   // Acquire frame
-  vulkan::Frame frame = {};
-  while(!vulkan::render_target_begin_frame(application.context, application.render_target, frame))
+  const vulkan::Frame *frame = vulkan::render_target_begin_frame(application.context, application.render_target);
+  while(!frame)
   {
     VkDevice device = vulkan::context_get_device_handle(application.context);
     vkDeviceWaitIdle(device);
@@ -155,6 +155,8 @@ void application_render(Application& application)
     vulkan::render_target_deinit(application.context, application.allocator, application.render_target);
     vulkan::render_target_init(application.context, application.allocator, application.render_target);
     vulkan::renderer_init(application.context, application.render_target, RENDERER_CREATE_INFO, application.renderer);
+
+    frame = vulkan::render_target_begin_frame(application.context, application.render_target);
   }
 
   // Rendering

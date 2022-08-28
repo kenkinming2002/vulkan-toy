@@ -27,7 +27,7 @@ namespace vulkan
   void renderer_init(context_t context, const RenderTarget& render_target, RendererCreateInfo create_info, Renderer& renderer);
   void renderer_deinit(context_t context, Renderer& renderer);
 
-  void renderer_begin_render(Renderer& renderer, const Frame& frame);
+  void renderer_begin_render(Renderer& renderer, const Frame *frame);
   void renderer_end_render(Renderer& renderer);
 
   void renderer_push_constant(Renderer& renderer, ShaderStage shader_stage, void *data, size_t offset, size_t size);

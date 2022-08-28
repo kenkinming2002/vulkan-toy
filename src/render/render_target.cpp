@@ -76,20 +76,20 @@ namespace vulkan
     deinit_swapchain(context, render_target.swapchain);
   }
 
-  bool render_target_begin_frame(context_t context, RenderTarget& render_target, Frame& frame)
+  const Frame *render_target_begin_frame(context_t context, RenderTarget& render_target)
   {
     // Acquire frame resource
-    frame = render_target.frames[render_target.frame_index];
+    const Frame *frame = &render_target.frames[render_target.frame_index];
     render_target.frame_index = (render_target.frame_index + 1) % MAX_FRAME_IN_FLIGHT;
 
-    auto result = swapchain_next_image_index(context, render_target.swapchain, frame.image_available_semaphore, render_target.image_index);
+    auto result = swapchain_next_image_index(context, render_target.swapchain, frame->image_available_semaphore, render_target.image_index);
     if(result != SwapchainResult::SUCCESS)
-      return false;
+      return nullptr;
 
     // Wait and begin commannd buffer recording
-    command_buffer_wait(frame.command_buffer);
-    command_buffer_reset(frame.command_buffer);
-    command_buffer_begin(frame.command_buffer);
+    command_buffer_wait(frame->command_buffer);
+    command_buffer_reset(frame->command_buffer);
+    command_buffer_begin(frame->command_buffer);
 
     VkRenderPassBeginInfo render_pass_begin_info = {};
     render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -106,20 +106,20 @@ namespace vulkan
     render_pass_begin_info.clearValueCount = 2;
     render_pass_begin_info.pClearValues = clear_values;
 
-    VkCommandBuffer handle = command_buffer_get_handle(frame.command_buffer);
+    VkCommandBuffer handle = command_buffer_get_handle(frame->command_buffer);
     vkCmdBeginRenderPass(handle, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
-    return true;
+    return frame;
   }
 
-  bool render_target_end_frame(context_t context, RenderTarget& render_target, const Frame& frame)
+  bool render_target_end_frame(context_t context, RenderTarget& render_target, const Frame *frame)
   {
-    VkCommandBuffer handle = command_buffer_get_handle(frame.command_buffer);
+    VkCommandBuffer handle = command_buffer_get_handle(frame->command_buffer);
     vkCmdEndRenderPass(handle);
 
     // End command buffer recording and submit
-    command_buffer_end(frame.command_buffer);
-    command_buffer_submit(frame.command_buffer, frame.image_available_semaphore, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, frame.render_finished_semaphore);
+    command_buffer_end(frame->command_buffer);
+    command_buffer_submit(frame->command_buffer, frame->image_available_semaphore, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, frame->render_finished_semaphore);
 
-    return swapchain_present_image_index(context, render_target.swapchain, frame.render_finished_semaphore, render_target.image_index) == SwapchainResult::SUCCESS;
+    return swapchain_present_image_index(context, render_target.swapchain, frame->render_finished_semaphore, render_target.image_index) == SwapchainResult::SUCCESS;
   }
 }

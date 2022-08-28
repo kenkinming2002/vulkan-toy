@@ -32,7 +32,7 @@ namespace vulkan
   void render_target_init(context_t context, allocator_t allocator, RenderTarget& render_target);
   void render_target_deinit(context_t context, allocator_t allocator, RenderTarget& render_target);
 
-  bool render_target_begin_frame(context_t context, RenderTarget& render_target, Frame& frame);
-  bool render_target_end_frame(context_t context, RenderTarget& render_target, const Frame& frame);
+  const Frame *render_target_begin_frame(context_t context, RenderTarget& render_target);
+  bool render_target_end_frame(context_t context, RenderTarget& render_target, const Frame *frame);
 }
 

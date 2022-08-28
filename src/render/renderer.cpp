@@ -38,11 +38,11 @@ namespace vulkan
     vulkan::deinit_pipeline2(context, renderer.pipeline);
   }
 
-  void renderer_begin_render(Renderer& renderer, const Frame& frame)
+  void renderer_begin_render(Renderer& renderer, const Frame *frame)
   {
-    VkCommandBuffer handle = command_buffer_get_handle(frame.command_buffer);
+    VkCommandBuffer handle = command_buffer_get_handle(frame->command_buffer);
     vkCmdBindPipeline(handle, VK_PIPELINE_BIND_POINT_GRAPHICS, renderer.pipeline.handle);
-    renderer.current_frame = &frame;
+    renderer.current_frame = frame;
   }
 
   void renderer_end_render(Renderer& renderer)
