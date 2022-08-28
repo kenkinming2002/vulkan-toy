@@ -1,7 +1,6 @@
 #pragma once
 
 #include "core/context.hpp"
-#include "input.hpp"
 #include "render_pass.hpp"
 #include "resources/mesh.hpp"
 #include "resources/material.hpp"
@@ -9,6 +8,21 @@
 
 namespace vulkan
 {
+  enum class ShaderStage { VERTEX, FRAGMENT };
+
+  struct PushConstantRange
+  {
+    uint32_t offset;
+    uint32_t size;
+    ShaderStage stage;
+  };
+
+  struct PushConstantInput
+  {
+    const PushConstantRange *ranges;
+    uint32_t                 range_count;
+  };
+
   struct Pipeline2
   {
     VkPipelineLayout pipeline_layout;

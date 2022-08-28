@@ -1,7 +1,6 @@
 #pragma once
 
 #include "core/context.hpp"
-#include "input.hpp"
 #include "pipeline.hpp"
 #include "render_target.hpp"
 #include "resources/mesh.hpp"
