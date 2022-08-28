@@ -1,14 +1,12 @@
 #pragma once
 
 #include "core/context.hpp"
+#include "ref.hpp"
 
 namespace vulkan
 {
-  struct Shader
-  {
-    VkShaderModule handle;
-  };
+  REF_DECLARE(Shader, shader_t);
 
-  void load_shader(context_t context, const char *file_name, Shader& shader);
-  void deinit_shader(context_t context, Shader& shader);
+  shader_t shader_load(context_t, const char *file_name);
+  VkShaderModule shader_get_handle(shader_t shader);
 }

@@ -64,13 +64,13 @@ namespace vulkan
     VkPipelineShaderStageCreateInfo vert_shader_stage_create_info = {};
     vert_shader_stage_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     vert_shader_stage_create_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    vert_shader_stage_create_info.module = create_info.vertex_shader.handle;
+    vert_shader_stage_create_info.module = shader_get_handle(create_info.vertex_shader);
     vert_shader_stage_create_info.pName = "main";
 
     VkPipelineShaderStageCreateInfo frag_shader_stage_create_info = {};
     frag_shader_stage_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     frag_shader_stage_create_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    frag_shader_stage_create_info.module = create_info.fragment_shader.handle;
+    frag_shader_stage_create_info.module = shader_get_handle(create_info.fragment_shader);
     frag_shader_stage_create_info.pName = "main";
 
     VkPipelineShaderStageCreateInfo shader_stage_create_infos[] = {

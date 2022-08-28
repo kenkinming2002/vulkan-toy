@@ -32,11 +32,8 @@ namespace vulkan
     get(context);
     renderer->context = context;
 
-    Shader vertex_shader = {};
-    Shader fragment_shader = {};
-
-    load_shader(context, vertex_shader_file_name, vertex_shader);
-    load_shader(context, fragment_shader_file_name, fragment_shader);
+    shader_t vertex_shader   = shader_load(context, vertex_shader_file_name);
+    shader_t fragment_shader = shader_load(context, fragment_shader_file_name);
 
     init_pipeline2(context, PipelineCreateInfo2{
       .render_pass         = render_target.render_pass,
@@ -47,8 +44,8 @@ namespace vulkan
       .push_constant_input = push_constant_input,
     }, renderer->pipeline);
 
-    deinit_shader(renderer->context, vertex_shader);
-    deinit_shader(renderer->context, fragment_shader);
+    put(vertex_shader);
+    put(fragment_shader);
 
     return renderer;
   }

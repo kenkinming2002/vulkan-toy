@@ -36,8 +36,8 @@ namespace vulkan
     mesh_layout_t     mesh_layout;
     material_layout_t material_layout;
 
-    Shader vertex_shader;
-    Shader fragment_shader;
+    shader_t vertex_shader;
+    shader_t fragment_shader;
 
     PushConstantInput push_constant_input;
   };
