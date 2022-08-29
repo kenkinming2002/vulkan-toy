@@ -1,5 +1,6 @@
 #include "core/command_buffer.hpp"
 #include "core/context.hpp"
+#include "render/camera.hpp"
 #include "render/render_target.hpp"
 #include "render/renderer.hpp"
 #include "render/shader.hpp"
@@ -29,13 +30,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-// TODO: Move this outside
-struct Matrices
-{
-  glm::mat4 mvp;
-  glm::mat4 model;
-};
-
 // Constant sections
 static constexpr const char *APPLICATION_NAME = "Vulkan";
 static constexpr const char *ENGINE_NAME      = "Engine";
@@ -47,7 +41,7 @@ static constexpr const char *VERTEX_SHADER_FILE_NAME   = "shaders/vert.spv";
 static constexpr const char *FRAGMENT_SHADER_FILE_NAME = "shaders/frag.spv";
 
 static constexpr vulkan::PushConstantRange PUSH_CONSTANT_RANGES[] = {
-  {.offset = 0, .size = sizeof(Matrices), .stage = vulkan::ShaderStage::VERTEX },
+  {.offset = 0, .size = sizeof(vulkan::CameraMatrices), .stage = vulkan::ShaderStage::VERTEX },
 };
 
 static constexpr vulkan::PushConstantInput PUSH_CONSTANT_INPUT = {
@@ -72,6 +66,8 @@ struct Application
 
   vulkan::RenderTarget render_target;
   vulkan::renderer_t   renderer;
+
+  vulkan::Camera camera;
 };
 
 void application_on_render_target_invalidate(Application& application)
@@ -90,26 +86,22 @@ void application_on_render_target_invalidate(Application& application)
       VERTEX_SHADER_FILE_NAME,
       FRAGMENT_SHADER_FILE_NAME,
       PUSH_CONSTANT_INPUT);
+
+  application.camera.fov          = glm::radians(45.0f);
+  application.camera.aspect_ratio = (float)application.render_target.swapchain.extent.width /
+                                    (float)application.render_target.swapchain.extent.height;
 }
 
 void application_init(Application& application)
 {
   application.context = vulkan::context_create(APPLICATION_NAME, ENGINE_NAME, WINDOW_NAME, WINDOW_WIDTH, WINDOW_HEIGHT);
   application.allocator = vulkan::allocator_create(application.context);
+
   vulkan::command_buffer_t command_buffer = command_buffer_create(application.context);
   command_buffer_begin(command_buffer);
   {
-    vulkan::render_target_init(application.context, application.allocator, application.render_target);
-
     application.mesh_layout     = vulkan::mesh_layout_create_default();
     application.material_layout = vulkan::material_layout_create_default(application.context);
-    application.renderer = vulkan::renderer_create(application.context,
-        application.render_target,
-        application.mesh_layout,
-        application.material_layout,
-        VERTEX_SHADER_FILE_NAME,
-        FRAGMENT_SHADER_FILE_NAME,
-        PUSH_CONSTANT_INPUT);
 
     application.mesh     = vulkan::mesh_load   (command_buffer, application.context, application.allocator, "viking_room.obj");
     application.material = vulkan::material_load(command_buffer, application.context, application.allocator, "viking_room.png");
@@ -122,6 +114,24 @@ void application_init(Application& application)
     command_buffer_wait(command_buffer);
   }
   put(command_buffer);
+
+  vulkan::render_target_init(application.context, application.allocator, application.render_target);
+  application.renderer = vulkan::renderer_create(application.context,
+      application.render_target,
+      application.mesh_layout,
+      application.material_layout,
+      VERTEX_SHADER_FILE_NAME,
+      FRAGMENT_SHADER_FILE_NAME,
+      PUSH_CONSTANT_INPUT);
+
+  application.camera.fov          = glm::radians(45.0f);
+  application.camera.aspect_ratio = (float)application.render_target.swapchain.extent.width /
+                                    (float)application.render_target.swapchain.extent.height;
+
+  application.camera.position = glm::vec3(2.0f, 2.0f, 0.5f);
+  application.camera.yaw      = 0.0f;
+  application.camera.pitch    = 0.0f;
+
 }
 
 void application_deinit(Application& application)
@@ -149,6 +159,7 @@ void application_deinit(Application& application)
 void application_update(Application& application)
 {
   vulkan::context_handle_events(application.context);
+  application.camera.yaw += 0.002f;
 }
 
 bool application_render(Application& application)
@@ -162,24 +173,13 @@ bool application_render(Application& application)
   vulkan::renderer_begin_render(application.renderer, frame);
   {
     auto extent = application.render_target.swapchain.extent;
-    Matrices matrices = {};
-    {
-      static auto start_time = std::chrono::high_resolution_clock::now();
-      auto current_time = std::chrono::high_resolution_clock::now();
-      float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
-
-      glm::mat4 model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-      glm::mat4 view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-      glm::mat4 proj = glm::perspective(glm::radians(45.0f), (float)extent.width / (float) extent.height, 0.1f, 10.0f);
-      proj[1][1] *= -1;
-      matrices.mvp = proj * view * model;
-      matrices.model = model;
-    }
     vulkan::renderer_set_viewport_and_scissor(application.renderer, extent);
 
-    vulkan::renderer_push_constant(application.renderer, vulkan::ShaderStage::VERTEX, &matrices, 0, sizeof matrices);
+    vulkan::CameraMatrices camera_matrices = vulkan::camera_compute_matrices(application.camera);
+    vulkan::renderer_push_constant(application.renderer, vulkan::ShaderStage::VERTEX, &camera_matrices, 0, sizeof camera_matrices);
+
     vulkan::renderer_draw(application.renderer, application.material, application.mesh);
-    vulkan::renderer_draw(application.renderer, application.material, application.chunk_mesh);
+    //vulkan::renderer_draw(application.renderer, application.material, application.chunk_mesh);
   }
   vulkan::renderer_end_render(application.renderer);
 

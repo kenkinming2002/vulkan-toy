@@ -20,6 +20,7 @@ srcs = [
   'src/render/renderer.cpp',
   'src/render/shader.cpp',
   'src/render/swapchain.cpp',
+  'src/render/camera.cpp',
   'src/resources/allocator.cpp',
   'src/resources/buffer.cpp',
   'src/resources/image.cpp',
