@@ -10,16 +10,6 @@ namespace vulkan
     const Frame *current_frame;
   };
 
-  static VkShaderStageFlags to_vulkan_stage_flags(ShaderStage stage)
-  {
-    switch(stage)
-    {
-    case ShaderStage::VERTEX:   return VK_SHADER_STAGE_VERTEX_BIT;
-    case ShaderStage::FRAGMENT: return VK_SHADER_STAGE_FRAGMENT_BIT;
-    default: assert(false && "Unreachable");
-    }
-  }
-
   renderer_t renderer_create(context_t context, const RenderTarget& render_target,
     mesh_layout_t mesh_layout,
     material_layout_t material_layout,
@@ -71,12 +61,6 @@ namespace vulkan
     renderer->current_frame = nullptr;
   }
 
-  void renderer_push_constant(renderer_t renderer, ShaderStage shader_stage, void *data, size_t offset, size_t size)
-  {
-    VkCommandBuffer handle = command_buffer_get_handle(renderer->current_frame->command_buffer);
-    vkCmdPushConstants(handle, renderer->pipeline.pipeline_layout, to_vulkan_stage_flags(shader_stage), offset, size, data);
-  }
-
   void renderer_set_viewport_and_scissor(renderer_t renderer, VkExtent2D extent)
   {
     VkCommandBuffer handle = command_buffer_get_handle(renderer->current_frame->command_buffer);
@@ -94,6 +78,14 @@ namespace vulkan
     scissor.offset = {0, 0};
     scissor.extent = extent;
     vkCmdSetScissor(handle, 0, 1, &scissor);
+  }
+
+  void renderer_use_camera(renderer_t renderer, const Camera& camera)
+  {
+    VkCommandBuffer handle = command_buffer_get_handle(renderer->current_frame->command_buffer);
+
+    vulkan::CameraMatrices camera_matrices = vulkan::camera_compute_matrices(camera);
+    vkCmdPushConstants(handle, renderer->pipeline.pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof camera_matrices, &camera_matrices);
   }
 
   void renderer_draw(renderer_t renderer, material_t material, mesh_t mesh)

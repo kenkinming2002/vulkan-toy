@@ -174,10 +174,7 @@ bool application_render(Application& application)
   {
     auto extent = application.render_target.swapchain.extent;
     vulkan::renderer_set_viewport_and_scissor(application.renderer, extent);
-
-    vulkan::CameraMatrices camera_matrices = vulkan::camera_compute_matrices(application.camera);
-    vulkan::renderer_push_constant(application.renderer, vulkan::ShaderStage::VERTEX, &camera_matrices, 0, sizeof camera_matrices);
-
+    vulkan::renderer_use_camera(application.renderer, application.camera);
     vulkan::renderer_draw(application.renderer, application.material, application.mesh);
     //vulkan::renderer_draw(application.renderer, application.material, application.chunk_mesh);
   }
