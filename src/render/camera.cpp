@@ -5,6 +5,51 @@
 
 namespace vulkan
 {
+  glm::vec3 camera_forward(const Camera& camera)
+  {
+    return glm::vec3(
+      cos(camera.pitch) * cos(camera.yaw),
+      cos(camera.pitch) * sin(camera.yaw),
+      sin(camera.pitch)
+    );
+  }
+
+  glm::vec3 camera_left(const Camera& camera)
+  {
+    return glm::vec3(
+      -sin(camera.yaw),
+      cos(camera.yaw),
+      0.0f
+    );
+  }
+
+  glm::vec3 camera_up(const Camera& camera)
+  {
+    return glm::vec3(
+      -sin(camera.pitch) * cos(camera.yaw),
+      -sin(camera.pitch) * sin(camera.yaw),
+      cos(camera.pitch)
+    );
+  }
+
+  void camera_rotate(Camera& camera, float yaw, float pitch)
+  {
+    camera.yaw   += yaw;
+    camera.pitch += pitch;
+  }
+
+  void camera_translate(Camera& camera, glm::vec3 dir)
+  {
+    const glm::vec3 forward = camera_forward(camera);
+    const glm::vec3 left    = camera_left(camera);
+    const glm::vec3 up      = camera_up(camera);
+
+    camera.position +=
+      dir.x * forward +
+      dir.y * left +
+      dir.z * up;
+  }
+
   CameraMatrices camera_compute_matrices(const Camera& camera)
   {
     glm::mat4 model = glm::mat4(1.0f);

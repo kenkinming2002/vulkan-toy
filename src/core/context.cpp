@@ -169,6 +169,11 @@ namespace vulkan
     return context->command_pool;
   }
 
+  GLFWwindow *context_get_glfw_window(context_t context)
+  {
+    return context->window;
+  }
+
   bool context_should_destroy(context_t context)
   {
     return glfwWindowShouldClose(context->window);

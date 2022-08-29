@@ -15,7 +15,11 @@ namespace vulkan
     float yaw, pitch;
   };
 
-  void camera_rotate(Camera& camera, glm::vec2 dir);
+  glm::vec3 camera_forward(const Camera& camera);
+  glm::vec3 camera_left(const Camera& camera);
+  glm::vec3 camera_up(const Camera& camera);
+
+  void camera_rotate(Camera& camera, float yaw, float pitch);
   void camera_translate(Camera& camera, glm::vec3 dir);
 
   // TODO: Ideally, we would also want to include the normal matrix but push

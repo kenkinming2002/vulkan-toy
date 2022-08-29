@@ -27,6 +27,8 @@ namespace vulkan
   VkQueue context_get_queue_handle(context_t context);
   VkCommandPool context_get_default_command_pool(context_t context);
 
+  GLFWwindow *context_get_glfw_window(context_t context);
+
   bool context_should_destroy(context_t context);
   void context_handle_events(context_t context);
 }

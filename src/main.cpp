@@ -68,6 +68,11 @@ struct Application
   vulkan::renderer_t   renderer;
 
   vulkan::Camera camera;
+
+  bool first_frame = true;
+
+  double prev_x;
+  double prev_y;
 };
 
 void application_on_render_target_invalidate(Application& application)
@@ -90,6 +95,39 @@ void application_on_render_target_invalidate(Application& application)
   application.camera.fov          = glm::radians(45.0f);
   application.camera.aspect_ratio = (float)application.render_target.swapchain.extent.width /
                                     (float)application.render_target.swapchain.extent.height;
+}
+
+void application_key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
+{
+  Application *application = static_cast<Application*>(glfwGetWindowUserPointer(window));
+
+  glm::vec3 direction;
+  switch(key)
+  {
+  case GLFW_KEY_W: direction = glm::vec3( 1.0f,  0.0f, 0.0f); break;
+  case GLFW_KEY_S: direction = glm::vec3(-1.0f,  0.0f, 0.0f); break;
+  case GLFW_KEY_A: direction = glm::vec3( 0.0f,  1.0f, 0.0f); break;
+  case GLFW_KEY_D: direction = glm::vec3( 0.0f, -1.0f, 0.0f); break;
+  default: return;
+  }
+  vulkan::camera_translate(application->camera, direction);
+}
+
+void application_cursor_callback(GLFWwindow *window, double x, double y)
+{
+  Application *application = static_cast<Application*>(glfwGetWindowUserPointer(window));
+
+  if(!application->first_frame)
+  {
+    const double dx = x - application->prev_x;
+    const double dy = y - application->prev_y;
+    vulkan::camera_rotate(application->camera, dx / 500.0f, dy / 500.0f);
+    printf("dx = %lf, dy = %lf\n", dx, dy);
+  }
+
+  application->first_frame = false;
+  application->prev_x = x;
+  application->prev_y = y;
 }
 
 void application_init(Application& application)
@@ -132,6 +170,12 @@ void application_init(Application& application)
   application.camera.yaw      = 0.0f;
   application.camera.pitch    = 0.0f;
 
+  GLFWwindow *window = vulkan::context_get_glfw_window(application.context);
+  glfwSetWindowUserPointer(window, &application);
+
+  glfwSetKeyCallback(window, application_key_callback);
+  glfwSetCursorPosCallback(window, application_cursor_callback);
+  glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 }
 
 void application_deinit(Application& application)
@@ -159,7 +203,7 @@ void application_deinit(Application& application)
 void application_update(Application& application)
 {
   vulkan::context_handle_events(application.context);
-  application.camera.yaw += 0.002f;
+  //application.camera.yaw += 0.002f;
 }
 
 bool application_render(Application& application)
