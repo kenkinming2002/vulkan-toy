@@ -97,39 +97,6 @@ void application_on_render_target_invalidate(Application& application)
                                     (float)application.render_target.swapchain.extent.height;
 }
 
-void application_key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
-{
-  Application *application = static_cast<Application*>(glfwGetWindowUserPointer(window));
-
-  glm::vec3 direction;
-  switch(key)
-  {
-  case GLFW_KEY_W: direction = glm::vec3( 1.0f,  0.0f, 0.0f); break;
-  case GLFW_KEY_S: direction = glm::vec3(-1.0f,  0.0f, 0.0f); break;
-  case GLFW_KEY_A: direction = glm::vec3( 0.0f,  1.0f, 0.0f); break;
-  case GLFW_KEY_D: direction = glm::vec3( 0.0f, -1.0f, 0.0f); break;
-  default: return;
-  }
-  vulkan::camera_translate(application->camera, direction);
-}
-
-void application_cursor_callback(GLFWwindow *window, double x, double y)
-{
-  Application *application = static_cast<Application*>(glfwGetWindowUserPointer(window));
-
-  if(!application->first_frame)
-  {
-    const double dx = x - application->prev_x;
-    const double dy = y - application->prev_y;
-    vulkan::camera_rotate(application->camera, dx / 500.0f, dy / 500.0f);
-    printf("dx = %lf, dy = %lf\n", dx, dy);
-  }
-
-  application->first_frame = false;
-  application->prev_x = x;
-  application->prev_y = y;
-}
-
 void application_init(Application& application)
 {
   application.context = vulkan::context_create(APPLICATION_NAME, ENGINE_NAME, WINDOW_NAME, WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -171,10 +138,6 @@ void application_init(Application& application)
   application.camera.pitch    = 0.0f;
 
   GLFWwindow *window = vulkan::context_get_glfw_window(application.context);
-  glfwSetWindowUserPointer(window, &application);
-
-  glfwSetKeyCallback(window, application_key_callback);
-  glfwSetCursorPosCallback(window, application_cursor_callback);
   glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 }
 
@@ -200,10 +163,34 @@ void application_deinit(Application& application)
   vulkan::put(application.context);
 }
 
+static constexpr float MOUSE_SENSITIVITY = 1 / 500.0f;
+static constexpr float MOVEMENT_SPEED    = 0.01f;
+
 void application_update(Application& application)
 {
   vulkan::context_handle_events(application.context);
-  //application.camera.yaw += 0.002f;
+
+  GLFWwindow *window = vulkan::context_get_glfw_window(application.context);
+
+  double x, y;
+  glfwGetCursorPos(window, &x, &y);
+  if(!application.first_frame)
+  {
+    const double dx = (x - application.prev_x) * MOUSE_SENSITIVITY;
+    const double dy = (y - application.prev_y) * MOUSE_SENSITIVITY;
+    vulkan::camera_rotate(application.camera, dx, dy);
+  }
+  application.first_frame = false;
+  application.prev_x = x;
+  application.prev_y = y;
+
+  glm::vec3 direction = glm::vec3(0.0f, 0.0f, 0.0f);
+  if(glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) direction += glm::vec3( 1.0f,  0.0f, 0.0f);
+  if(glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) direction += glm::vec3(-1.0f,  0.0f, 0.0f);
+  if(glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) direction += glm::vec3( 0.0f,  1.0f, 0.0f);
+  if(glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) direction += glm::vec3( 0.0f, -1.0f, 0.0f);
+  vulkan::camera_translate(application.camera, MOVEMENT_SPEED * direction);
+
 }
 
 bool application_render(Application& application)
