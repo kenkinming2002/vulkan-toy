@@ -40,15 +40,6 @@ static constexpr const unsigned WINDOW_HEIGHT = 720;
 static constexpr const char *VERTEX_SHADER_FILE_NAME   = "shaders/vert.spv";
 static constexpr const char *FRAGMENT_SHADER_FILE_NAME = "shaders/frag.spv";
 
-static constexpr vulkan::PushConstantRange PUSH_CONSTANT_RANGES[] = {
-  {.offset = 0, .size = sizeof(vulkan::CameraMatrices), .stage = vulkan::ShaderStage::VERTEX },
-};
-
-static constexpr vulkan::PushConstantInput PUSH_CONSTANT_INPUT = {
-  .ranges      = PUSH_CONSTANT_RANGES,
-  .range_count = std::size(PUSH_CONSTANT_RANGES),
-};
-
 struct Application
 {
   Chunk *chunk;
@@ -89,8 +80,7 @@ void application_on_render_target_invalidate(Application& application)
       application.mesh_layout,
       application.material_layout,
       VERTEX_SHADER_FILE_NAME,
-      FRAGMENT_SHADER_FILE_NAME,
-      PUSH_CONSTANT_INPUT);
+      FRAGMENT_SHADER_FILE_NAME);
 
   application.camera.fov          = glm::radians(45.0f);
   application.camera.aspect_ratio = (float)application.render_target.swapchain.extent.width /
@@ -126,8 +116,7 @@ void application_init(Application& application)
       application.mesh_layout,
       application.material_layout,
       VERTEX_SHADER_FILE_NAME,
-      FRAGMENT_SHADER_FILE_NAME,
-      PUSH_CONSTANT_INPUT);
+      FRAGMENT_SHADER_FILE_NAME);
 
   application.camera.fov          = glm::radians(45.0f);
   application.camera.aspect_ratio = (float)application.render_target.swapchain.extent.width /

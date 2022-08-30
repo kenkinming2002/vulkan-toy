@@ -14,7 +14,6 @@ srcs = [
   'src/main.cpp',
   'src/render/frame.cpp',
   'src/render/framebuffer.cpp',
-  'src/render/pipeline.cpp',
   'src/render/render_pass.cpp',
   'src/render/render_target.cpp',
   'src/render/renderer.cpp',
