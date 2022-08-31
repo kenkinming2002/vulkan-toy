@@ -89,6 +89,8 @@ namespace vulkan
     shader_module_create_info.pCode    = reinterpret_cast<const uint32_t*>(data(code));
     VK_CHECK(vkCreateShaderModule(device, &shader_module_create_info, nullptr, &shader->handle));
 
+    destroy_dynarray(code);
+
     return shader;
   }
 
