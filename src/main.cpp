@@ -66,7 +66,7 @@ struct Application
   double prev_y;
 };
 
-void application_on_render_target_invalidate(Application& application)
+void application_on_swapchain_invalidate(Application& application)
 {
   VkDevice device = vulkan::context_get_device_handle(application.context);
   vkDeviceWaitIdle(device);
@@ -220,7 +220,7 @@ void application_run(Application& application)
   {
     application_update(application);
     if(!application_render(application))
-      application_on_render_target_invalidate(application);
+      application_on_swapchain_invalidate(application);
   }
 }
 
