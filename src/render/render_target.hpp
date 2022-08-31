@@ -13,7 +13,7 @@ namespace vulkan
 {
   typedef struct RenderTarget *render_target_t;
 
-  render_target_t render_target_create(context_t context, allocator_t allocator);
+  render_target_t render_target_create(context_t context, allocator_t allocator, swapchain_t swapchain);
   void render_target_destroy(render_target_t render_target);
 
   const Frame *render_target_begin_frame(render_target_t render_target);

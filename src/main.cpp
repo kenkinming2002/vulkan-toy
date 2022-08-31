@@ -49,14 +49,14 @@ struct Application
 
   vulkan::context_t   context;
   vulkan::allocator_t allocator;
+  vulkan::swapchain_t swapchain;
+  vulkan::render_target_t render_target;
+  vulkan::renderer_t      renderer;
 
   vulkan::mesh_t     mesh;
   vulkan::material_t material;
 
   vulkan::mesh_t  chunk_mesh;
-
-  vulkan::render_target_t render_target;
-  vulkan::renderer_t      renderer;
 
   vulkan::Camera camera;
 
@@ -71,8 +71,11 @@ void application_on_render_target_invalidate(Application& application)
   VkDevice device = vulkan::context_get_device_handle(application.context);
   vkDeviceWaitIdle(device);
 
+  vulkan::put(application.swapchain);
+  application.swapchain = vulkan::swapchain_create(application.context);
+
   vulkan::render_target_destroy(application.render_target);
-  application.render_target = vulkan::render_target_create(application.context, application.allocator);
+  application.render_target = vulkan::render_target_create(application.context, application.allocator, application.swapchain);
 
   unsigned width, height;
   vulkan::render_target_get_extent(application.render_target, width, height);
@@ -112,7 +115,8 @@ void application_init(Application& application)
   }
   put(command_buffer);
 
-  application.render_target = vulkan::render_target_create(application.context, application.allocator);
+  application.swapchain     = vulkan::swapchain_create(application.context);
+  application.render_target = vulkan::render_target_create(application.context, application.allocator, application.swapchain);
 
   unsigned width, height;
   vulkan::render_target_get_extent(application.render_target, width, height);
@@ -143,6 +147,8 @@ void application_deinit(Application& application)
 
   vulkan::renderer_destroy(application.renderer);
   vulkan::render_target_destroy(application.render_target);
+
+  vulkan::put(application.swapchain);
 
   vulkan::put(application.mesh);
   vulkan::put(application.chunk_mesh);

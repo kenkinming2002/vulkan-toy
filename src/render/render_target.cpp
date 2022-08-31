@@ -26,16 +26,17 @@ namespace vulkan
     size_t frame_index;
   };
 
-  render_target_t render_target_create(context_t context, allocator_t allocator)
+  render_target_t render_target_create(context_t context, allocator_t allocator, swapchain_t swapchain)
   {
     render_target_t render_target = new RenderTarget;
 
     get(context);
     get(allocator);
+    get(swapchain);
 
     render_target->context   = context;
     render_target->allocator = allocator;
-    render_target->swapchain = swapchain_create(render_target->context);
+    render_target->swapchain = swapchain;
 
     // Render pass
     init_render_pass_simple(render_target->context, RenderPassCreateInfoSimple{
