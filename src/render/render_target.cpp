@@ -103,8 +103,8 @@ namespace vulkan
       frame_deinit(render_target->context, render_target->frames[i]);
 
     deinit_render_pass(render_target->context, render_target->render_pass);
-    swapchain_destroy(render_target->swapchain);
 
+    put(render_target->swapchain);
     put(render_target->context);
     put(render_target->allocator);
 

@@ -1,16 +1,16 @@
 #pragma once
 
 #include "core/context.hpp"
+#include "ref.hpp"
 #include "resources/image.hpp"
 #include "resources/image_view.hpp"
 #include "utils.hpp"
 
 namespace vulkan
 {
-  typedef struct Swapchain *swapchain_t;
+  REF_DECLARE(Swapchain, swapchain_t);
 
   swapchain_t swapchain_create(context_t context);
-  void swapchain_destroy(swapchain_t swapchain);
 
   VkFormat swapchain_get_format(swapchain_t swapchain);
   VkExtent2D swapchain_get_extent(swapchain_t swapchain);

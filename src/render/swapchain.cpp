@@ -12,6 +12,8 @@ namespace vulkan
 {
   struct Swapchain
   {
+    Ref ref;
+
     context_t context;
 
     VkExtent2D extent;
@@ -25,6 +27,7 @@ namespace vulkan
     VkImage      *images;
     image_view_t *image_views;
   };
+  REF_DEFINE(Swapchain, swapchain_t, ref);
 
   static VkSurfaceFormatKHR swapchain_select_surface_format(VkSurfaceFormatKHR *surface_formats, uint32_t count)
   {
@@ -58,9 +61,29 @@ namespace vulkan
     return present_modes[0];
   }
 
+  static void swapchain_free(ref_t ref)
+  {
+    swapchain_t swapchain = container_of(ref, Swapchain, ref);
+
+    VkDevice device = context_get_device_handle(swapchain->context);
+
+    for(uint32_t i=0; i<swapchain->image_count; ++i)
+      put(swapchain->image_views[i]);
+
+    delete[] swapchain->images;
+    delete[] swapchain->image_views;
+
+    vkDestroySwapchainKHR(device, swapchain->handle, nullptr);
+
+    put(swapchain->context);
+    delete swapchain;
+  }
+
   swapchain_t swapchain_create(context_t context)
   {
     swapchain_t swapchain = new Swapchain;
+    swapchain->ref.count = 1;
+    swapchain->ref.free  = swapchain_free;
 
     get(context);
     swapchain->context = context;
@@ -151,22 +174,6 @@ namespace vulkan
       swapchain->image_views[i] = image_view_create(context, ImageViewType::COLOR, swapchain->surface_format.format, swapchain->images[i]);
 
     return swapchain;
-  }
-
-  void swapchain_destroy(swapchain_t swapchain)
-  {
-    VkDevice device = context_get_device_handle(swapchain->context);
-
-    for(uint32_t i=0; i<swapchain->image_count; ++i)
-      put(swapchain->image_views[i]);
-
-    delete[] swapchain->images;
-    delete[] swapchain->image_views;
-
-    vkDestroySwapchainKHR(device, swapchain->handle, nullptr);
-
-    put(swapchain->context);
-    delete swapchain;
   }
 
   VkFormat swapchain_get_format(swapchain_t swapchain) { return swapchain->surface_format.format; }
