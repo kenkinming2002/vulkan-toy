@@ -11,28 +11,15 @@
 
 namespace vulkan
 {
-  // Double buffering
-  static constexpr size_t MAX_FRAME_IN_FLIGHT = 2;
-  struct RenderTarget
-  {
-    Swapchain swapchain;
+  typedef struct RenderTarget *render_target_t;
 
-    RenderPass   render_pass;
-    image_t      depth_image;
-    image_view_t depth_image_view;
-    Framebuffer *framebuffers;
+  render_target_t render_target_create(context_t context, allocator_t allocator);
+  void render_target_destroy(render_target_t render_target);
 
-    uint32_t image_index;
-    uint32_t image_count;
+  const Frame *render_target_begin_frame(render_target_t render_target);
+  bool render_target_end_frame(render_target_t render_target, const Frame *frame);
 
-    Frame frames[MAX_FRAME_IN_FLIGHT];
-    size_t frame_index;
-  };
-
-  void render_target_init(context_t context, allocator_t allocator, RenderTarget& render_target);
-  void render_target_deinit(context_t context, allocator_t allocator, RenderTarget& render_target);
-
-  const Frame *render_target_begin_frame(context_t context, RenderTarget& render_target);
-  bool render_target_end_frame(context_t context, RenderTarget& render_target, const Frame *frame);
+  VkRenderPass render_target_get_render_pass(render_target_t render_target);
+  void render_target_get_extent(render_target_t render_target, unsigned& width, unsigned& height);
 }
 

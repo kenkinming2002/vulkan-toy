@@ -11,7 +11,9 @@ namespace vulkan
 {
   typedef struct Renderer *renderer_t;
 
-  renderer_t renderer_create(context_t context, const RenderTarget& render_target,
+  renderer_t renderer_create(
+    context_t context,
+    render_target_t render_target,
     mesh_layout_t mesh_layout,
     material_layout_t material_layout,
     const char *vertex_shader_file_name,

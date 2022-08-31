@@ -55,8 +55,8 @@ struct Application
 
   vulkan::mesh_t  chunk_mesh;
 
-  vulkan::RenderTarget render_target;
-  vulkan::renderer_t   renderer;
+  vulkan::render_target_t render_target;
+  vulkan::renderer_t      renderer;
 
   vulkan::Camera camera;
 
@@ -71,8 +71,14 @@ void application_on_render_target_invalidate(Application& application)
   VkDevice device = vulkan::context_get_device_handle(application.context);
   vkDeviceWaitIdle(device);
 
-  vulkan::render_target_deinit(application.context, application.allocator, application.render_target);
-  vulkan::render_target_init(application.context, application.allocator, application.render_target);
+  vulkan::render_target_destroy(application.render_target);
+  application.render_target = vulkan::render_target_create(application.context, application.allocator);
+
+  unsigned width, height;
+  vulkan::render_target_get_extent(application.render_target, width, height);
+
+  application.camera.fov          = glm::radians(45.0f);
+  application.camera.aspect_ratio = (float)width / (float)height;
 
   vulkan::renderer_destroy(application.renderer);
   application.renderer = vulkan::renderer_create(application.context,
@@ -81,10 +87,6 @@ void application_on_render_target_invalidate(Application& application)
       application.material_layout,
       VERTEX_SHADER_FILE_NAME,
       FRAGMENT_SHADER_FILE_NAME);
-
-  application.camera.fov          = glm::radians(45.0f);
-  application.camera.aspect_ratio = (float)application.render_target.swapchain.extent.width /
-                                    (float)application.render_target.swapchain.extent.height;
 }
 
 void application_init(Application& application)
@@ -110,21 +112,23 @@ void application_init(Application& application)
   }
   put(command_buffer);
 
-  vulkan::render_target_init(application.context, application.allocator, application.render_target);
+  application.render_target = vulkan::render_target_create(application.context, application.allocator);
+
+  unsigned width, height;
+  vulkan::render_target_get_extent(application.render_target, width, height);
+
+  application.camera.fov          = glm::radians(45.0f);
+  application.camera.aspect_ratio = (float)width / (float)height;
+  application.camera.position     = glm::vec3(2.0f, 2.0f, 0.5f);
+  application.camera.yaw          = 0.0f;
+  application.camera.pitch        = 0.0f;
+
   application.renderer = vulkan::renderer_create(application.context,
       application.render_target,
       application.mesh_layout,
       application.material_layout,
       VERTEX_SHADER_FILE_NAME,
       FRAGMENT_SHADER_FILE_NAME);
-
-  application.camera.fov          = glm::radians(45.0f);
-  application.camera.aspect_ratio = (float)application.render_target.swapchain.extent.width /
-                                    (float)application.render_target.swapchain.extent.height;
-
-  application.camera.position = glm::vec3(2.0f, 2.0f, 0.5f);
-  application.camera.yaw      = 0.0f;
-  application.camera.pitch    = 0.0f;
 
   GLFWwindow *window = vulkan::context_get_glfw_window(application.context);
   glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -137,16 +141,15 @@ void application_deinit(Application& application)
   VkDevice device = vulkan::context_get_device_handle(application.context);
   vkDeviceWaitIdle(device);
 
+  vulkan::renderer_destroy(application.renderer);
+  vulkan::render_target_destroy(application.render_target);
+
   vulkan::put(application.mesh);
   vulkan::put(application.chunk_mesh);
   vulkan::put(application.material);
 
-  vulkan::renderer_destroy(application.renderer);
-
   vulkan::put(application.mesh_layout);
   vulkan::put(application.material_layout);
-
-  vulkan::render_target_deinit(application.context, application.allocator, application.render_target);
 
   vulkan::put(application.allocator);
   vulkan::put(application.context);
@@ -185,15 +188,16 @@ void application_update(Application& application)
 bool application_render(Application& application)
 {
   // Acquire frame
-  const vulkan::Frame *frame = vulkan::render_target_begin_frame(application.context, application.render_target);
+  const vulkan::Frame *frame = vulkan::render_target_begin_frame(application.render_target);
   if(!frame)
     return false;
 
   // Rendering
   vulkan::renderer_begin_render(application.renderer, frame);
   {
-    auto extent = application.render_target.swapchain.extent;
-    vulkan::renderer_set_viewport_and_scissor(application.renderer, extent);
+    unsigned width, height;
+    vulkan::render_target_get_extent(application.render_target, width, height);
+    vulkan::renderer_set_viewport_and_scissor(application.renderer, {width, height});
     vulkan::renderer_use_camera(application.renderer, application.camera);
     vulkan::renderer_draw(application.renderer, application.material, application.mesh);
     //vulkan::renderer_draw(application.renderer, application.material, application.chunk_mesh);
@@ -201,7 +205,7 @@ bool application_render(Application& application)
   vulkan::renderer_end_render(application.renderer);
 
   // Present frame
-  return vulkan::render_target_end_frame(application.context, application.render_target, frame);
+  return vulkan::render_target_end_frame(application.render_target, frame);
 }
 
 void application_run(Application& application)

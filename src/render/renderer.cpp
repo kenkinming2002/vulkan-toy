@@ -14,7 +14,9 @@ namespace vulkan
     const Frame *current_frame;
   };
 
-  renderer_t renderer_create(context_t context, const RenderTarget& render_target,
+  renderer_t renderer_create(
+    context_t context,
+    render_target_t render_target,
     mesh_layout_t mesh_layout,
     material_layout_t material_layout,
     const char *vertex_shader_file_name,
@@ -148,7 +150,7 @@ namespace vulkan
     graphics_pipeline_create_info.pColorBlendState    = &color_blending_state_create_info;
     graphics_pipeline_create_info.pDynamicState       = &dynamic_state_create_info;
     graphics_pipeline_create_info.layout              = renderer->pipeline_layout;
-    graphics_pipeline_create_info.renderPass          = render_target.render_pass.handle;
+    graphics_pipeline_create_info.renderPass          = render_target_get_render_pass(render_target);
     graphics_pipeline_create_info.subpass             = 0;
     graphics_pipeline_create_info.basePipelineHandle = VK_NULL_HANDLE;
     graphics_pipeline_create_info.basePipelineIndex  = -1;
