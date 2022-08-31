@@ -72,9 +72,10 @@ void application_on_swapchain_invalidate(Application& application)
   vkDeviceWaitIdle(device);
 
   vulkan::put(application.swapchain);
-  application.swapchain = vulkan::swapchain_create(application.context);
-
   vulkan::render_target_destroy(application.render_target);
+  vulkan::renderer_destroy(application.renderer);
+
+  application.swapchain = vulkan::swapchain_create(application.context);
   application.render_target = vulkan::render_target_create(application.context, application.allocator, application.swapchain);
 
   unsigned width, height;
@@ -82,8 +83,6 @@ void application_on_swapchain_invalidate(Application& application)
 
   application.camera.fov          = glm::radians(45.0f);
   application.camera.aspect_ratio = (float)width / (float)height;
-
-  vulkan::renderer_destroy(application.renderer);
   application.renderer = vulkan::renderer_create(application.context,
       application.render_target,
       application.mesh_layout,
