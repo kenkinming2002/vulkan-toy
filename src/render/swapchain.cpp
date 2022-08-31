@@ -10,6 +10,22 @@
 
 namespace vulkan
 {
+  struct Swapchain
+  {
+    context_t context;
+
+    VkExtent2D extent;
+    VkSurfaceTransformFlagBitsKHR surface_transform;
+    VkSurfaceFormatKHR surface_format;
+    VkPresentModeKHR   present_mode;
+
+    VkSwapchainKHR handle;
+
+    uint32_t  image_count;
+    VkImage      *images;
+    image_view_t *image_views;
+  };
+
   static VkSurfaceFormatKHR swapchain_select_surface_format(VkSurfaceFormatKHR *surface_formats, uint32_t count)
   {
     for(uint32_t i=0; i<count; ++i)
@@ -42,11 +58,16 @@ namespace vulkan
     return present_modes[0];
   }
 
-  void init_swapchain(context_t context, Swapchain& swapchain)
+  swapchain_t swapchain_create(context_t context)
   {
-    VkSurfaceKHR     surface         = context_get_surface(context);
-    VkPhysicalDevice physical_device = context_get_physical_device(context);
-    VkDevice         device          = context_get_device_handle(context);
+    swapchain_t swapchain = new Swapchain;
+
+    get(context);
+    swapchain->context = context;
+
+    VkSurfaceKHR     surface         = context_get_surface(swapchain->context);
+    VkPhysicalDevice physical_device = context_get_physical_device(swapchain->context);
+    VkDevice         device          = context_get_device_handle(swapchain->context);
 
     // Capabilities
     uint32_t min_image_count;
@@ -60,19 +81,19 @@ namespace vulkan
         min_image_count = std::min(min_image_count, capabilities.maxImageCount);
 
       // Extent
-      swapchain.extent = capabilities.currentExtent;
-      if(swapchain.extent.height == std::numeric_limits<uint32_t>::max() ||
-          swapchain.extent.width  == std::numeric_limits<uint32_t>::max())
+      swapchain->extent = capabilities.currentExtent;
+      if(swapchain->extent.height == std::numeric_limits<uint32_t>::max() ||
+          swapchain->extent.width  == std::numeric_limits<uint32_t>::max())
       {
         // This should never happen in practice since this means we did not
         // speicify the window size when we create the window. Just use some
         // hard-coded value in this case
         fprintf(stderr, "Window size not specified. Using a default value of 1080x720\n");
-        swapchain.extent = { 1080, 720 };
+        swapchain->extent = { 1080, 720 };
       }
-      swapchain.extent.width  = std::clamp(swapchain.extent.width , capabilities.minImageExtent.width , capabilities.maxImageExtent.width);
-      swapchain.extent.height = std::clamp(swapchain.extent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
-      swapchain.surface_transform = capabilities.currentTransform;
+      swapchain->extent.width  = std::clamp(swapchain->extent.width , capabilities.minImageExtent.width , capabilities.maxImageExtent.width);
+      swapchain->extent.height = std::clamp(swapchain->extent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+      swapchain->surface_transform = capabilities.currentTransform;
     }
 
     // Surface format
@@ -81,7 +102,7 @@ namespace vulkan
       VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &count, nullptr));
       VkSurfaceFormatKHR *surface_formats = new VkSurfaceFormatKHR[count] {};
       VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &count, surface_formats));
-      swapchain.surface_format = swapchain_select_surface_format(surface_formats, count);
+      swapchain->surface_format = swapchain_select_surface_format(surface_formats, count);
       delete[] surface_formats;
     }
 
@@ -91,7 +112,7 @@ namespace vulkan
       VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &count, nullptr));
       VkPresentModeKHR *present_modes = new VkPresentModeKHR[count];
       VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &count, present_modes));
-      swapchain.present_mode = swapchain_select_present_mode(present_modes, count);
+      swapchain->present_mode = swapchain_select_present_mode(present_modes, count);
       delete[] present_modes;
     }
 
@@ -100,61 +121,69 @@ namespace vulkan
       VkSwapchainCreateInfoKHR create_info = {};
       create_info.sType                 = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
       create_info.surface               = surface;
-      create_info.imageExtent           = swapchain.extent;
+      create_info.imageExtent           = swapchain->extent;
       create_info.minImageCount         = min_image_count;
-      create_info.imageFormat           = swapchain.surface_format.format;
-      create_info.imageColorSpace       = swapchain.surface_format.colorSpace;
+      create_info.imageFormat           = swapchain->surface_format.format;
+      create_info.imageColorSpace       = swapchain->surface_format.colorSpace;
       create_info.imageArrayLayers      = 1;
       create_info.imageUsage            = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
       create_info.imageSharingMode      = VK_SHARING_MODE_EXCLUSIVE;
       create_info.queueFamilyIndexCount = 0;
       create_info.pQueueFamilyIndices   = nullptr;
-      create_info.preTransform          = swapchain.surface_transform;
+      create_info.preTransform          = swapchain->surface_transform;
       create_info.compositeAlpha        = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-      create_info.presentMode           = swapchain.present_mode;
+      create_info.presentMode           = swapchain->present_mode;
       create_info.clipped               = VK_TRUE;
       create_info.oldSwapchain          = VK_NULL_HANDLE;
-      VK_CHECK(vkCreateSwapchainKHR(device, &create_info, nullptr, &swapchain.handle));
+      VK_CHECK(vkCreateSwapchainKHR(device, &create_info, nullptr, &swapchain->handle));
     }
 
     // 3: Retrive images
     uint32_t image_count;
-    vkGetSwapchainImagesKHR(device, swapchain.handle, &image_count, nullptr);
+    vkGetSwapchainImagesKHR(device, swapchain->handle, &image_count, nullptr);
 
-    swapchain.image_count = image_count;
-    swapchain.images      = new VkImage[image_count];
-    swapchain.image_views = new image_view_t[image_count];
+    swapchain->image_count = image_count;
+    swapchain->images      = new VkImage[image_count];
+    swapchain->image_views = new image_view_t[image_count];
 
-    vkGetSwapchainImagesKHR(device, swapchain.handle, &image_count, swapchain.images);
+    vkGetSwapchainImagesKHR(device, swapchain->handle, &image_count, swapchain->images);
     for(uint32_t i=0; i<image_count; ++i)
-      swapchain.image_views[i] = image_view_create(context, ImageViewType::COLOR, swapchain.surface_format.format, swapchain.images[i]);
+      swapchain->image_views[i] = image_view_create(context, ImageViewType::COLOR, swapchain->surface_format.format, swapchain->images[i]);
+
+    return swapchain;
   }
 
-  void deinit_swapchain(context_t context, Swapchain& swapchain)
+  void swapchain_destroy(swapchain_t swapchain)
   {
-    VkDevice device = context_get_device_handle(context);
+    VkDevice device = context_get_device_handle(swapchain->context);
 
-    delete[] swapchain.images;
-    swapchain.images = nullptr;
+    for(uint32_t i=0; i<swapchain->image_count; ++i)
+      put(swapchain->image_views[i]);
 
-    for(uint32_t i=0; i<swapchain.image_count; ++i)
-      put(swapchain.image_views[i]);
+    delete[] swapchain->images;
+    delete[] swapchain->image_views;
 
-    swapchain.image_count = 0;
+    vkDestroySwapchainKHR(device, swapchain->handle, nullptr);
 
-    delete[] swapchain.image_views;
-    swapchain.image_views = nullptr;
-
-    vkDestroySwapchainKHR(device, swapchain.handle, nullptr);
-    swapchain.handle = nullptr;
-    swapchain = {};
+    put(swapchain->context);
+    delete swapchain;
   }
 
-  SwapchainResult swapchain_next_image_index(context_t context, const Swapchain& swapchain, VkSemaphore signal_semaphore, uint32_t& image_index)
-  {
-    VkDevice device = context_get_device_handle(context);
+  VkFormat swapchain_get_format(swapchain_t swapchain) { return swapchain->surface_format.format; }
+  VkExtent2D swapchain_get_extent(swapchain_t swapchain) { return swapchain->extent; }
+  uint32_t swapchain_get_image_count(swapchain_t swapchain) { return swapchain->image_count; }
 
-    VkResult result = vkAcquireNextImageKHR(device, swapchain.handle, UINT64_MAX, signal_semaphore, VK_NULL_HANDLE, &image_index);
+  image_view_t swapchain_get_image_view(swapchain_t swapchain, uint32_t index)
+  {
+    assert(index<swapchain->image_count);
+    return swapchain->image_views[index];
+  }
+
+  SwapchainResult swapchain_next_image_index(swapchain_t swapchain, VkSemaphore signal_semaphore, uint32_t& image_index)
+  {
+    VkDevice device = context_get_device_handle(swapchain->context);
+
+    VkResult result = vkAcquireNextImageKHR(device, swapchain->handle, UINT64_MAX, signal_semaphore, VK_NULL_HANDLE, &image_index);
     switch(result)
     {
     default:
@@ -167,16 +196,16 @@ namespace vulkan
     }
   }
 
-  SwapchainResult swapchain_present_image_index(context_t context, const Swapchain& swapchain, VkSemaphore wait_semaphore, uint32_t image_index)
+  SwapchainResult swapchain_present_image_index(swapchain_t swapchain, VkSemaphore wait_semaphore, uint32_t image_index)
   {
-    VkQueue queue = context_get_queue_handle(context);
+    VkQueue queue = context_get_queue_handle(swapchain->context);
 
     VkPresentInfoKHR present_info = {};
     present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     present_info.waitSemaphoreCount = 1;
     present_info.pWaitSemaphores = &wait_semaphore;
     present_info.swapchainCount = 1;
-    present_info.pSwapchains    = &swapchain.handle;
+    present_info.pSwapchains    = &swapchain->handle;
     present_info.pImageIndices  = &image_index;
     present_info.pResults       = nullptr;
 

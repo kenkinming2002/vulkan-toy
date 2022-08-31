@@ -12,8 +12,7 @@ namespace vulkan
   {
     context_t   context;
     allocator_t allocator;
-
-    Swapchain swapchain;
+    swapchain_t swapchain;
 
     RenderPass   render_pass;
     image_t      depth_image;
@@ -36,21 +35,21 @@ namespace vulkan
 
     render_target->context   = context;
     render_target->allocator = allocator;
-
-    init_swapchain(context, render_target->swapchain);
+    render_target->swapchain = swapchain_create(render_target->context);
 
     // Render pass
     init_render_pass_simple(render_target->context, RenderPassCreateInfoSimple{
-      .color_format = render_target->swapchain.surface_format.format,
+      .color_format = swapchain_get_format(render_target->swapchain),
       .depth_format = VK_FORMAT_D32_SFLOAT,
     }, render_target->render_pass);
 
     // Depth attachment
+    VkExtent2D extent = swapchain_get_extent(render_target->swapchain);
     render_target->depth_image = image_create(render_target->context, render_target->allocator,
       ImageType::DEPTH_ATTACHMENT,
       VK_FORMAT_D32_SFLOAT,
-      render_target->swapchain.extent.width,
-      render_target->swapchain.extent.height,
+      extent.width,
+      extent.height,
       1
     );
 
@@ -62,22 +61,23 @@ namespace vulkan
     );
 
     // Framebuffers
-    render_target->framebuffers = new Framebuffer[render_target->swapchain.image_count];
-    for(uint32_t i=0; i<render_target->swapchain.image_count; ++i)
+    uint32_t image_count = swapchain_get_image_count(render_target->swapchain);
+    render_target->framebuffers = new Framebuffer[image_count];
+    for(uint32_t i=0; i<image_count; ++i)
     {
       const image_view_t image_views[] = {
-        render_target->swapchain.image_views[i],
+        swapchain_get_image_view(render_target->swapchain, i),
         render_target->depth_image_view,
       };
       init_framebuffer(render_target->context, FramebufferCreateInfo{
         .render_pass      = render_target->render_pass.handle,
-        .extent           = render_target->swapchain.extent,
+        .extent           = swapchain_get_extent(render_target->swapchain),
         .image_views      = image_views,
         .image_view_count = std::size(image_views),
       }, render_target->framebuffers[i]);
     }
 
-    render_target->image_count = render_target->swapchain.image_count;
+    render_target->image_count = image_count;
     render_target->image_index = 0;
 
     // Frames
@@ -103,7 +103,7 @@ namespace vulkan
       frame_deinit(render_target->context, render_target->frames[i]);
 
     deinit_render_pass(render_target->context, render_target->render_pass);
-    deinit_swapchain(render_target->context, render_target->swapchain);
+    swapchain_destroy(render_target->swapchain);
 
     put(render_target->context);
     put(render_target->allocator);
@@ -117,7 +117,7 @@ namespace vulkan
     const Frame *frame = &render_target->frames[render_target->frame_index];
     render_target->frame_index = (render_target->frame_index + 1) % MAX_FRAME_IN_FLIGHT;
 
-    auto result = swapchain_next_image_index(render_target->context, render_target->swapchain, frame->image_available_semaphore, render_target->image_index);
+    auto result = swapchain_next_image_index(render_target->swapchain, frame->image_available_semaphore, render_target->image_index);
     if(result != SwapchainResult::SUCCESS)
       return nullptr;
 
@@ -131,7 +131,7 @@ namespace vulkan
     render_pass_begin_info.renderPass        = render_target->render_pass.handle;
     render_pass_begin_info.framebuffer       = render_target->framebuffers[render_target->image_index].handle;
     render_pass_begin_info.renderArea.offset = {0, 0};
-    render_pass_begin_info.renderArea.extent = render_target->swapchain.extent;
+    render_pass_begin_info.renderArea.extent = swapchain_get_extent(render_target->swapchain);
 
     // TODO: Take this as argument
     VkClearValue clear_values[2] = {};
@@ -155,7 +155,7 @@ namespace vulkan
     command_buffer_end(frame->command_buffer);
     command_buffer_submit(frame->command_buffer, frame->image_available_semaphore, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, frame->render_finished_semaphore);
 
-    return swapchain_present_image_index(render_target->context, render_target->swapchain, frame->render_finished_semaphore, render_target->image_index) == SwapchainResult::SUCCESS;
+    return swapchain_present_image_index(render_target->swapchain, frame->render_finished_semaphore, render_target->image_index) == SwapchainResult::SUCCESS;
   }
 
   VkRenderPass render_target_get_render_pass(render_target_t render_target)
@@ -165,7 +165,8 @@ namespace vulkan
 
   void render_target_get_extent(render_target_t render_target, unsigned& width, unsigned& height)
   {
-    width = render_target->swapchain.extent.width;
-    height = render_target->swapchain.extent.height;
+    VkExtent2D extent = swapchain_get_extent(render_target->swapchain);
+    width  = extent.width;
+    height = extent.height;
   }
 }

@@ -7,22 +7,16 @@
 
 namespace vulkan
 {
-  struct Swapchain
-  {
-    VkExtent2D extent;
-    VkSurfaceTransformFlagBitsKHR surface_transform;
-    VkSurfaceFormatKHR surface_format;
-    VkPresentModeKHR   present_mode;
+  typedef struct Swapchain *swapchain_t;
 
-    VkSwapchainKHR handle;
+  swapchain_t swapchain_create(context_t context);
+  void swapchain_destroy(swapchain_t swapchain);
 
-    uint32_t  image_count;
-    VkImage      *images;
-    image_view_t *image_views;
-  };
+  VkFormat swapchain_get_format(swapchain_t swapchain);
+  VkExtent2D swapchain_get_extent(swapchain_t swapchain);
+  uint32_t swapchain_get_image_count(swapchain_t swapchain);
 
-  void init_swapchain(context_t context, Swapchain& swapchain);
-  void deinit_swapchain(context_t context, Swapchain& swapchain);
+  image_view_t swapchain_get_image_view(swapchain_t swapchain, uint32_t index);
 
   enum class SwapchainResult
   {
@@ -30,6 +24,6 @@ namespace vulkan
     SUBOPTIMAL,
     OUT_OF_DATE,
   };
-  SwapchainResult swapchain_next_image_index(context_t context, const Swapchain& swapchain, VkSemaphore signal_semaphore, uint32_t& image_index);
-  SwapchainResult swapchain_present_image_index(context_t context, const Swapchain& swapchain, VkSemaphore wait_semaphore, uint32_t image_index);
+  SwapchainResult swapchain_next_image_index(swapchain_t swapchain, VkSemaphore signal_semaphore, uint32_t& image_index);
+  SwapchainResult swapchain_present_image_index(swapchain_t swapchain, VkSemaphore wait_semaphore, uint32_t image_index);
 }
