@@ -69,8 +69,10 @@ namespace vulkan
     VkDevice device = context_get_device_handle(swapchain->context);
 
     for(uint32_t i=0; i<swapchain->image_count; ++i)
+    {
+      put(swapchain->images[i]);
       put(swapchain->image_views[i]);
-
+    }
     delete[] swapchain->images;
     delete[] swapchain->image_views;
 
@@ -176,6 +178,8 @@ namespace vulkan
       swapchain->images[i]      = present_image_create(images[i], swapchain->extent.width, swapchain->extent.height, 1);
       swapchain->image_views[i] = image_view_create(context, ImageViewType::COLOR, swapchain->surface_format.format, 1, swapchain->images[i]);
     }
+
+    delete[] images;
 
     return swapchain;
   }
