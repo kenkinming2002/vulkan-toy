@@ -10,6 +10,8 @@
 
 namespace vulkan
 {
+  REF_DEFINE(Image, image_t, ref);
+
   static VkImageUsageFlags get_vulkan_image_usage(ImageType type)
   {
     switch(type)
@@ -21,21 +23,6 @@ namespace vulkan
     default: assert(false && "Unreachable");
     }
   }
-
-  struct Image
-  {
-    Ref ref;
-
-    context_t   context;
-    allocator_t allocator;
-
-    size_t width, height;
-    size_t mip_levels;
-
-    VkImage         handle;
-    device_memory_t device_memory;
-  };
-  REF_DEFINE(Image, image_t, ref);
 
   static void image_free(ref_t ref)
   {
@@ -58,13 +45,14 @@ namespace vulkan
     image->ref.free  = &image_free;
 
     get(context);
-    image->context   = context;
-
     get(allocator);
+
+    image->context   = context;
     image->allocator = allocator;
 
     VkDevice device = context_get_device_handle(image->context);
 
+    image->format     = format;
     image->width      = width;
     image->height     = height;
     image->mip_levels = mip_levels;
@@ -106,7 +94,7 @@ namespace vulkan
     delete image;
   }
 
-  image_t present_image_create(VkImage handle, size_t width, size_t height, size_t mip_levels)
+  image_t present_image_create(VkImage handle, VkFormat format, size_t width, size_t height, size_t mip_levels)
   {
     image_t image = new Image;
     image->ref.count = 1;
@@ -115,11 +103,14 @@ namespace vulkan
     image->context   = nullptr;
     image->allocator = nullptr;
 
+    image->format     = format;
     image->width      = width;
     image->height     = height;
     image->mip_levels = mip_levels;
 
-    image->handle = handle;
+    image->handle        = handle;
+    image->device_memory = nullptr;
+
     return image;
   }
 

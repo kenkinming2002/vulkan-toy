@@ -175,8 +175,8 @@ namespace vulkan
     swapchain->image_views = new image_view_t[image_count];
     for(uint32_t i=0; i<image_count; ++i)
     {
-      swapchain->images[i]      = present_image_create(images[i], swapchain->extent.width, swapchain->extent.height, 1);
-      swapchain->image_views[i] = image_view_create(context, ImageViewType::COLOR, swapchain->surface_format.format, 1, swapchain->images[i]);
+      swapchain->images[i]      = present_image_create(images[i], swapchain->surface_format.format, swapchain->extent.width, swapchain->extent.height, 1);
+      swapchain->image_views[i] = image_view_create(context, ImageViewType::COLOR, swapchain->images[i]);
     }
 
     delete[] images;

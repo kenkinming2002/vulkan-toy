@@ -181,7 +181,7 @@ namespace vulkan
     size_t mip_level = std::bit_width(std::bit_floor(std::max(width, height)));
 
     image_t      image      = image_create(context, allocator, ImageType::TEXTURE, VK_FORMAT_R8G8B8A8_SRGB, width, height, mip_level);
-    image_view_t image_view = image_view_create(context, ImageViewType::COLOR, VK_FORMAT_R8G8B8A8_SRGB, mip_level, image);
+    image_view_t image_view = image_view_create(context, ImageViewType::COLOR, image);
     sampler_t    sampler    = sampler_create_simple(context);
 
     image_write(command_buffer, image, data, width, height, width * height * 4);

@@ -110,13 +110,7 @@ namespace vulkan
       extent.height,
       1
     );
-
-    render_target->depth_image_view = image_view_create(render_target->context,
-      ImageViewType::DEPTH,
-      VK_FORMAT_D32_SFLOAT,
-      1,
-      render_target->depth_image
-    );
+    render_target->depth_image_view = image_view_create(render_target->context, ImageViewType::DEPTH, render_target->depth_image);
 
     // Framebuffers
     uint32_t image_count = swapchain_get_image_count(render_target->swapchain);
