@@ -18,6 +18,5 @@ namespace vulkan
   REF_DECLARE(ImageView, image_view_t);
 
   image_view_t image_view_create(context_t context, ImageViewType type, VkFormat format, size_t mip_levels, image_t image);
-  image_view_t image_view_create(context_t context, ImageViewType type, VkFormat format, VkImage image);
   VkImageView image_view_get_handle(image_view_t image_view);
 }

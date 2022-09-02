@@ -1,3 +1,4 @@
+#include "resources/image.hpp"
 #include "resources/image_view.hpp"
 #include "swapchain.hpp"
 #include "utils.hpp"
@@ -24,7 +25,7 @@ namespace vulkan
     VkSwapchainKHR handle;
 
     uint32_t  image_count;
-    VkImage      *images;
+    image_t      *images;
     image_view_t *image_views;
   };
   REF_DEFINE(Swapchain, swapchain_t, ref);
@@ -164,14 +165,17 @@ namespace vulkan
     // 3: Retrive images
     uint32_t image_count;
     vkGetSwapchainImagesKHR(device, swapchain->handle, &image_count, nullptr);
+    VkImage *images = new VkImage[image_count];
+    vkGetSwapchainImagesKHR(device, swapchain->handle, &image_count, images);
 
     swapchain->image_count = image_count;
-    swapchain->images      = new VkImage[image_count];
+    swapchain->images      = new image_t[image_count];
     swapchain->image_views = new image_view_t[image_count];
-
-    vkGetSwapchainImagesKHR(device, swapchain->handle, &image_count, swapchain->images);
     for(uint32_t i=0; i<image_count; ++i)
-      swapchain->image_views[i] = image_view_create(context, ImageViewType::COLOR, swapchain->surface_format.format, swapchain->images[i]);
+    {
+      swapchain->images[i]      = present_image_create(images[i], swapchain->extent.width, swapchain->extent.height, 1);
+      swapchain->image_views[i] = image_view_create(context, ImageViewType::COLOR, swapchain->surface_format.format, 1, swapchain->images[i]);
+    }
 
     return swapchain;
   }

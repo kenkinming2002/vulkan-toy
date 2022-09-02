@@ -99,6 +99,30 @@ namespace vulkan
     return image;
   }
 
+  static void present_image_free(ref_t ref)
+  {
+    // We do not own anything
+    image_t image = container_of(ref, Image, ref);
+    delete image;
+  }
+
+  image_t present_image_create(VkImage handle, size_t width, size_t height, size_t mip_levels)
+  {
+    image_t image = new Image;
+    image->ref.count = 1;
+    image->ref.free  = present_image_free;
+
+    image->context   = nullptr;
+    image->allocator = nullptr;
+
+    image->width      = width;
+    image->height     = height;
+    image->mip_levels = mip_levels;
+
+    image->handle = handle;
+    return image;
+  }
+
   VkImage image_get_handle(image_t image)
   {
     return image->handle;
