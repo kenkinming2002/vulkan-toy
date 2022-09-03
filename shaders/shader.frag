@@ -35,5 +35,5 @@ void main()
     diffuse_color * diffuse_strength * light_color +
     specular_color * specular_strength * light_color;
 
-  outColor = vec4(result_color , 1.0);
+  outColor = vec4(fragColor,1.0);
 }

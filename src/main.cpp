@@ -42,8 +42,6 @@ static constexpr const char *FRAGMENT_SHADER_FILE_NAME = "shaders/frag.spv";
 
 struct Application
 {
-  Chunk *chunk;
-
   vulkan::mesh_layout_t     mesh_layout;
   vulkan::material_layout_t material_layout;
 
@@ -56,6 +54,7 @@ struct Application
   vulkan::mesh_t     mesh;
   vulkan::material_t material;
 
+  Chunk           chunk;
   vulkan::mesh_t  chunk_mesh;
 
   vulkan::Camera camera;
@@ -106,7 +105,7 @@ void application_init(Application& application)
     application.material = vulkan::material_load(command_buffer, application.context, application.allocator, "viking_room.png");
 
     application.chunk      = chunk_generate_random();
-    application.chunk_mesh = chunk_generate_mesh(command_buffer, application.context, application.allocator, *application.chunk);
+    application.chunk_mesh = chunk_generate_mesh(command_buffer, application.context, application.allocator, application.chunk);
 
     command_buffer_end(command_buffer);
     command_buffer_submit(command_buffer);
@@ -139,8 +138,6 @@ void application_init(Application& application)
 
 void application_deinit(Application& application)
 {
-  delete application.chunk;
-
   VkDevice device = vulkan::context_get_device_handle(application.context);
   vkDeviceWaitIdle(device);
 
@@ -150,8 +147,10 @@ void application_deinit(Application& application)
   vulkan::put(application.swapchain);
 
   vulkan::put(application.mesh);
-  vulkan::put(application.chunk_mesh);
   vulkan::put(application.material);
+
+  chunk_destroy(application.chunk);
+  vulkan::put(application.chunk_mesh);
 
   vulkan::put(application.mesh_layout);
   vulkan::put(application.material_layout);
@@ -204,8 +203,8 @@ bool application_render(Application& application)
     vulkan::render_target_get_extent(application.render_target, width, height);
     vulkan::renderer_set_viewport_and_scissor(application.renderer, {width, height});
     vulkan::renderer_use_camera(application.renderer, application.camera);
-    vulkan::renderer_draw(application.renderer, application.material, application.mesh);
-    //vulkan::renderer_draw(application.renderer, application.material, application.chunk_mesh);
+    //vulkan::renderer_draw(application.renderer, application.material, application.mesh);
+    vulkan::renderer_draw(application.renderer, application.material, application.chunk_mesh);
   }
   vulkan::renderer_end_render(application.renderer);
 
