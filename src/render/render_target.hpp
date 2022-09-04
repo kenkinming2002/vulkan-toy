@@ -3,10 +3,7 @@
 #include "core/command_buffer.hpp"
 #include "core/context.hpp"
 #include "frame.hpp"
-#include "framebuffer.hpp"
-#include "render_pass.hpp"
-#include "resources/image.hpp"
-#include "resources/image_view.hpp"
+#include "resources/allocator.hpp"
 #include "swapchain.hpp"
 
 namespace vulkan

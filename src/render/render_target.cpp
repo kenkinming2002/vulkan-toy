@@ -1,5 +1,9 @@
 #include "render_target.hpp"
 
+#include "resources/texture.hpp"
+#include "framebuffer.hpp"
+#include "render_pass.hpp"
+
 #include "vk_check.hpp"
 
 #include <array>
@@ -16,8 +20,7 @@ namespace vulkan
 
     VkRenderPass   render_pass;
 
-    image_t        depth_image;
-    image_view_t   depth_image_view;
+    texture_t depth_texture;
     Framebuffer *framebuffers;
 
     uint32_t image_count;
@@ -103,14 +106,14 @@ namespace vulkan
 
     // Depth attachment
     VkExtent2D extent = swapchain_get_extent(render_target->swapchain);
-    render_target->depth_image = image_create(render_target->context, render_target->allocator,
+    render_target->depth_texture = texture_create(render_target->context, render_target->allocator,
       ImageType::DEPTH_ATTACHMENT,
+      ImageViewType::DEPTH,
       VK_FORMAT_D32_SFLOAT,
       extent.width,
       extent.height,
       1
     );
-    render_target->depth_image_view = image_view_create(render_target->context, ImageViewType::DEPTH, render_target->depth_image);
 
     // Framebuffers
     uint32_t image_count = swapchain_get_image_count(render_target->swapchain);
@@ -119,7 +122,7 @@ namespace vulkan
     {
       const image_view_t image_views[] = {
         swapchain_get_image_view(render_target->swapchain, i),
-        render_target->depth_image_view,
+        texture_get_image_view(render_target->depth_texture),
       };
       init_framebuffer(render_target->context, FramebufferCreateInfo{
         .render_pass      = render_target->render_pass,
@@ -150,8 +153,7 @@ namespace vulkan
 
     delete[] render_target->framebuffers;
 
-    put(render_target->depth_image);
-    put(render_target->depth_image_view);
+    put(render_target->depth_texture);
 
     for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
       frame_deinit(render_target->context, render_target->frames[i]);
