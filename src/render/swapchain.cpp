@@ -17,16 +17,13 @@ namespace vulkan
 
     context_t context;
 
-    VkExtent2D extent;
-    VkSurfaceTransformFlagBitsKHR surface_transform;
-    VkSurfaceFormatKHR surface_format;
-    VkPresentModeKHR   present_mode;
-
     VkSwapchainKHR handle;
+    image_t       *images;
+    image_view_t  *image_views;
 
-    uint32_t  image_count;
-    image_t      *images;
-    image_view_t *image_views;
+    uint32_t   image_count;
+    VkExtent2D extent;
+    VkFormat   format;
   };
   REF_DEFINE(Swapchain, swapchain_t, ref);
 
@@ -91,12 +88,18 @@ namespace vulkan
     get(context);
     swapchain->context = context;
 
+    uint32_t                      min_image_count;
+    uint32_t                      image_count;
+    VkExtent2D                    extent;
+    VkSurfaceFormatKHR            surface_format;
+    VkSurfaceTransformFlagBitsKHR surface_transform;
+    VkPresentModeKHR              present_mode;
+
     VkSurfaceKHR     surface         = context_get_surface(swapchain->context);
     VkPhysicalDevice physical_device = context_get_physical_device(swapchain->context);
     VkDevice         device          = context_get_device_handle(swapchain->context);
 
     // Capabilities
-    uint32_t min_image_count;
     {
       VkSurfaceCapabilitiesKHR capabilities = {};
       VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &capabilities));
@@ -107,19 +110,19 @@ namespace vulkan
         min_image_count = std::min(min_image_count, capabilities.maxImageCount);
 
       // Extent
-      swapchain->extent = capabilities.currentExtent;
-      if(swapchain->extent.height == std::numeric_limits<uint32_t>::max() ||
-          swapchain->extent.width  == std::numeric_limits<uint32_t>::max())
+      extent = capabilities.currentExtent;
+      if(extent.height == std::numeric_limits<uint32_t>::max() ||
+         extent.width  == std::numeric_limits<uint32_t>::max())
       {
         // This should never happen in practice since this means we did not
         // speicify the window size when we create the window. Just use some
         // hard-coded value in this case
         fprintf(stderr, "Window size not specified. Using a default value of 1080x720\n");
-        swapchain->extent = { 1080, 720 };
+        extent = { 1080, 720 };
       }
-      swapchain->extent.width  = std::clamp(swapchain->extent.width , capabilities.minImageExtent.width , capabilities.maxImageExtent.width);
-      swapchain->extent.height = std::clamp(swapchain->extent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
-      swapchain->surface_transform = capabilities.currentTransform;
+      extent.width  = std::clamp(extent.width , capabilities.minImageExtent.width , capabilities.maxImageExtent.width);
+      extent.height = std::clamp(extent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+      surface_transform = capabilities.currentTransform;
     }
 
     // Surface format
@@ -128,7 +131,7 @@ namespace vulkan
       VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &count, nullptr));
       VkSurfaceFormatKHR *surface_formats = new VkSurfaceFormatKHR[count] {};
       VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &count, surface_formats));
-      swapchain->surface_format = swapchain_select_surface_format(surface_formats, count);
+      surface_format = swapchain_select_surface_format(surface_formats, count);
       delete[] surface_formats;
     }
 
@@ -138,7 +141,7 @@ namespace vulkan
       VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &count, nullptr));
       VkPresentModeKHR *present_modes = new VkPresentModeKHR[count];
       VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &count, present_modes));
-      swapchain->present_mode = swapchain_select_present_mode(present_modes, count);
+      present_mode = swapchain_select_present_mode(present_modes, count);
       delete[] present_modes;
     }
 
@@ -147,44 +150,47 @@ namespace vulkan
       VkSwapchainCreateInfoKHR create_info = {};
       create_info.sType                 = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
       create_info.surface               = surface;
-      create_info.imageExtent           = swapchain->extent;
+      create_info.imageExtent           = extent;
       create_info.minImageCount         = min_image_count;
-      create_info.imageFormat           = swapchain->surface_format.format;
-      create_info.imageColorSpace       = swapchain->surface_format.colorSpace;
+      create_info.imageFormat           = surface_format.format;
+      create_info.imageColorSpace       = surface_format.colorSpace;
       create_info.imageArrayLayers      = 1;
       create_info.imageUsage            = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
       create_info.imageSharingMode      = VK_SHARING_MODE_EXCLUSIVE;
       create_info.queueFamilyIndexCount = 0;
       create_info.pQueueFamilyIndices   = nullptr;
-      create_info.preTransform          = swapchain->surface_transform;
+      create_info.preTransform          = surface_transform;
       create_info.compositeAlpha        = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-      create_info.presentMode           = swapchain->present_mode;
+      create_info.presentMode           = present_mode;
       create_info.clipped               = VK_TRUE;
       create_info.oldSwapchain          = VK_NULL_HANDLE;
       VK_CHECK(vkCreateSwapchainKHR(device, &create_info, nullptr, &swapchain->handle));
     }
 
     // 3: Retrive images
-    uint32_t image_count;
     vkGetSwapchainImagesKHR(device, swapchain->handle, &image_count, nullptr);
     VkImage *images = new VkImage[image_count];
     vkGetSwapchainImagesKHR(device, swapchain->handle, &image_count, images);
 
-    swapchain->image_count = image_count;
     swapchain->images      = new image_t[image_count];
     swapchain->image_views = new image_view_t[image_count];
     for(uint32_t i=0; i<image_count; ++i)
     {
-      swapchain->images[i]      = present_image_create(images[i], swapchain->surface_format.format, swapchain->extent.width, swapchain->extent.height, 1);
+      swapchain->images[i]      = present_image_create(images[i], surface_format.format, extent.width, extent.height, 1);
       swapchain->image_views[i] = image_view_create(context, ImageViewType::COLOR, swapchain->images[i]);
     }
 
     delete[] images;
 
+    // 4: Store info
+    swapchain->image_count = image_count;
+    swapchain->format      = surface_format.format;
+    swapchain->extent      = extent;
+
     return swapchain;
   }
 
-  VkFormat swapchain_get_format(swapchain_t swapchain) { return swapchain->surface_format.format; }
+  VkFormat swapchain_get_format(swapchain_t swapchain) { return swapchain->format; }
   VkExtent2D swapchain_get_extent(swapchain_t swapchain) { return swapchain->extent; }
   uint32_t swapchain_get_image_count(swapchain_t swapchain) { return swapchain->image_count; }
 
