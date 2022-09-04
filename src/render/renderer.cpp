@@ -8,6 +8,8 @@ namespace vulkan
 {
   struct Renderer
   {
+    Ref ref;
+
     context_t context;
 
     render_target_t   render_target;
@@ -23,6 +25,7 @@ namespace vulkan
 
     const Frame *current_frame;
   };
+  REF_DEFINE(Renderer, renderer_t, ref);
 
   void renderer_init(renderer_t renderer)
   {
@@ -176,6 +179,22 @@ namespace vulkan
     renderer_invalidate(renderer);
   }
 
+  static void renderer_free(ref_t ref)
+  {
+    renderer_t renderer = container_of(ref, Renderer, ref);
+
+    renderer_deinit(renderer);
+
+    put(renderer->context);
+    put(renderer->render_target);
+    put(renderer->mesh_layout);
+    put(renderer->material_layout);
+    put(renderer->vertex_shader);
+    put(renderer->fragment_shader);
+
+    delete renderer;
+  }
+
   renderer_t renderer_create(
     context_t context,
     render_target_t render_target,
@@ -185,6 +204,8 @@ namespace vulkan
     shader_t fragment_shader)
   {
     renderer_t renderer = new Renderer {};
+    renderer->ref.count = 1;
+    renderer->ref.free  = renderer_free;
 
     // TODO: Make render target reference counted
     get(context);
@@ -206,21 +227,6 @@ namespace vulkan
 
     renderer_init(renderer);
     return renderer;
-  }
-
-
-  void renderer_destroy(renderer_t renderer)
-  {
-    renderer_deinit(renderer);
-
-    put(renderer->context);
-    put(renderer->render_target);
-    put(renderer->mesh_layout);
-    put(renderer->material_layout);
-    put(renderer->vertex_shader);
-    put(renderer->fragment_shader);
-
-    delete renderer;
   }
 
   void renderer_begin_render(renderer_t renderer, const Frame *frame)
