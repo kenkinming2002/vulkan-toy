@@ -2,11 +2,21 @@
 
 #include "vk_check.hpp"
 
+#include <stdio.h>
+
 namespace vulkan
 {
   struct Renderer
   {
     context_t context;
+
+    render_target_t   render_target;
+    mesh_layout_t     mesh_layout;
+    material_layout_t material_layout;
+    shader_t          vertex_shader;
+    shader_t          fragment_shader;
+
+    Delegate on_render_target_invalidate;
 
     VkPipelineLayout pipeline_layout;
     VkPipeline       pipeline;
@@ -14,19 +24,8 @@ namespace vulkan
     const Frame *current_frame;
   };
 
-  renderer_t renderer_create(
-    context_t context,
-    render_target_t render_target,
-    mesh_layout_t mesh_layout,
-    material_layout_t material_layout,
-    shader_t vertex_shader,
-    shader_t fragment_shader)
+  void renderer_init(renderer_t renderer)
   {
-    renderer_t renderer = new Renderer {};
-
-    get(context);
-    renderer->context = context;
-
     VkDevice device = context_get_device_handle(renderer->context);
 
     // Pipeline Layout
@@ -35,7 +34,7 @@ namespace vulkan
     push_constant_range.offset     = 0;
     push_constant_range.size       = sizeof(CameraMatrices);
 
-    VkDescriptorSetLayout descriptor_set_layout = material_layout_get_descriptor_set_layout(material_layout);
+    VkDescriptorSetLayout descriptor_set_layout = material_layout_get_descriptor_set_layout(renderer->material_layout);
 
     VkPipelineLayoutCreateInfo pipeline_layout_create_info = {};
     pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -46,7 +45,7 @@ namespace vulkan
     VK_CHECK(vkCreatePipelineLayout(device, &pipeline_layout_create_info, nullptr, &renderer->pipeline_layout));
 
     // Pipeline
-    const VkPipelineVertexInputStateCreateInfo *vertex_input_state_create_info = mesh_layout_get_vulkan_pipeline_vertex_input_state_create_info(mesh_layout);
+    const VkPipelineVertexInputStateCreateInfo *vertex_input_state_create_info = mesh_layout_get_vulkan_pipeline_vertex_input_state_create_info(renderer->mesh_layout);
 
     VkPipelineInputAssemblyStateCreateInfo input_assembly_state_create_info = {};
     input_assembly_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -56,13 +55,13 @@ namespace vulkan
     VkPipelineShaderStageCreateInfo vert_shader_stage_create_info = {};
     vert_shader_stage_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     vert_shader_stage_create_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    vert_shader_stage_create_info.module = shader_get_handle(vertex_shader);
+    vert_shader_stage_create_info.module = shader_get_handle(renderer->vertex_shader);
     vert_shader_stage_create_info.pName = "main";
 
     VkPipelineShaderStageCreateInfo frag_shader_stage_create_info = {};
     frag_shader_stage_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     frag_shader_stage_create_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    frag_shader_stage_create_info.module = shader_get_handle(fragment_shader);
+    frag_shader_stage_create_info.module = shader_get_handle(renderer->fragment_shader);
     frag_shader_stage_create_info.pName = "main";
 
     VkPipelineShaderStageCreateInfo shader_stage_create_infos[] = {
@@ -146,24 +145,79 @@ namespace vulkan
     graphics_pipeline_create_info.pColorBlendState    = &color_blending_state_create_info;
     graphics_pipeline_create_info.pDynamicState       = &dynamic_state_create_info;
     graphics_pipeline_create_info.layout              = renderer->pipeline_layout;
-    graphics_pipeline_create_info.renderPass          = render_target_get_render_pass(render_target);
+    graphics_pipeline_create_info.renderPass          = render_target_get_render_pass(renderer->render_target);
     graphics_pipeline_create_info.subpass             = 0;
     graphics_pipeline_create_info.basePipelineHandle = VK_NULL_HANDLE;
     graphics_pipeline_create_info.basePipelineIndex  = -1;
     VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &graphics_pipeline_create_info, nullptr, &renderer->pipeline));
+  }
 
+  void renderer_deinit(renderer_t renderer)
+  {
+    VkDevice device = context_get_device_handle(renderer->context);
+
+    vkDestroyPipelineLayout(device, renderer->pipeline_layout, nullptr);
+    vkDestroyPipeline(device, renderer->pipeline, nullptr);
+  }
+
+  static void renderer_invalidate(renderer_t renderer)
+  {
+    VkDevice device = context_get_device_handle(renderer->context);
+    vkDeviceWaitIdle(device);
+
+    renderer_deinit(renderer);
+    renderer_init(renderer);
+  }
+
+  static void on_render_target_invalidate(void *data)
+  {
+    renderer_t renderer = static_cast<renderer_t>(data);
+    printf("render target invalidate received\n");
+    renderer_invalidate(renderer);
+  }
+
+  renderer_t renderer_create(
+    context_t context,
+    render_target_t render_target,
+    mesh_layout_t mesh_layout,
+    material_layout_t material_layout,
+    shader_t vertex_shader,
+    shader_t fragment_shader)
+  {
+    renderer_t renderer = new Renderer {};
+
+    // TODO: Make render target reference counted
+    get(context);
+    get(mesh_layout);
+    get(material_layout);
+    get(vertex_shader);
+    get(fragment_shader);
+
+    renderer->context = context;
+    renderer->render_target   = render_target;
+    renderer->mesh_layout     = mesh_layout;
+    renderer->material_layout = material_layout;
+    renderer->vertex_shader   = vertex_shader;
+    renderer->fragment_shader = fragment_shader;
+
+    renderer->on_render_target_invalidate = Delegate{ .list = {}, .ptr = on_render_target_invalidate, .data = renderer, };
+    render_target_on_invalidate(renderer->render_target, renderer->on_render_target_invalidate);
+
+    renderer_init(renderer);
     return renderer;
   }
 
 
   void renderer_destroy(renderer_t renderer)
   {
-    VkDevice device = context_get_device_handle(renderer->context);
-
-    vkDestroyPipelineLayout(device, renderer->pipeline_layout, nullptr);
-    vkDestroyPipeline(device, renderer->pipeline, nullptr);
+    renderer_deinit(renderer);
 
     put(renderer->context);
+    put(renderer->mesh_layout);
+    put(renderer->material_layout);
+    put(renderer->vertex_shader);
+    put(renderer->fragment_shader);
+
     delete renderer;
   }
 

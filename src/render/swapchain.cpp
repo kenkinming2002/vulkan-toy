@@ -16,6 +16,8 @@ namespace vulkan
 
     context_t context;
 
+    DelegateChain on_invalidate;
+
     VkSwapchainKHR handle;
 
     size_t     texture_count;
@@ -58,31 +60,8 @@ namespace vulkan
     return present_modes[0];
   }
 
-  static void swapchain_free(ref_t ref)
+  static void swapchain_init(swapchain_t swapchain)
   {
-    swapchain_t swapchain = container_of(ref, Swapchain, ref);
-
-    VkDevice device = context_get_device_handle(swapchain->context);
-
-    for(size_t i=0; i<swapchain->texture_count; ++i)
-      put(swapchain->textures[i]);
-    delete[] swapchain->textures;
-
-    vkDestroySwapchainKHR(device, swapchain->handle, nullptr);
-
-    put(swapchain->context);
-    delete swapchain;
-  }
-
-  swapchain_t swapchain_create(context_t context)
-  {
-    swapchain_t swapchain = new Swapchain;
-    swapchain->ref.count = 1;
-    swapchain->ref.free  = swapchain_free;
-
-    get(context);
-    swapchain->context = context;
-
     uint32_t                      min_image_count;
     uint32_t                      image_count;
     VkExtent2D                    extent;
@@ -177,34 +156,72 @@ namespace vulkan
     // 4: Store info
     swapchain->format      = surface_format.format;
     swapchain->extent      = extent;
+  }
 
+  static void swapchain_deinit(swapchain_t swapchain)
+  {
+    VkDevice device = context_get_device_handle(swapchain->context);
+    for(size_t i=0; i<swapchain->texture_count; ++i)
+      put(swapchain->textures[i]);
+    delete[] swapchain->textures;
+
+    vkDestroySwapchainKHR(device, swapchain->handle, nullptr);
+  }
+
+  static void swapchain_invalidate(swapchain_t swapchain)
+  {
+    VkDevice device = context_get_device_handle(swapchain->context);
+    vkDeviceWaitIdle(device);
+
+    swapchain_deinit(swapchain);
+    swapchain_init(swapchain);
+    delegate_chain_invoke(swapchain->on_invalidate);
+  }
+
+  static void swapchain_free(ref_t ref)
+  {
+    swapchain_t swapchain = container_of(ref, Swapchain, ref);
+
+    swapchain_deinit(swapchain);
+    put(swapchain->context);
+    delete swapchain;
+  }
+
+  swapchain_t swapchain_create(context_t context)
+  {
+    swapchain_t swapchain = new Swapchain;
+    swapchain->ref.count = 1;
+    swapchain->ref.free  = swapchain_free;
+
+    delegate_chain_init(swapchain->on_invalidate);
+
+    get(context);
+    swapchain->context = context;
+    swapchain_init(swapchain);
     return swapchain;
   }
 
-  VkFormat swapchain_get_format(swapchain_t swapchain) { return swapchain->format; }
-  VkExtent2D swapchain_get_extent(swapchain_t swapchain) { return swapchain->extent; }
+  void swapchain_on_invalidate(swapchain_t swapchain, Delegate& delegate)
+  {
+    delegate_chain_register(swapchain->on_invalidate, delegate);
+  }
 
-  uint32_t swapchain_get_texture_count(swapchain_t swapchain) { return swapchain->texture_count; }
-  const texture_t *swapchain_get_textures(swapchain_t swapchain) { return swapchain->textures; }
-
-  SwapchainResult swapchain_next_image_index(swapchain_t swapchain, VkSemaphore signal_semaphore, uint32_t& image_index)
+  void swapchain_next_image_index(swapchain_t swapchain, VkSemaphore signal_semaphore, uint32_t& image_index)
   {
     VkDevice device = context_get_device_handle(swapchain->context);
-
-    VkResult result = vkAcquireNextImageKHR(device, swapchain->handle, UINT64_MAX, signal_semaphore, VK_NULL_HANDLE, &image_index);
-    switch(result)
+    for(;;)
     {
-    default:
-      VK_CHECK(result);
-      return SwapchainResult::SUCCESS;
-    case VK_SUBOPTIMAL_KHR:
-      return SwapchainResult::SUBOPTIMAL;
-    case VK_ERROR_OUT_OF_DATE_KHR:
-      return SwapchainResult::OUT_OF_DATE;
+      VkResult result = vkAcquireNextImageKHR(device, swapchain->handle, UINT64_MAX, signal_semaphore, VK_NULL_HANDLE, &image_index);
+      if(result != VK_SUBOPTIMAL_KHR && result != VK_ERROR_OUT_OF_DATE_KHR)
+      {
+        VK_CHECK(result);
+        return;
+      }
+      swapchain_invalidate(swapchain);
     }
   }
 
-  SwapchainResult swapchain_present_image_index(swapchain_t swapchain, VkSemaphore wait_semaphore, uint32_t image_index)
+  void swapchain_present_image_index(swapchain_t swapchain, VkSemaphore wait_semaphore, uint32_t image_index)
   {
     VkQueue queue = context_get_queue_handle(swapchain->context);
 
@@ -218,15 +235,18 @@ namespace vulkan
     present_info.pResults       = nullptr;
 
     VkResult result = vkQueuePresentKHR(queue, &present_info);
-    switch(result)
+    if(result != VK_SUBOPTIMAL_KHR && result != VK_ERROR_OUT_OF_DATE_KHR)
     {
-    default:
       VK_CHECK(result);
-      return SwapchainResult::SUCCESS;
-    case VK_SUBOPTIMAL_KHR:
-      return SwapchainResult::SUBOPTIMAL;
-    case VK_ERROR_OUT_OF_DATE_KHR:
-      return SwapchainResult::OUT_OF_DATE;
+      return;
     }
+    swapchain_invalidate(swapchain);
   }
+
+  VkFormat swapchain_get_format(swapchain_t swapchain) { return swapchain->format; }
+  VkExtent2D swapchain_get_extent(swapchain_t swapchain) { return swapchain->extent; }
+
+  uint32_t swapchain_get_texture_count(swapchain_t swapchain) { return swapchain->texture_count; }
+  const texture_t *swapchain_get_textures(swapchain_t swapchain) { return swapchain->textures; }
+
 }

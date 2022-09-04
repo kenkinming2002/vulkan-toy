@@ -65,37 +65,6 @@ struct Application
   double prev_y;
 };
 
-void application_on_swapchain_invalidate(Application& application)
-{
-  VkDevice device = vulkan::context_get_device_handle(application.context);
-  vkDeviceWaitIdle(device);
-
-  vulkan::put(application.swapchain);
-  vulkan::render_target_destroy(application.render_target);
-  vulkan::renderer_destroy(application.renderer);
-
-  application.swapchain = vulkan::swapchain_create(application.context);
-  application.render_target = vulkan::render_target_create(application.context, application.allocator, application.swapchain);
-
-  unsigned width, height;
-  vulkan::render_target_get_extent(application.render_target, width, height);
-
-  vulkan::shader_t vertex_shader = vulkan::shader_load(application.context, VERTEX_SHADER_FILE_NAME);
-  vulkan::shader_t fragment_shader = vulkan::shader_load(application.context, FRAGMENT_SHADER_FILE_NAME);
-
-  application.camera.fov          = glm::radians(45.0f);
-  application.camera.aspect_ratio = (float)width / (float)height;
-  application.renderer = vulkan::renderer_create(application.context,
-      application.render_target,
-      application.mesh_layout,
-      application.material_layout,
-      vertex_shader,
-      fragment_shader);
-
-  put(vertex_shader);
-  put(fragment_shader);
-}
-
 void application_init(Application& application)
 {
   application.context = vulkan::context_create(APPLICATION_NAME, ENGINE_NAME, WINDOW_NAME, WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -206,27 +175,20 @@ void application_update(Application& application)
 
 }
 
-bool application_render(Application& application)
+void application_render(Application& application)
 {
-  // Acquire frame
   const vulkan::Frame *frame = vulkan::render_target_begin_frame(application.render_target);
-  if(!frame)
-    return false;
-
-  // Rendering
   vulkan::renderer_begin_render(application.renderer, frame);
-  {
-    unsigned width, height;
-    vulkan::render_target_get_extent(application.render_target, width, height);
-    vulkan::renderer_set_viewport_and_scissor(application.renderer, {width, height});
-    vulkan::renderer_use_camera(application.renderer, application.camera);
-    //vulkan::renderer_draw(application.renderer, application.material, application.mesh);
-    vulkan::renderer_draw(application.renderer, application.material, application.chunk_mesh);
-  }
-  vulkan::renderer_end_render(application.renderer);
 
-  // Present frame
-  return vulkan::render_target_end_frame(application.render_target, frame);
+  unsigned width, height;
+  vulkan::render_target_get_extent(application.render_target, width, height);
+  vulkan::renderer_set_viewport_and_scissor(application.renderer, {width, height});
+  vulkan::renderer_use_camera(application.renderer, application.camera);
+  //vulkan::renderer_draw(application.renderer, application.material, application.mesh);
+  vulkan::renderer_draw(application.renderer, application.material, application.chunk_mesh);
+
+  vulkan::renderer_end_render(application.renderer);
+  vulkan::render_target_end_frame(application.render_target, frame);
 }
 
 void application_run(Application& application)
@@ -234,8 +196,7 @@ void application_run(Application& application)
   while(!vulkan::context_should_destroy(application.context))
   {
     application_update(application);
-    if(!application_render(application))
-      application_on_swapchain_invalidate(application);
+    application_render(application);
   }
 }
 

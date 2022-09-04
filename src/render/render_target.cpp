@@ -8,6 +8,8 @@
 
 #include <array>
 
+#include <stdio.h>
+
 namespace vulkan
 {
   // Double buffering
@@ -16,7 +18,14 @@ namespace vulkan
   {
     context_t   context;
     allocator_t allocator;
+
     swapchain_t swapchain;
+    Delegate    on_swapchain_invalidate;
+
+    Frame frames[MAX_FRAME_IN_FLIGHT];
+    size_t frame_index;
+
+    DelegateChain on_invalidate;
 
     VkRenderPass   render_pass;
 
@@ -25,23 +34,10 @@ namespace vulkan
     uint32_t       framebuffer_count;
     uint32_t       framebuffer_index;
     framebuffer_t *framebuffers;
-
-    Frame frames[MAX_FRAME_IN_FLIGHT];
-    size_t frame_index;
   };
 
-  render_target_t render_target_create(context_t context, allocator_t allocator, swapchain_t swapchain)
+  static void render_target_init(render_target_t render_target)
   {
-    render_target_t render_target = new RenderTarget;
-
-    get(context);
-    get(allocator);
-    get(swapchain);
-
-    render_target->context   = context;
-    render_target->allocator = allocator;
-    render_target->swapchain = swapchain;
-
     VkDevice device = context_get_device_handle(render_target->context);
 
     // Render pass
@@ -131,17 +127,9 @@ namespace vulkan
           swapchain_get_extent(render_target->swapchain),
           attachments, std::size(attachments));
     }
-
-    // Frames
-    for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
-      frame_init(render_target->context, render_target->frames[i]);
-
-    render_target->frame_index = 0;
-
-    return render_target;
   }
 
-  void render_target_destroy(render_target_t render_target)
+  static void render_target_deinit(render_target_t render_target)
   {
     for(uint32_t i=0; i<render_target->framebuffer_count; ++i)
       put(render_target->framebuffers[i]);
@@ -150,17 +138,71 @@ namespace vulkan
 
     put(render_target->depth_texture);
 
+    VkDevice device = context_get_device_handle(render_target->context);
+    vkDestroyRenderPass(device, render_target->render_pass, nullptr);
+  }
+
+  static void render_target_invalidate(render_target_t render_target)
+  {
+    VkDevice device = context_get_device_handle(render_target->context);
+    vkDeviceWaitIdle(device);
+
+    render_target_deinit(render_target);
+    render_target_init(render_target);
+    delegate_chain_invoke(render_target->on_invalidate);
+  }
+
+  static void on_swapchain_invalidate(void *data)
+  {
+    render_target_t render_target = static_cast<render_target_t>(data);
+    printf("swapchain invalidate received\n");
+    render_target_invalidate(render_target);
+  }
+
+  render_target_t render_target_create(context_t context, allocator_t allocator, swapchain_t swapchain)
+  {
+    render_target_t render_target = new RenderTarget;
+
+    get(context);
+    get(allocator);
+    get(swapchain);
+
+    render_target->context   = context;
+    render_target->allocator = allocator;
+    render_target->swapchain = swapchain;
+
+    render_target->on_swapchain_invalidate = Delegate{ .list = {}, .ptr  = on_swapchain_invalidate, .data = render_target, };
+    swapchain_on_invalidate(render_target->swapchain, render_target->on_swapchain_invalidate);
+
+    for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
+      frame_init(render_target->context, render_target->frames[i]);
+    render_target->frame_index = 0;
+
+    delegate_chain_init(render_target->on_invalidate);
+    render_target_init(render_target);
+
+    return render_target;
+  }
+
+  void render_target_destroy(render_target_t render_target)
+  {
+    render_target_deinit(render_target);
+
     for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
       frame_deinit(render_target->context, render_target->frames[i]);
 
-    VkDevice device = context_get_device_handle(render_target->context);
-    vkDestroyRenderPass(device, render_target->render_pass, nullptr);
+    delegate_chain_deregister(render_target->on_swapchain_invalidate);
 
     put(render_target->swapchain);
-    put(render_target->context);
     put(render_target->allocator);
+    put(render_target->context);
 
     delete render_target;
+  }
+
+  void render_target_on_invalidate(render_target_t render_target, Delegate& delegate)
+  {
+    delegate_chain_register(render_target->on_invalidate, delegate);
   }
 
   const Frame *render_target_begin_frame(render_target_t render_target)
@@ -169,9 +211,7 @@ namespace vulkan
     const Frame *frame = &render_target->frames[render_target->frame_index];
     render_target->frame_index = (render_target->frame_index + 1) % MAX_FRAME_IN_FLIGHT;
 
-    auto result = swapchain_next_image_index(render_target->swapchain, frame->image_available_semaphore, render_target->framebuffer_index);
-    if(result != SwapchainResult::SUCCESS)
-      return nullptr;
+    swapchain_next_image_index(render_target->swapchain, frame->image_available_semaphore, render_target->framebuffer_index);
 
     // Wait and begin commannd buffer recording
     command_buffer_wait(frame->command_buffer);
@@ -198,7 +238,7 @@ namespace vulkan
     return frame;
   }
 
-  bool render_target_end_frame(render_target_t render_target, const Frame *frame)
+  void render_target_end_frame(render_target_t render_target, const Frame *frame)
   {
     VkCommandBuffer handle = command_buffer_get_handle(frame->command_buffer);
     vkCmdEndRenderPass(handle);
@@ -207,7 +247,7 @@ namespace vulkan
     command_buffer_end(frame->command_buffer);
     command_buffer_submit(frame->command_buffer, frame->image_available_semaphore, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, frame->render_finished_semaphore);
 
-    return swapchain_present_image_index(render_target->swapchain, frame->render_finished_semaphore, render_target->framebuffer_index) == SwapchainResult::SUCCESS;
+    swapchain_present_image_index(render_target->swapchain, frame->render_finished_semaphore, render_target->framebuffer_index);
   }
 
   VkRenderPass render_target_get_render_pass(render_target_t render_target)
