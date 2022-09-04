@@ -182,8 +182,9 @@ namespace vulkan
   static void renderer_free(ref_t ref)
   {
     renderer_t renderer = container_of(ref, Renderer, ref);
-
     renderer_deinit(renderer);
+
+    delegate_chain_deregister(renderer->on_render_target_invalidate);
 
     put(renderer->context);
     put(renderer->render_target);
