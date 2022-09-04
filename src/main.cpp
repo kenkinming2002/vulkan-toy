@@ -42,12 +42,9 @@ static constexpr const char *FRAGMENT_SHADER_FILE_NAME = "shaders/frag.spv";
 
 struct Application
 {
-  vulkan::mesh_layout_t     mesh_layout;
-  vulkan::material_layout_t material_layout;
+  vulkan::context_t       context;
+  vulkan::allocator_t     allocator;
 
-  vulkan::context_t   context;
-  vulkan::allocator_t allocator;
-  vulkan::swapchain_t swapchain;
   vulkan::render_target_t render_target;
   vulkan::renderer_t      renderer;
 
@@ -70,12 +67,27 @@ void application_init(Application& application)
   application.context = vulkan::context_create(APPLICATION_NAME, ENGINE_NAME, WINDOW_NAME, WINDOW_WIDTH, WINDOW_HEIGHT);
   application.allocator = vulkan::allocator_create(application.context);
 
+  // Create rendering related stuff
+  {
+    vulkan::mesh_layout_t     mesh_layout     = vulkan::mesh_layout_create_default();
+    vulkan::material_layout_t material_layout = vulkan::material_layout_create_default(application.context);
+    vulkan::shader_t          vertex_shader   = vulkan::shader_load(application.context, VERTEX_SHADER_FILE_NAME);
+    vulkan::shader_t          fragment_shader = vulkan::shader_load(application.context, FRAGMENT_SHADER_FILE_NAME);
+
+    vulkan::swapchain_t swapchain = vulkan::swapchain_create(application.context);
+    application.render_target     = vulkan::render_target_create(application.context, application.allocator, swapchain);
+    application.renderer          = vulkan::renderer_create(application.context, application.render_target, mesh_layout, material_layout, vertex_shader, fragment_shader);
+
+    vulkan::put(mesh_layout);
+    vulkan::put(material_layout);
+    vulkan::put(vertex_shader);
+    vulkan::put(fragment_shader);
+    vulkan::put(swapchain);
+  }
+
   vulkan::command_buffer_t command_buffer = command_buffer_create(application.context);
   command_buffer_begin(command_buffer);
   {
-    application.mesh_layout     = vulkan::mesh_layout_create_default();
-    application.material_layout = vulkan::material_layout_create_default(application.context);
-
     application.mesh     = vulkan::mesh_load   (command_buffer, application.context, application.allocator, "viking_room.obj");
     application.material = vulkan::material_load(command_buffer, application.context, application.allocator, "viking_room.png");
 
@@ -88,9 +100,6 @@ void application_init(Application& application)
   }
   put(command_buffer);
 
-  application.swapchain     = vulkan::swapchain_create(application.context);
-  application.render_target = vulkan::render_target_create(application.context, application.allocator, application.swapchain);
-
   unsigned width, height;
   vulkan::render_target_get_extent(application.render_target, width, height);
 
@@ -99,19 +108,6 @@ void application_init(Application& application)
   application.camera.position     = glm::vec3(2.0f, 2.0f, 0.5f);
   application.camera.yaw          = 0.0f;
   application.camera.pitch        = 0.0f;
-
-  vulkan::shader_t vertex_shader = vulkan::shader_load(application.context, VERTEX_SHADER_FILE_NAME);
-  vulkan::shader_t fragment_shader = vulkan::shader_load(application.context, FRAGMENT_SHADER_FILE_NAME);
-
-  application.renderer = vulkan::renderer_create(application.context,
-      application.render_target,
-      application.mesh_layout,
-      application.material_layout,
-      vertex_shader,
-      fragment_shader);
-
-  put(vertex_shader);
-  put(fragment_shader);
 
   GLFWwindow *window = vulkan::context_get_glfw_window(application.context);
   glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -122,22 +118,17 @@ void application_deinit(Application& application)
   VkDevice device = vulkan::context_get_device_handle(application.context);
   vkDeviceWaitIdle(device);
 
-  vulkan::put(application.renderer);
-  vulkan::put(application.render_target);
+  vulkan::put(application.context);
+  vulkan::put(application.allocator);
 
-  vulkan::put(application.swapchain);
+  vulkan::put(application.render_target);
+  vulkan::put(application.renderer);
 
   vulkan::put(application.mesh);
   vulkan::put(application.material);
 
   chunk_destroy(application.chunk);
   vulkan::put(application.chunk_mesh);
-
-  vulkan::put(application.mesh_layout);
-  vulkan::put(application.material_layout);
-
-  vulkan::put(application.allocator);
-  vulkan::put(application.context);
 }
 
 static constexpr float MOUSE_SENSITIVITY = 1 / 500.0f;
