@@ -21,10 +21,10 @@ namespace vulkan
     VkRenderPass   render_pass;
 
     texture_t depth_texture;
-    Framebuffer *framebuffers;
 
-    uint32_t image_count;
-    uint32_t image_index;
+    Framebuffer *framebuffers;
+    uint32_t framebuffer_count;
+    uint32_t framebuffer_index;
 
     Frame frames[MAX_FRAME_IN_FLIGHT];
     size_t frame_index;
@@ -108,20 +108,24 @@ namespace vulkan
     VkExtent2D extent = swapchain_get_extent(render_target->swapchain);
     render_target->depth_texture = texture_create(render_target->context, render_target->allocator,
       ImageType::DEPTH_ATTACHMENT,
-      ImageViewType::DEPTH,
       VK_FORMAT_D32_SFLOAT,
       extent.width,
       extent.height,
-      1
+      1,
+      ImageViewType::DEPTH
     );
 
     // Framebuffers
-    uint32_t image_count = swapchain_get_image_count(render_target->swapchain);
-    render_target->framebuffers = new Framebuffer[image_count];
-    for(uint32_t i=0; i<image_count; ++i)
+    uint32_t swapchain_texture_count    = swapchain_get_texture_count(render_target->swapchain);
+    const texture_t *swapchain_textures = swapchain_get_textures(render_target->swapchain);
+
+    render_target->framebuffer_count = swapchain_texture_count;
+    render_target->framebuffer_index = 0;
+    render_target->framebuffers = new Framebuffer[render_target->framebuffer_count];
+    for(uint32_t i=0; i<render_target->framebuffer_count; ++i)
     {
       const image_view_t image_views[] = {
-        swapchain_get_image_view(render_target->swapchain, i),
+        texture_get_image_view(swapchain_textures[i]),
         texture_get_image_view(render_target->depth_texture),
       };
       init_framebuffer(render_target->context, FramebufferCreateInfo{
@@ -131,9 +135,6 @@ namespace vulkan
         .image_view_count = std::size(image_views),
       }, render_target->framebuffers[i]);
     }
-
-    render_target->image_count = image_count;
-    render_target->image_index = 0;
 
     // Frames
     for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
@@ -148,7 +149,7 @@ namespace vulkan
   {
     VkDevice device = context_get_device_handle(render_target->context);
 
-    for(uint32_t i=0; i<render_target->image_count; ++i)
+    for(uint32_t i=0; i<render_target->framebuffer_count; ++i)
       deinit_framebuffer(render_target->context, render_target->framebuffers[i]);
 
     delete[] render_target->framebuffers;
@@ -173,7 +174,7 @@ namespace vulkan
     const Frame *frame = &render_target->frames[render_target->frame_index];
     render_target->frame_index = (render_target->frame_index + 1) % MAX_FRAME_IN_FLIGHT;
 
-    auto result = swapchain_next_image_index(render_target->swapchain, frame->image_available_semaphore, render_target->image_index);
+    auto result = swapchain_next_image_index(render_target->swapchain, frame->image_available_semaphore, render_target->framebuffer_index);
     if(result != SwapchainResult::SUCCESS)
       return nullptr;
 
@@ -185,7 +186,7 @@ namespace vulkan
     VkRenderPassBeginInfo render_pass_begin_info = {};
     render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     render_pass_begin_info.renderPass        = render_target->render_pass;
-    render_pass_begin_info.framebuffer       = render_target->framebuffers[render_target->image_index].handle;
+    render_pass_begin_info.framebuffer       = render_target->framebuffers[render_target->framebuffer_index].handle;
     render_pass_begin_info.renderArea.offset = {0, 0};
     render_pass_begin_info.renderArea.extent = swapchain_get_extent(render_target->swapchain);
 
@@ -211,7 +212,7 @@ namespace vulkan
     command_buffer_end(frame->command_buffer);
     command_buffer_submit(frame->command_buffer, frame->image_available_semaphore, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, frame->render_finished_semaphore);
 
-    return swapchain_present_image_index(render_target->swapchain, frame->render_finished_semaphore, render_target->image_index) == SwapchainResult::SUCCESS;
+    return swapchain_present_image_index(render_target->swapchain, frame->render_finished_semaphore, render_target->framebuffer_index) == SwapchainResult::SUCCESS;
   }
 
   VkRenderPass render_target_get_render_pass(render_target_t render_target)

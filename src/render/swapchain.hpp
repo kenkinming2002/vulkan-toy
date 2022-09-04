@@ -2,8 +2,7 @@
 
 #include "core/context.hpp"
 #include "ref.hpp"
-#include "resources/image.hpp"
-#include "resources/image_view.hpp"
+#include "resources/texture.hpp"
 #include "utils.hpp"
 
 namespace vulkan
@@ -14,9 +13,9 @@ namespace vulkan
 
   VkFormat swapchain_get_format(swapchain_t swapchain);
   VkExtent2D swapchain_get_extent(swapchain_t swapchain);
-  uint32_t swapchain_get_image_count(swapchain_t swapchain);
 
-  image_view_t swapchain_get_image_view(swapchain_t swapchain, uint32_t index);
+  uint32_t swapchain_get_texture_count(swapchain_t swapchain);
+  const texture_t *swapchain_get_textures(swapchain_t swapchain);
 
   enum class SwapchainResult
   {

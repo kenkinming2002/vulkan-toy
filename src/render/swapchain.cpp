@@ -1,6 +1,5 @@
-#include "resources/image.hpp"
-#include "resources/image_view.hpp"
 #include "swapchain.hpp"
+
 #include "utils.hpp"
 #include "vk_check.hpp"
 
@@ -18,10 +17,10 @@ namespace vulkan
     context_t context;
 
     VkSwapchainKHR handle;
-    image_t       *images;
-    image_view_t  *image_views;
 
-    uint32_t   image_count;
+    size_t     texture_count;
+    texture_t *textures;
+
     VkExtent2D extent;
     VkFormat   format;
   };
@@ -65,13 +64,9 @@ namespace vulkan
 
     VkDevice device = context_get_device_handle(swapchain->context);
 
-    for(uint32_t i=0; i<swapchain->image_count; ++i)
-    {
-      put(swapchain->images[i]);
-      put(swapchain->image_views[i]);
-    }
-    delete[] swapchain->images;
-    delete[] swapchain->image_views;
+    for(size_t i=0; i<swapchain->texture_count; ++i)
+      put(swapchain->textures[i]);
+    delete[] swapchain->textures;
 
     vkDestroySwapchainKHR(device, swapchain->handle, nullptr);
 
@@ -169,21 +164,17 @@ namespace vulkan
 
     // 3: Retrive images
     vkGetSwapchainImagesKHR(device, swapchain->handle, &image_count, nullptr);
-    VkImage *images = new VkImage[image_count];
-    vkGetSwapchainImagesKHR(device, swapchain->handle, &image_count, images);
+    VkImage *image_handles = new VkImage[image_count];
+    vkGetSwapchainImagesKHR(device, swapchain->handle, &image_count, image_handles);
 
-    swapchain->images      = new image_t[image_count];
-    swapchain->image_views = new image_view_t[image_count];
+    swapchain->texture_count = image_count;
+    swapchain->textures = new texture_t[swapchain->texture_count];
     for(uint32_t i=0; i<image_count; ++i)
-    {
-      swapchain->images[i]      = present_image_create(images[i], surface_format.format, extent.width, extent.height, 1);
-      swapchain->image_views[i] = image_view_create(context, ImageViewType::COLOR, swapchain->images[i]);
-    }
+      swapchain->textures[i] = present_texture_create(swapchain->context, image_handles[i], surface_format.format, extent.width, extent.height, 1, ImageViewType::COLOR);
 
-    delete[] images;
+    delete[] image_handles;
 
     // 4: Store info
-    swapchain->image_count = image_count;
     swapchain->format      = surface_format.format;
     swapchain->extent      = extent;
 
@@ -192,13 +183,9 @@ namespace vulkan
 
   VkFormat swapchain_get_format(swapchain_t swapchain) { return swapchain->format; }
   VkExtent2D swapchain_get_extent(swapchain_t swapchain) { return swapchain->extent; }
-  uint32_t swapchain_get_image_count(swapchain_t swapchain) { return swapchain->image_count; }
 
-  image_view_t swapchain_get_image_view(swapchain_t swapchain, uint32_t index)
-  {
-    assert(index<swapchain->image_count);
-    return swapchain->image_views[index];
-  }
+  uint32_t swapchain_get_texture_count(swapchain_t swapchain) { return swapchain->texture_count; }
+  const texture_t *swapchain_get_textures(swapchain_t swapchain) { return swapchain->textures; }
 
   SwapchainResult swapchain_next_image_index(swapchain_t swapchain, VkSemaphore signal_semaphore, uint32_t& image_index)
   {
