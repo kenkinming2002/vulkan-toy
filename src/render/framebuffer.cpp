@@ -19,6 +19,7 @@ namespace vulkan
     VkDevice device = context_get_device_handle(framebuffer->context);
     vkDestroyFramebuffer(device, framebuffer->handle, nullptr);
 
+    put(framebuffer->context);
     delete framebuffer;
   }
 
