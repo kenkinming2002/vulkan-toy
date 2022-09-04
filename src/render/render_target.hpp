@@ -3,15 +3,14 @@
 #include "core/command_buffer.hpp"
 #include "core/context.hpp"
 #include "frame.hpp"
+#include "ref.hpp"
 #include "resources/allocator.hpp"
 #include "swapchain.hpp"
 
 namespace vulkan
 {
-  typedef struct RenderTarget *render_target_t;
-
+  REF_DECLARE(RenderTarget, render_target_t);
   render_target_t render_target_create(context_t context, allocator_t allocator, swapchain_t swapchain);
-  void render_target_destroy(render_target_t render_target);
 
   void render_target_on_invalidate(render_target_t render_target, Delegate& delegate);
 

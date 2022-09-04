@@ -16,6 +16,8 @@ namespace vulkan
   static constexpr size_t MAX_FRAME_IN_FLIGHT = 2;
   struct RenderTarget
   {
+    Ref ref;
+
     context_t   context;
     allocator_t allocator;
 
@@ -35,6 +37,7 @@ namespace vulkan
     uint32_t       framebuffer_index;
     framebuffer_t *framebuffers;
   };
+  REF_DEFINE(RenderTarget, render_target_t, ref);
 
   static void render_target_init(render_target_t render_target)
   {
@@ -159,9 +162,29 @@ namespace vulkan
     render_target_invalidate(render_target);
   }
 
+  static void render_target_free(ref_t ref)
+  {
+    render_target_t render_target = container_of(ref, RenderTarget, ref);
+
+    render_target_deinit(render_target);
+
+    for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
+      frame_deinit(render_target->context, render_target->frames[i]);
+
+    delegate_chain_deregister(render_target->on_swapchain_invalidate);
+
+    put(render_target->swapchain);
+    put(render_target->allocator);
+    put(render_target->context);
+
+    delete render_target;
+  }
+
   render_target_t render_target_create(context_t context, allocator_t allocator, swapchain_t swapchain)
   {
     render_target_t render_target = new RenderTarget;
+    render_target->ref.count = 1;
+    render_target->ref.free  = render_target_free;
 
     get(context);
     get(allocator);
@@ -182,22 +205,6 @@ namespace vulkan
     render_target_init(render_target);
 
     return render_target;
-  }
-
-  void render_target_destroy(render_target_t render_target)
-  {
-    render_target_deinit(render_target);
-
-    for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
-      frame_deinit(render_target->context, render_target->frames[i]);
-
-    delegate_chain_deregister(render_target->on_swapchain_invalidate);
-
-    put(render_target->swapchain);
-    put(render_target->allocator);
-    put(render_target->context);
-
-    delete render_target;
   }
 
   void render_target_on_invalidate(render_target_t render_target, Delegate& delegate)

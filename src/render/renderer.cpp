@@ -188,6 +188,7 @@ namespace vulkan
 
     // TODO: Make render target reference counted
     get(context);
+    get(render_target);
     get(mesh_layout);
     get(material_layout);
     get(vertex_shader);
@@ -213,6 +214,7 @@ namespace vulkan
     renderer_deinit(renderer);
 
     put(renderer->context);
+    put(renderer->render_target);
     put(renderer->mesh_layout);
     put(renderer->material_layout);
     put(renderer->vertex_shader);

@@ -123,7 +123,7 @@ void application_deinit(Application& application)
   vkDeviceWaitIdle(device);
 
   vulkan::renderer_destroy(application.renderer);
-  vulkan::render_target_destroy(application.render_target);
+  vulkan::put(application.render_target);
 
   vulkan::put(application.swapchain);
 
