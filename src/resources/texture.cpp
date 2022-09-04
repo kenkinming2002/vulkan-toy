@@ -26,15 +26,18 @@ namespace vulkan
     delete texture;
   }
 
-  texture_t texture_create(context_t context, image_t image, ImageViewType type)
+  texture_t texture_create(context_t context, allocator_t allocator,
+      ImageType image_type,
+      ImageViewType image_view_type,
+      VkFormat format,
+      size_t width, size_t height, size_t mip_levels)
   {
     texture_t texture = new Texture;
     texture->ref.count = 1;
     texture->ref.free  = texture_free;
 
-    get(image);
-    texture->image = image;
-    texture->image_view = image_view_create(context, type, image);
+    texture->image      = image_create(context, allocator, image_type, format, width, height, mip_levels);
+    texture->image_view = image_view_create(context, image_view_type, texture->image);
 
     return texture;
   }
@@ -44,9 +47,20 @@ namespace vulkan
 
   texture_t texture_load(command_buffer_t command_buffer, context_t context, allocator_t allocator, const char *file_name)
   {
-    image_t image = image_load(command_buffer, context, allocator, file_name);
-    texture_t texture = texture_create(context, image, ImageViewType::COLOR);
-    put(image);
+    int x, y, n;
+    unsigned char *data = stbi_load(file_name, &x, &y, &n, STBI_rgb_alpha);
+
+    assert(data);
+    assert(x>=0 && y>=0);
+
+    unsigned width = x, height = y;
+    size_t mip_levels = std::bit_width(std::bit_floor(std::max(width, height)));
+    texture_t texture = texture_create(context, allocator, ImageType::TEXTURE, ImageViewType::COLOR, VK_FORMAT_R8G8B8A8_SRGB, width, height, mip_levels);
+
+    image_write(command_buffer, texture->image, data, width, height, width * height * 4);
+
+    stbi_image_free(data);
+
     return texture;
   }
 }

@@ -8,7 +8,11 @@ namespace vulkan
 {
   REF_DECLARE(Texture, texture_t);
 
-  texture_t texture_create(context_t context, image_t image, ImageViewType type);
+  texture_t texture_create(context_t context, allocator_t allocator,
+      ImageType image_type,
+      ImageViewType image_view_type,
+      VkFormat format,
+      size_t width, size_t height, size_t mip_levels);
 
   image_t texture_get_image(texture_t texture);
   image_view_t texture_get_image_view(texture_t texture);

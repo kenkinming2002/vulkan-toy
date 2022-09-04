@@ -4,15 +4,6 @@
 #include "buffer.hpp"
 #include "vk_check.hpp"
 
-#include "stb_image.h"
-
-#include <algorithm>
-#include <bit>
-
-#include <assert.h>
-
-#include <algorithm>
-
 #include <assert.h>
 
 namespace vulkan
@@ -228,23 +219,5 @@ namespace vulkan
     vkCmdPipelineBarrier(handle, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
     put(staging_buffer);
-  }
-
-  image_t image_load(command_buffer_t command_buffer, context_t context, allocator_t allocator, const char *file_name)
-  {
-    int x, y, n;
-    unsigned char *data = stbi_load(file_name, &x, &y, &n, STBI_rgb_alpha);
-    assert(data);
-
-    assert(x>=0 && y>=0);
-    unsigned width = x, height = y;
-    size_t mip_level = std::bit_width(std::bit_floor(std::max(width, height)));
-
-    image_t      image      = image_create(context, allocator, ImageType::TEXTURE, VK_FORMAT_R8G8B8A8_SRGB, width, height, mip_level);
-    image_write(command_buffer, image, data, width, height, width * height * 4);
-
-    stbi_image_free(data);
-
-    return image;
   }
 }
