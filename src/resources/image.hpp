@@ -36,4 +36,6 @@ namespace vulkan
 
   VkImage image_get_handle(image_t image);
   void image_write(command_buffer_t command_buffer, image_t image, const void *data, size_t width, size_t height, size_t size);
+
+  image_t image_load(command_buffer_t command_buffer, context_t context, allocator_t allocator, const char *file_name);
 }

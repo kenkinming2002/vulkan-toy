@@ -2,12 +2,6 @@
 
 #include "vk_check.hpp"
 
-#include "stb_image.h"
-#include "assert.h"
-
-#include <algorithm>
-#include <bit>
-
 namespace vulkan
 {
   struct MaterialLayout
@@ -83,9 +77,8 @@ namespace vulkan
 
     material_layout_t layout;
 
-    image_t      image;
-    image_view_t image_view;
-    sampler_t    sampler;
+    texture_t texture;
+    sampler_t sampler;
 
     VkDescriptorPool descriptor_pool; // TODO: Figure out a way to shared descriptor pool across multiple material
     VkDescriptorSet  descriptor_set;
@@ -101,32 +94,26 @@ namespace vulkan
 
     put(material->context);
     put(material->layout);
-    put(material->image);
-    put(material->image_view);
+    put(material->texture);
     put(material->sampler);
 
     delete material;
   }
 
-  material_t material_create(context_t context, material_layout_t material_layout, image_t image, image_view_t image_view, sampler_t sampler)
+  material_t material_create(context_t context, material_layout_t material_layout, texture_t texture, sampler_t sampler)
   {
     material_t material = new Material;
     material->ref.count = 1;
     material->ref.free  = material_free;
 
     get(context);
-    material->context = context;
-
     get(material_layout);
-    material->layout = material_layout;
-
-    get(image);
-    material->image = image;
-
-    get(image_view);
-    material->image_view = image_view;
-
+    get(texture);
     get(sampler);
+
+    material->context = context;
+    material->layout = material_layout;
+    material->texture = texture;
     material->sampler = sampler;
 
     VkDevice device = context_get_device_handle(material->context);
@@ -154,7 +141,7 @@ namespace vulkan
     // Write descriptor set
     VkDescriptorImageInfo descriptor_image_info = {};
     descriptor_image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    descriptor_image_info.imageView   = image_view_get_handle(material->image_view);
+    descriptor_image_info.imageView   = image_view_get_handle(texture_get_image_view(material->texture));
     descriptor_image_info.sampler     = sampler_get_handle(material->sampler);
 
     VkWriteDescriptorSet write_descriptor_set = {};
@@ -172,29 +159,15 @@ namespace vulkan
 
   material_t material_load(command_buffer_t command_buffer, context_t context, allocator_t allocator, const char *file_name)
   {
-    int x, y, n;
-    unsigned char *data = stbi_load(file_name, &x, &y, &n, STBI_rgb_alpha);
-    assert(data);
-
-    assert(x>=0 && y>=0);
-    unsigned width = x, height = y;
-    size_t mip_level = std::bit_width(std::bit_floor(std::max(width, height)));
-
-    image_t      image      = image_create(context, allocator, ImageType::TEXTURE, VK_FORMAT_R8G8B8A8_SRGB, width, height, mip_level);
-    image_view_t image_view = image_view_create(context, ImageViewType::COLOR, image);
-    sampler_t    sampler    = sampler_create_simple(context);
-
-    image_write(command_buffer, image, data, width, height, width * height * 4);
-
-    stbi_image_free(data);
-
     material_layout_t material_layout = material_layout_create_default(context);
-    material_t        material        = material_create(context, material_layout, image, image_view, sampler);
+    texture_t         texture         = texture_load(command_buffer, context, allocator, file_name);
+    sampler_t         sampler         = sampler_create_simple(context);
 
-    put(image);
-    put(image_view);
-    put(sampler);
+    material_t material = material_create(context, material_layout, texture, sampler);
+
     put(material_layout);
+    put(texture);
+    put(sampler);
 
     return material;
   }

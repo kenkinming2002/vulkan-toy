@@ -27,6 +27,7 @@ srcs = [
   'src/resources/material.cpp',
   'src/resources/mesh.cpp',
   'src/resources/sampler.cpp',
+  'src/resources/texture.cpp',
   'src/vk_check.cpp',
 ]
 
