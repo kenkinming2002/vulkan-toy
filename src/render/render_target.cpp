@@ -22,9 +22,9 @@ namespace vulkan
 
     texture_t depth_texture;
 
-    Framebuffer *framebuffers;
-    uint32_t framebuffer_count;
-    uint32_t framebuffer_index;
+    uint32_t       framebuffer_count;
+    uint32_t       framebuffer_index;
+    framebuffer_t *framebuffers;
 
     Frame frames[MAX_FRAME_IN_FLIGHT];
     size_t frame_index;
@@ -121,19 +121,15 @@ namespace vulkan
 
     render_target->framebuffer_count = swapchain_texture_count;
     render_target->framebuffer_index = 0;
-    render_target->framebuffers = new Framebuffer[render_target->framebuffer_count];
+    render_target->framebuffers = new framebuffer_t[render_target->framebuffer_count];
     for(uint32_t i=0; i<render_target->framebuffer_count; ++i)
     {
-      const image_view_t image_views[] = {
-        texture_get_image_view(swapchain_textures[i]),
-        texture_get_image_view(render_target->depth_texture),
-      };
-      init_framebuffer(render_target->context, FramebufferCreateInfo{
-        .render_pass      = render_target->render_pass,
-        .extent           = swapchain_get_extent(render_target->swapchain),
-        .image_views      = image_views,
-        .image_view_count = std::size(image_views),
-      }, render_target->framebuffers[i]);
+      const texture_t attachments[] = { swapchain_textures[i], render_target->depth_texture, };
+      render_target->framebuffers[i] = framebuffer_create(
+          render_target->context,
+          render_target->render_pass,
+          swapchain_get_extent(render_target->swapchain),
+          attachments, std::size(attachments));
     }
 
     // Frames
@@ -147,10 +143,8 @@ namespace vulkan
 
   void render_target_destroy(render_target_t render_target)
   {
-    VkDevice device = context_get_device_handle(render_target->context);
-
     for(uint32_t i=0; i<render_target->framebuffer_count; ++i)
-      deinit_framebuffer(render_target->context, render_target->framebuffers[i]);
+      put(render_target->framebuffers[i]);
 
     delete[] render_target->framebuffers;
 
@@ -159,6 +153,7 @@ namespace vulkan
     for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)
       frame_deinit(render_target->context, render_target->frames[i]);
 
+    VkDevice device = context_get_device_handle(render_target->context);
     vkDestroyRenderPass(device, render_target->render_pass, nullptr);
 
     put(render_target->swapchain);
@@ -186,7 +181,7 @@ namespace vulkan
     VkRenderPassBeginInfo render_pass_begin_info = {};
     render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     render_pass_begin_info.renderPass        = render_target->render_pass;
-    render_pass_begin_info.framebuffer       = render_target->framebuffers[render_target->framebuffer_index].handle;
+    render_pass_begin_info.framebuffer       = framebuffer_get_handle(render_target->framebuffers[render_target->framebuffer_index]);
     render_pass_begin_info.renderArea.offset = {0, 0};
     render_pass_begin_info.renderArea.extent = swapchain_get_extent(render_target->swapchain);
 

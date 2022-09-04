@@ -1,24 +1,16 @@
 #pragma once
 
 #include "core/context.hpp"
-#include "resources/image_view.hpp"
+#include "resources/texture.hpp"
 
 namespace vulkan
 {
-  struct FramebufferCreateInfo
-  {
-    VkRenderPass      render_pass;
+  REF_DECLARE(Framebuffer, framebuffer_t);
+  framebuffer_t framebuffer_create(context_t context,
+      VkRenderPass render_pass,
+      VkExtent2D   extent,
+      const texture_t *attachments,
+      size_t           attachment_count);
 
-    VkExtent2D          extent;
-    const image_view_t *image_views;
-    uint32_t            image_view_count;
-  };
-
-  struct Framebuffer
-  {
-    VkFramebuffer handle;
-  };
-
-  void init_framebuffer(context_t context, FramebufferCreateInfo create_info, Framebuffer& framebuffer);
-  void deinit_framebuffer(context_t context, Framebuffer& framebuffer);
+  VkFramebuffer framebuffer_get_handle(framebuffer_t framebuffer);
 }
