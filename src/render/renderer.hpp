@@ -16,8 +16,8 @@ namespace vulkan
     render_target_t render_target,
     mesh_layout_t mesh_layout,
     material_layout_t material_layout,
-    const char *vertex_shader_file_name,
-    const char *fragment_shader_file_name);
+    shader_t vertex_shader,
+    shader_t fragment_shader);
 
   void renderer_destroy(renderer_t renderer);
 

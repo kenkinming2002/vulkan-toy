@@ -19,17 +19,13 @@ namespace vulkan
     render_target_t render_target,
     mesh_layout_t mesh_layout,
     material_layout_t material_layout,
-    const char *vertex_shader_file_name,
-    const char *fragment_shader_file_name)
+    shader_t vertex_shader,
+    shader_t fragment_shader)
   {
     renderer_t renderer = new Renderer {};
 
     get(context);
     renderer->context = context;
-
-    // TODO: Load this outside
-    shader_t vertex_shader   = shader_load(context, vertex_shader_file_name);
-    shader_t fragment_shader = shader_load(context, fragment_shader_file_name);
 
     VkDevice device = context_get_device_handle(renderer->context);
 
@@ -155,9 +151,6 @@ namespace vulkan
     graphics_pipeline_create_info.basePipelineHandle = VK_NULL_HANDLE;
     graphics_pipeline_create_info.basePipelineIndex  = -1;
     VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &graphics_pipeline_create_info, nullptr, &renderer->pipeline));
-
-    put(vertex_shader);
-    put(fragment_shader);
 
     return renderer;
   }

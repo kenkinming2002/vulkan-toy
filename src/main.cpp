@@ -80,14 +80,20 @@ void application_on_swapchain_invalidate(Application& application)
   unsigned width, height;
   vulkan::render_target_get_extent(application.render_target, width, height);
 
+  vulkan::shader_t vertex_shader = vulkan::shader_load(application.context, VERTEX_SHADER_FILE_NAME);
+  vulkan::shader_t fragment_shader = vulkan::shader_load(application.context, FRAGMENT_SHADER_FILE_NAME);
+
   application.camera.fov          = glm::radians(45.0f);
   application.camera.aspect_ratio = (float)width / (float)height;
   application.renderer = vulkan::renderer_create(application.context,
       application.render_target,
       application.mesh_layout,
       application.material_layout,
-      VERTEX_SHADER_FILE_NAME,
-      FRAGMENT_SHADER_FILE_NAME);
+      vertex_shader,
+      fragment_shader);
+
+  put(vertex_shader);
+  put(fragment_shader);
 }
 
 void application_init(Application& application)
@@ -125,12 +131,18 @@ void application_init(Application& application)
   application.camera.yaw          = 0.0f;
   application.camera.pitch        = 0.0f;
 
+  vulkan::shader_t vertex_shader = vulkan::shader_load(application.context, VERTEX_SHADER_FILE_NAME);
+  vulkan::shader_t fragment_shader = vulkan::shader_load(application.context, FRAGMENT_SHADER_FILE_NAME);
+
   application.renderer = vulkan::renderer_create(application.context,
       application.render_target,
       application.mesh_layout,
       application.material_layout,
-      VERTEX_SHADER_FILE_NAME,
-      FRAGMENT_SHADER_FILE_NAME);
+      vertex_shader,
+      fragment_shader);
+
+  put(vertex_shader);
+  put(fragment_shader);
 
   GLFWwindow *window = vulkan::context_get_glfw_window(application.context);
   glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
