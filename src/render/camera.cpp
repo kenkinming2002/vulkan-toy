@@ -1,11 +1,5 @@
 #include "camera.hpp"
 
-#include <stdio.h>
-
-#include <glm/ext/matrix_transform.hpp>
-#include <glm/ext/quaternion_transform.hpp>
-#include <glm/gtx/quaternion.hpp>
-
 namespace vulkan
 {
   void camera_rotate(Camera& camera, float yaw, float pitch)
