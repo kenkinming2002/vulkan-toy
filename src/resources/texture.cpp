@@ -50,7 +50,7 @@ namespace vulkan
     texture->ref.count = 1;
     texture->ref.free  = texture_free;
 
-    texture->image      = present_image_create(handle, format, width, height, mip_levels);
+    texture->image      = present_image_create(context, handle, format, width, height, mip_levels);
     texture->image_view = image_view_create(context, image_view_type, texture->image);
 
     return texture;

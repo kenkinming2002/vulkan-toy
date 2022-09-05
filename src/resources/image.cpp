@@ -92,13 +92,14 @@ namespace vulkan
     delete image;
   }
 
-  image_t present_image_create(VkImage handle, VkFormat format, size_t width, size_t height, size_t mip_levels)
+  image_t present_image_create(context_t context, VkImage handle, VkFormat format, size_t width, size_t height, size_t mip_levels)
   {
     image_t image = new Image;
     image->ref.count = 1;
     image->ref.free  = present_image_free;
 
-    image->context   = nullptr;
+    get(context);
+    image->context   = context;
     image->allocator = nullptr;
 
     image->format     = format;
