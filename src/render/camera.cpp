@@ -1,11 +1,15 @@
 #include "camera.hpp"
 
+#include <algorithm>
+
 namespace vulkan
 {
   void camera_rotate(Camera& camera, float yaw, float pitch)
   {
     camera.yaw   += yaw;
     camera.pitch += pitch;
+
+    camera.pitch = std::clamp(camera.pitch, glm::radians(-90.0f), glm::radians(90.0f));
     transform_set_euler_angle(camera.transform, camera.yaw, camera.pitch, 0.0f);
   }
 
