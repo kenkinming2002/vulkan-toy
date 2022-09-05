@@ -149,7 +149,7 @@ void application_update(Application& application)
   {
     const double dx = (x - application.prev_x) * MOUSE_SENSITIVITY;
     const double dy = (y - application.prev_y) * MOUSE_SENSITIVITY;
-    vulkan::camera_rotate(application.camera, dx, dy);
+    vulkan::camera_rotate(application.camera, -dx, -dy);
   }
   application.first_frame = false;
   application.prev_x = x;
