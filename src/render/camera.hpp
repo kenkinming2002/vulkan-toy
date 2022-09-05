@@ -1,26 +1,19 @@
 #pragma once
 
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <glm/glm.hpp>
+#include "transform.hpp"
 
 namespace vulkan
 {
   struct Camera
   {
-    float fov;
-    float aspect_ratio;
+    Transform transform;
 
-    glm::vec3 position;
     float yaw, pitch;
+    float fov, aspect_ratio;
   };
 
-  glm::vec3 camera_forward(const Camera& camera);
-  glm::vec3 camera_left(const Camera& camera);
-  glm::vec3 camera_up(const Camera& camera);
-
   void camera_rotate(Camera& camera, float yaw, float pitch);
-  void camera_translate(Camera& camera, glm::vec3 dir);
+  void camera_translate(Camera& camera, glm::vec3 direction);
 
   // TODO: Ideally, we would also want to include the normal matrix but push
   //       constant can only send up to 128 bytes which equal 2 glm::mat4.

@@ -103,11 +103,14 @@ void application_init(Application& application)
   unsigned width, height;
   vulkan::render_target_get_extent(application.render_target, width, height);
 
+  application.camera.transform.position = glm::vec3(2.0f, 2.0f, 0.5f);
+  application.camera.transform.rotation = glm::angleAxis(0.0f, glm::vec3(0.0f, 1.0f, 0.0f));
+
+  application.camera.yaw   = 0.0f;
+  application.camera.pitch = 0.0f;
+
   application.camera.fov          = glm::radians(45.0f);
   application.camera.aspect_ratio = (float)width / (float)height;
-  application.camera.position     = glm::vec3(2.0f, 2.0f, 0.5f);
-  application.camera.yaw          = 0.0f;
-  application.camera.pitch        = 0.0f;
 
   GLFWwindow *window = vulkan::context_get_glfw_window(application.context);
   glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -153,17 +156,18 @@ void application_update(Application& application)
   application.prev_y = y;
 
   glm::vec3 direction = glm::vec3(0.0f, 0.0f, 0.0f);
-  if(glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) direction += glm::vec3( 1.0f,  0.0f, 0.0f);
-  if(glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) direction += glm::vec3(-1.0f,  0.0f, 0.0f);
-  if(glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) direction += glm::vec3( 0.0f,  1.0f, 0.0f);
-  if(glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) direction += glm::vec3( 0.0f, -1.0f, 0.0f);
 
-  if(glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)  direction += glm::vec3( 0.0f, 0.0f, -1.0f);
-  if(glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS) direction += glm::vec3( 0.0f, 0.0f, -1.0f);
-  if(glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)       direction += glm::vec3( 0.0f, 0.0f,  1.0f);
+  if(glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) direction += glm::vec3(-1.0f,  0.0f, 0.0f);
+  if(glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) direction += glm::vec3( 1.0f,  0.0f, 0.0f);
+
+  if(glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) direction += glm::vec3(0.0f, -1.0f, 0.0f);
+  if(glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) direction += glm::vec3(0.0f,  1.0f, 0.0f);
+
+  if(glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)  direction += glm::vec3(0.0f, 0.0f, -1.0f);
+  if(glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS) direction += glm::vec3(0.0f, 0.0f, -1.0f);
+  if(glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)       direction += glm::vec3(0.0f, 0.0f,  1.0f);
 
   vulkan::camera_translate(application.camera, MOVEMENT_SPEED * direction);
-
 }
 
 void application_render(Application& application)
