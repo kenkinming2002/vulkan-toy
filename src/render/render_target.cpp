@@ -194,7 +194,7 @@ namespace vulkan
     render_target->allocator = allocator;
     render_target->swapchain = swapchain;
 
-    render_target->on_swapchain_invalidate = Delegate{ .list = {}, .ptr  = on_swapchain_invalidate, .data = render_target, };
+    render_target->on_swapchain_invalidate = Delegate{ .node = {}, .ptr  = on_swapchain_invalidate, .data = render_target, };
     swapchain_on_invalidate(render_target->swapchain, render_target->on_swapchain_invalidate);
 
     for(size_t i=0; i<MAX_FRAME_IN_FLIGHT; ++i)

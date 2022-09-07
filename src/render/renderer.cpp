@@ -223,7 +223,7 @@ namespace vulkan
     renderer->vertex_shader   = vertex_shader;
     renderer->fragment_shader = fragment_shader;
 
-    renderer->on_render_target_invalidate = Delegate{ .list = {}, .ptr = on_render_target_invalidate, .data = renderer, };
+    renderer->on_render_target_invalidate = Delegate{ .node = {}, .ptr = on_render_target_invalidate, .data = renderer, };
     render_target_on_invalidate(renderer->render_target, renderer->on_render_target_invalidate);
 
     renderer_init(renderer);
