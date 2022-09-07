@@ -1,10 +1,10 @@
 #pragma once
 
 #include "core/context.hpp"
-#include "delegate.hpp"
 #include "ref.hpp"
 #include "resources/texture.hpp"
 #include "utils.hpp"
+#include "utils/delegate.hpp"
 
 namespace vulkan
 {
