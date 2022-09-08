@@ -29,6 +29,7 @@ srcs = [
   'src/resources/sampler.cpp',
   'src/resources/texture.cpp',
   'src/transform.cpp',
+  'src/utils/delegate.cpp',
   'src/vk_check.cpp',
 ]
 
