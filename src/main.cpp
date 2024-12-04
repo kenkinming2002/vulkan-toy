@@ -88,8 +88,8 @@ void application_init(Application& application)
   vulkan::command_buffer_t command_buffer = command_buffer_create(application.context);
   command_buffer_begin(command_buffer);
   {
-    application.mesh     = vulkan::mesh_load   (command_buffer, application.context, application.allocator, "viking_room.obj");
-    application.material = vulkan::material_load(command_buffer, application.context, application.allocator, "viking_room.png");
+    application.mesh     = vulkan::mesh_load   (command_buffer, application.context, application.allocator, "resources/viking_room.obj");
+    application.material = vulkan::material_load(command_buffer, application.context, application.allocator, "resources/viking_room.png");
 
     application.chunk      = chunk_generate_random();
     application.chunk_mesh = chunk_generate_mesh(command_buffer, application.context, application.allocator, application.chunk);
